@@ -2222,11 +2222,17 @@ RESULT IsiGetResolutionParam
         case ISI_RES_SVGAP60:
         case ISI_RES_SVGAP120:
 
-		case ISI_RES_1280_960P10:
-		case ISI_RES_1280_960P15:
-		case ISI_RES_1280_960P20:
-		case ISI_RES_1280_960P25:
-		case ISI_RES_1280_960P30:
+        case ISI_RES_1920_540P60:
+        case ISI_RES_720_480P60:
+        case ISI_RES_720_576P50:
+        case ISI_RES_720_240P60:
+        case ISI_RES_720_288P50:
+
+        case ISI_RES_1280_960P10:
+        case ISI_RES_1280_960P15:
+        case ISI_RES_1280_960P20:
+        case ISI_RES_1280_960P25:
+        case ISI_RES_1280_960P30:
 
         case ISI_RES_2592_1944P5:
         case ISI_RES_2592_1944P7:

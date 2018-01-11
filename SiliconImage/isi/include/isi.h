@@ -145,6 +145,19 @@ typedef IsiSensorCaps_t IsiSensorConfig_t;
 
 /*****************************************************************************/
 /**
+ * @brief   This structure defines the sensor frame information.
+ */
+/*****************************************************************************/
+typedef struct IsiSensorFrameInfo_s
+{
+    uint16_t      pFrameNumFS;	/**< 16 bit frame number from Frame Start (FS) short packet */
+    uint16_t      pFrameNumFE;	/**< 16 bit frame number from Frame End (FE) short packet */
+} IsiSensorFrameInfo_t;
+
+
+
+/*****************************************************************************/
+/**
  *          IsiSensorInstanceConfig_t
  *
  * @brief   Config structure to create a new sensor instance

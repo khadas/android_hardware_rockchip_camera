@@ -34,21 +34,52 @@
 
 #define TC358749XBG_HDMI2MIPI 1
 
+typedef enum
+{
+	STATUS_POWER_ON	= 0,
+	STATUS_STANDBY	= 1,
+	STATUS_READY	= 2,
+	STATUS_VIDEO_TX	= 3
+} TcStatus;
+
+#define S_DDC5V (1 << 0)
+#define S_SYNC  (1 << 7)
+
+static TcStatus gStatus = STATUS_POWER_ON;
+
+#define ERR_CHECK_RETURN(success, ret, reg, val) do {		\
+	if (ret != success) {					\
+		TRACE( TC358749XBG_ERROR,			\
+			"%s reg: %#x, value: %#x, result:%d\n",	\
+			__FUNCTION__,				\
+			reg,					\
+			val,					\
+			ret); 					\
+		return 0;					\
+	}							\
+} while(0)
+
+#define READ_REGISTER_TRACE(ret, reg, val) do { 	\
+	TRACE( TC358749XBG_DEBUG,			\
+		"%s reg: %#x, value: %#x, result:%d\n",	\
+		__FUNCTION__,				\
+		reg,					\
+		val,					\
+		ret); 					\
+} while(0)
 
 /******************************************************************************
  * local macro definitions
  *****************************************************************************/
-CREATE_TRACER( TC358749XBG_INFO , "TC358749XBG: ", INFO,    0U );
-CREATE_TRACER( TC358749XBG_WARN , "TC358749XBG: ", WARNING, 0U );
-CREATE_TRACER( TC358749XBG_ERROR, "TC358749XBG: ", ERROR,   1U );
+CREATE_TRACER( TC358749XBG_INFO ,	"TC358749XBG: ", INFO,		0U );
+CREATE_TRACER( TC358749XBG_WARN ,	"TC358749XBG: ", WARNING,	0U );
+CREATE_TRACER( TC358749XBG_ERROR,	"TC358749XBG: ", ERROR,		1U );
+CREATE_TRACER( TC358749XBG_DEBUG, 	"TC358749XBG: ", INFO,		0U );
+CREATE_TRACER( TC358749XBG_REG_INFO ,	"TC358749XBG: ", INFO,		0U );
+CREATE_TRACER( TC358749XBG_REG_DEBUG,	"TC358749XBG: ", INFO, 		0U );
 
-CREATE_TRACER( TC358749XBG_DEBUG, "TC358749XBG: ", INFO,     0U );
-
-CREATE_TRACER( TC358749XBG_REG_INFO , "TC358749XBG: ", INFO, 0U);
-CREATE_TRACER( TC358749XBG_REG_DEBUG, "TC358749XBG: ", INFO, 0U );
-
-#define TC358749XBG_SLAVE_ADDR       0x1FU //0x20                           /**< i2c slave address of the TC358749XBG camera sensor */
-#define TC358749XBG_SLAVE_ADDR2       0x0F
+#define TC358749XBG_SLAVE_ADDR       0x1FU                           /**< i2c slave address of the TC358749XBG camera sensor */
+#define TC358749XBG_SLAVE_ADDR2      0x3FU
 #define TC358749XBG_SLAVE_AF_ADDR    0x00U                           /**< i2c slave address of the TC358749XBG integrated AD5820 */
 
 
@@ -65,6 +96,12 @@ extern const IsiRegDescription_t TC358749XBG_g_edio[];
 extern const IsiRegDescription_t TC358749XBG_g_aRegVedioON[];
 
 
+extern const IsiRegDescription_t TC358749XBG_RS1[];
+extern const IsiRegDescription_t TC358749XBG_RS2[];
+extern const IsiRegDescription_t TC358749XBG_RS3_30fps_interlace[];
+extern const IsiRegDescription_t TC358749XBG_RS3_60fps[];
+extern const IsiRegDescription_t TC358749XBG_RS5[];
+extern const IsiRegDescription_t TC358749XBG_RS6[];
 
 
 const IsiSensorCaps_t TC358749XBG_g_IsiSensorDefaultConfig;
@@ -75,7 +112,7 @@ const IsiSensorCaps_t TC358749XBG_g_IsiSensorDefaultConfig;
 #define TC358749XBG_I2C_NR_DAT_BYTES     (2U)                        // 16 bit registers
 
 static uint16_t g_suppoted_mipi_lanenum_type = SUPPORT_MIPI_FOUR_LANE;
-#define DEFAULT_NUM_LANES SUPPORT_MIPI_ONE_LANE
+#define DEFAULT_NUM_LANES SUPPORT_MIPI_FOUR_LANE
 static bool bHdmiinExit = false;
 static osThread gHdmiinThreadId;
 /******************************************************************************
@@ -102,7 +139,7 @@ static RESULT TC358749XBG_IsiGetIntegrationTimeIss( IsiSensorHandle_t handle, fl
 static RESULT TC358749XBG_IsiGetIntegrationTimeIncrementIss( IsiSensorHandle_t handle, float *pIncr );
 static RESULT TC358749XBG_IsiSetIntegrationTimeIss( IsiSensorHandle_t handle, float NewIntegrationTime, float *pSetIntegrationTime, uint8_t *pNumberOfFramesToSkip );
 static RESULT TC358749XBG_IsiGetResolutionIss( IsiSensorHandle_t handle, uint32_t *pSetResolution );
-
+static RESULT TC358749XBG_IsiIsEvenFieldIss( IsiSensorHandle_t handle, IsiSensorFrameInfo_t *pIsiSensorInfo, bool *IsEvenFiled);
 static RESULT TC358749XBG_IsiRegVedioReadIss( IsiSensorHandle_t handle, const uint32_t address, uint32_t *p_value );
 
 static RESULT TC358749XBG_IsiRegReadIss( IsiSensorHandle_t handle, const uint32_t address, uint32_t *p_value );
@@ -131,32 +168,247 @@ static RESULT TC358749XBG_IsiGetSensorIsiVersion(  IsiSensorHandle_t   handle, u
 static RESULT TC358749XBG_HdmiGetInputCheckRegIss(IsiSensorHandle_t   handle, uint32_t  *p_value);
 static RESULT TC358749XBG_HdmiInputCheckRegReadIss( IsiSensorHandle_t   handle, const uint32_t address,uint32_t  *p_value);
 
+uint8_t GetNrDatBytesOfAllRegTable
+(
+    const uint32_t address
+)
+{
+	#define CHECK_AND_RETURN(num) do {	\
+		if (num > 0)			\
+			return num;		\
+	} while(0)
+
+	uint8_t NrOfBytes = 0;
+
+	NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_RS1 );
+	CHECK_AND_RETURN(NrOfBytes);
+	NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_RS2 );
+	CHECK_AND_RETURN(NrOfBytes);
+	NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_RS3_60fps );
+	CHECK_AND_RETURN(NrOfBytes);
+	NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_RS3_30fps_interlace );
+	CHECK_AND_RETURN(NrOfBytes);
+	NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_RS5 );
+	CHECK_AND_RETURN(NrOfBytes);
+	NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_RS6 );
+	CHECK_AND_RETURN(NrOfBytes);
+
+        TRACE( TC358749XBG_ERROR, "%s Reg:%#x GetNrDatBytes Err!!!)\n", __FUNCTION__, address);
+	return 0;
+}
+
+
+static RESULT TC358749XBG_WriteRegArray
+(
+    IsiSensorHandle_t       handle,
+    const IsiRegDescription_t *pRegDesc
+)
+{
+	RESULT result = RET_SUCCESS;
+	TC358749XBG_Context_t *pTC358749XBGCtx = (TC358749XBG_Context_t *)handle;
+
+	TRACE( TC358749XBG_INFO, "%s (enter)\n", __FUNCTION__);
+
+	if ( pTC358749XBGCtx == NULL )
+	{
+		TRACE( TC358749XBG_ERROR, "%s: Invalid sensor handle (NULL pointer detected)\n", __FUNCTION__ );
+		return ( RET_WRONG_HANDLE );
+	}
+
+	if ( pRegDesc == NULL ) {
+		TRACE( TC358749XBG_ERROR, "%s: pRegDesc is NULL!\n", __FUNCTION__ );
+		return ( RET_NULL_POINTER );
+	}
+
+	/* write default values derived from datasheet and evaluation kit (static setup altered by dynamic setup further below) */
+	result = IsiRegDefaultsApply( pTC358749XBGCtx, pRegDesc );
+	if ( result != RET_SUCCESS )
+	{
+		return ( result );
+	}
+
+	/* sleep a while, that sensor can take over new default values */
+	osSleep( 10 );
+
+	/* verify default values to make sure everything has been written correctly as expected */
+	result = IsiRegDefaultsVerify( pTC358749XBGCtx, pRegDesc );
+	if ( result != RET_SUCCESS )
+	{
+		return ( result );
+	}
+
+	return ( result );
+}
+
+static uint8_t framerate_count(IsiSensorHandle_t handle)
+{
+	uint8_t fps = 0;
+	uint8_t h_sizeH, h_sizeL;
+	uint8_t v_sizeH, v_sizeL;
+	uint8_t pix_freqH, pix_freqL;
+	uint32_t pixclk, h_total, v_total;
+	RESULT result = RET_SUCCESS;
+
+	result = IsiI2cReadSensorRegister( handle, 0x858A, &h_sizeL, 1, BOOL_TRUE );
+	ERR_CHECK_RETURN(RET_SUCCESS, result, 0x858A, h_sizeL);
+	result = IsiI2cReadSensorRegister( handle, 0x858B, &h_sizeH, 1, BOOL_TRUE );
+	ERR_CHECK_RETURN(RET_SUCCESS, result, 0x858B, h_sizeH);
+	result = IsiI2cReadSensorRegister( handle, 0x858C, &v_sizeL, 1, BOOL_TRUE );
+	ERR_CHECK_RETURN(RET_SUCCESS, result, 0x858C, v_sizeL);
+	result = IsiI2cReadSensorRegister( handle, 0x858D, &v_sizeH, 1, BOOL_TRUE );
+	ERR_CHECK_RETURN(RET_SUCCESS, result, 0x858D, v_sizeH);
+	result = IsiI2cReadSensorRegister( handle, 0x852E, &pix_freqL, 1, BOOL_TRUE );
+	ERR_CHECK_RETURN(RET_SUCCESS, result, 0x858E, pix_freqL);
+	result = IsiI2cReadSensorRegister( handle, 0x852F, &pix_freqH, 1, BOOL_TRUE );
+	ERR_CHECK_RETURN(RET_SUCCESS, result, 0x858F, pix_freqH);
+
+	h_total = (h_sizeH << 8) + h_sizeL;
+	v_total = ((v_sizeH << 8) + v_sizeL) / 2;
+	pixclk = ((pix_freqH << 8) + pix_freqL) * 8 * 10000;
+	if ((h_total != 0) && (v_total != 0)) {
+		fps = pixclk / (h_total * v_total);
+	}
+
+	TRACE( TC358749XBG_ERROR, "%s h_total:%d, v_total:%d, pixclk:%d, fps:%d\n",
+		__FUNCTION__, h_total, v_total, pixclk, fps);
+
+	return fps;
+}
+
  static int32_t HdmiinThreadHandler
 (
     void *p_arg
 )
 {
 	IsiSensorHandle_t   handle = (IsiSensorHandle_t)p_arg;
-	int ret = 0;
-	uint8_t p_value=0x00;
+	RESULT result = RET_SUCCESS;
+	char prop_value[PROPERTY_VALUE_MAX];
+	uint8_t fps;
+	uint8_t vi_status=0x00;
+	uint8_t vi_format=0x00;
+	uint8_t last_format=0x00;
 	uint8_t p_color=0x00;
-		
-	TRACE( TC358749XBG_INFO,  "%s: -----hdmiin--- thread--------\n",  __FUNCTION__ );
+	uint8_t sys_status=0x00;
+	uint8_t sys_int=0x00;
+	uint8_t hdmi_int=0x00;
+	uint8_t sys_ctrl=0xFF;
+
 	while(!bHdmiinExit){
-		ret = IsiI2cReadSensorRegister( handle, 0x8521, &p_value, 1, BOOL_TRUE );
-		TRACE( TC358749XBG_DEBUG, "%s (exit: 0x8521 0x%08x)\n", __FUNCTION__, p_value);
-		p_value = p_value & (0x0f); 
-		if(p_value == 0xf) {
-			property_set("sys.hdmiin.resolution", "1");
-			TRACE( TC358749XBG_DEBUG, "%s (exit: 1080P)\n", __FUNCTION__);
-		} else if(p_value == 0xc) {
-			property_set("sys.hdmiin.resolution", "2");
-			TRACE( TC358749XBG_DEBUG, "%s (exit: 720P)\n", __FUNCTION__);
+		result = IsiI2cReadSensorRegister( handle, 0x8521, &vi_status, 1, BOOL_TRUE );
+		READ_REGISTER_TRACE(result, 0x8521, vi_status);
+		result = IsiI2cReadSensorRegister( handle, 0x8528, &p_color, 1, BOOL_TRUE );
+		READ_REGISTER_TRACE(result, 0x8528, p_color);
+		result = IsiI2cReadSensorRegister( handle, 0x8520, &sys_status, 1, BOOL_TRUE );
+		READ_REGISTER_TRACE(result, 0x8520, sys_status);
+		result = IsiI2cReadSensorRegister( handle, 0x8502, &sys_int, 1, BOOL_TRUE );
+		READ_REGISTER_TRACE(result, 0x8502, sys_int);
+		result = IsiI2cReadSensorRegister( handle, 0x0014, &hdmi_int, 1, BOOL_TRUE );
+		READ_REGISTER_TRACE(result, 0x0014, hdmi_int);
+		result = IsiI2cReadSensorRegister( handle, 0x0002, &sys_ctrl, 1, BOOL_TRUE );
+		READ_REGISTER_TRACE(result, 0x0002, sys_ctrl);
+		TRACE( TC358749XBG_DEBUG, "%s gStatus:%d\n", __FUNCTION__, gStatus);
+
+		vi_format = vi_status & (0x0f);
+		switch(vi_format) {
+			case 0x01:
+				property_set("sys.hdmiin.resolution", "640x480P60");
+				break;
+			case 0x02:
+				property_set("sys.hdmiin.resolution", "720x480I60");
+				break;
+			case 0x03:
+				property_set("sys.hdmiin.resolution", "720x576I50");
+				break;
+			case 0x06:
+				property_set("sys.hdmiin.resolution", "720x480P60");
+				break;
+			case 0x07:
+				property_set("sys.hdmiin.resolution", "720x576P50");
+				break;
+			case 0x0C:
+				property_set("sys.hdmiin.resolution", "1280x720P60");
+				break;
+			case 0x0E:
+				property_set("sys.hdmiin.resolution", "1920x1080I60");
+				break;
+			case 0x0F:
+				property_set("sys.hdmiin.resolution", "1920x1080P60");
+				break;
+
+			default:
+				TRACE( TC358749XBG_ERROR,  "%s vi_format:%#x, resolution not support!!!\n",  __FUNCTION__, vi_format );
+				break;
 		}
-		ret = IsiI2cReadSensorRegister( handle, 0x8528, &p_color, 1, BOOL_TRUE );
-		TRACE( TC358749XBG_DEBUG, "%s (exit: 0x8528 0x%08x)\n", __FUNCTION__, p_color);
-		TRACE( TC358749XBG_DEBUG,  "%s: -------- thread--------\n",  __FUNCTION__ );
-		osSleep( 2000 );
+
+		property_get("sys.hdmiin.resolution",prop_value, "false");
+		TRACE( TC358749XBG_DEBUG, "%s HDMI IN Resolution:%s\n", __FUNCTION__, prop_value);
+
+		switch(gStatus)
+		{
+			// cable connect, detect DDC_5V
+			case STATUS_STANDBY:
+				if (sys_status & S_DDC5V) {
+					result = TC358749XBG_WriteRegArray(handle, TC358749XBG_RS2);
+					TRACE( TC358749XBG_DEBUG, "%s RS2 result: %d\n", __FUNCTION__, result);
+					if (result == RET_SUCCESS)
+						gStatus = STATUS_READY;
+				}
+				break;
+			// detect video sync signal
+			case STATUS_READY:
+				if (sys_status & S_SYNC) {
+					fps = framerate_count(handle);
+					last_format = vi_format;
+					if((vi_format == 0x02) || (vi_format == 0x03) || (vi_format == 0x0E) || ((fps > 0) && (fps < 32))) {
+						TRACE( TC358749XBG_ERROR, "%s HDMI IN Resolution type:%d, fps:%d,  RS3_30fps_or_interlace\n",
+								__FUNCTION__, vi_format, fps);
+						result = TC358749XBG_WriteRegArray(handle, TC358749XBG_RS3_30fps_interlace);
+					} else {
+						TRACE( TC358749XBG_ERROR, "%s HDMI IN Resolution type:%d, fps:%d,  RS3_60fps\n",
+								__FUNCTION__, vi_format, fps);
+						result = TC358749XBG_WriteRegArray(handle, TC358749XBG_RS3_60fps);
+					}
+					TRACE( TC358749XBG_DEBUG, "%s RS3 result: %d\n", __FUNCTION__, result);
+					if (result == RET_SUCCESS)
+						gStatus = STATUS_VIDEO_TX;
+				} else if ((sys_status & S_DDC5V) == 0) {
+					// cable disconnect
+					result = TC358749XBG_WriteRegArray(handle, TC358749XBG_RS6);
+					TRACE( TC358749XBG_DEBUG, "%s RS6 result: %d\n", __FUNCTION__, result);
+					if (result == RET_SUCCESS)
+						gStatus = STATUS_STANDBY;
+				}
+				break;
+			case STATUS_VIDEO_TX:
+				if (fps != framerate_count(handle)) {
+					TRACE( TC358749XBG_ERROR, "%s framerate change, reinit!\n", __FUNCTION__);
+					gStatus = STATUS_READY;
+					break;
+				}
+				if (last_format != vi_format) {
+					TRACE( TC358749XBG_ERROR, "%s vi_format change, reinit!\n", __FUNCTION__);
+					gStatus = STATUS_READY;
+					break;
+				}
+				if ((sys_status & S_DDC5V) == 0) {
+					// cable disconnect
+					result = TC358749XBG_WriteRegArray(handle, TC358749XBG_RS6);
+					TRACE( TC358749XBG_DEBUG, "%s RS6 result: %d\n", __FUNCTION__, result);
+					if (result == RET_SUCCESS)
+						gStatus = STATUS_STANDBY;
+				} else if ((sys_status & S_SYNC) == 0) {
+					// video stop on HDMI
+					result = TC358749XBG_WriteRegArray(handle, TC358749XBG_RS5);
+					TRACE( TC358749XBG_DEBUG, "%s RS5 result: %d\n", __FUNCTION__, result);
+					if (result == RET_SUCCESS)
+						gStatus = STATUS_READY;
+				}
+				break;
+			default:
+				break;
+		}
+		TRACE( TC358749XBG_DEBUG,  "%s: -----hdmiin--- thread--------\n",  __FUNCTION__ );
+		osSleep( 300 );
 	}
 	return 0;
 }
@@ -288,6 +540,7 @@ static RESULT TC358749XBG_IsiReleaseSensorIss
 
     MEMSET( pTC358749XBGCtx, 0, sizeof( TC358749XBG_Context_t ) );
     free ( pTC358749XBGCtx );
+    gStatus = STATUS_POWER_ON;
     bHdmiinExit = true;
 	if ( OSLAYER_OK != osThreadWait( &gHdmiinThreadId) )
 		TRACE( TC358749XBG_DEBUG, "%s wait hdmiiin listener thread exit\n", __FUNCTION__);
@@ -337,20 +590,44 @@ static RESULT TC358749XBG_IsiGetCapsIssInternal
             {
                 case 0:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_TV1080P60;
+		    pIsiSensorCaps->Resolution = ISI_RES_TV1080P60;
                     break;
                 }
-                case 1:
-                {
-                    pIsiSensorCaps->Resolution = ISI_RES_TV720P60;
-                    break;
-                }
+		case 1:
+		{
+		    pIsiSensorCaps->Resolution = ISI_RES_TV720P60;
+		    break;
+		}
+		case 2:
+		{
+		    pIsiSensorCaps->Resolution = ISI_RES_720_576P50;
+		    break;
+		}
+		case 3:
+		{
+		    pIsiSensorCaps->Resolution = ISI_RES_720_480P60;
+		    break;
+		}
+		case 4:
+		{
+		    pIsiSensorCaps->Resolution = ISI_RES_1920_540P60;
+		    break;
+		}
+		case 5:
+		{
+		    pIsiSensorCaps->Resolution = ISI_RES_720_288P50;
+		    break;
+		}
+		case 6:
+		{
+		    pIsiSensorCaps->Resolution = ISI_RES_720_240P60;
+		    break;
+		}
                 default:
                 {
                     result = RET_OUTOFRANGE;
                     goto end;
                 }
-
             }
         }
         
@@ -766,6 +1043,8 @@ static RESULT TC358749XBG_SetupOutputWindow
     }
 
 #endif
+	TRACE( TC358749XBG_ERROR, "%s:%d ulMipiFreq:%d\n", __FUNCTION__,__LINE__,pTC358749XBGCtx->IsiSensorMipiInfo.ulMipiFreq);
+
     return ( result );
 }
 
@@ -879,7 +1158,7 @@ static RESULT TC358749XBG_IsiSetupSensorIss
     }
 
     MEMCPY( &pTC358749XBGCtx->Config, pConfig, sizeof( IsiSensorConfig_t ) );
-
+	#if 0
 	    /* 2.) write default values derived from datasheet and evaluation kit (static setup altered by dynamic setup further below) */
 	    result = IsiRegDefaultsApply( pTC358749XBGCtx, TC358749XBG_g_aRegDescription );
 	    if ( result != RET_SUCCESS )
@@ -904,8 +1183,12 @@ static RESULT TC358749XBG_IsiSetupSensorIss
 
         //KINGS hdmi input timing check
         //TC358749XBG_HdmiGetInputCheckRegIss(pTC358749XBGCtx,&data);
-		
 	    #endif
+	#else
+	    result = TC358749XBG_WriteRegArray(handle, TC358749XBG_RS1);
+	    gStatus = STATUS_STANDBY;
+	    TRACE( TC358749XBG_DEBUG, "%s write RS1 result: %d\n", __FUNCTION__, result);
+	#endif
 
 	    /* 4.) setup output format (RAW10|RAW12) */
 	    result = TC358749XBG_SetupOutputFormat( pTC358749XBGCtx, pConfig );
@@ -1124,7 +1407,7 @@ static RESULT TC358749XBG_IsiSensorSetStreamingIss
 		result = TC358749XBG_IsiRegVedioReadIss ( handle, 0x0004, &RegValue);
 		TRACE( TC358749XBG_DEBUG, "0x0004 = 0x%8x(BOOL_TRUE)\n", RegValue);
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
-		
+
 		//result = TC358749XBG_IsiRegVedioWriteIss( handle, 0x854A, 0x01);
 		//result = TC358749XBG_IsiRegVedioWriteIss( handle, 0x854A, 0x01);
 		//osSleep( 1 );
@@ -1384,13 +1667,12 @@ static RESULT TC358749XBG_IsiRegReadIss
     }
     else
     {
-        uint8_t NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_g_aRegDescription );
-		TRACE( TC358749XBG_DEBUG, "%s (exit: NrOfBytes=%d)\n", __FUNCTION__, NrOfBytes);
+        uint8_t NrOfBytes = GetNrDatBytesOfAllRegTable(address);
+        TRACE( TC358749XBG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x)\n", __FUNCTION__, NrOfBytes, address);
         if ( !NrOfBytes )
         {
             NrOfBytes = 1;
         }
-        TRACE( TC358749XBG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x)\n", __FUNCTION__, NrOfBytes, address);
 
         *p_value = 0;
         result = IsiI2cReadSensorRegister( handle, address, (uint8_t *)p_value, NrOfBytes, BOOL_TRUE );
@@ -1674,12 +1956,12 @@ static RESULT TC358749XBG_IsiRegWriteIss
         return ( RET_WRONG_HANDLE );
     }
 
-    NrOfBytes = IsiGetNrDatBytesIss( address, TC358749XBG_g_aRegDescription );
+    NrOfBytes = GetNrDatBytesOfAllRegTable(address);
+    TRACE( TC358749XBG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x 0x%08x)\n", __FUNCTION__, NrOfBytes, address, value);
     if ( !NrOfBytes )
     {
         NrOfBytes = 1;
     }
-    TRACE( TC358749XBG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x 0x%08x)\n", __FUNCTION__, NrOfBytes, address, value);
 
     result = IsiI2cWriteSensorRegister( handle, address, (uint8_t *)(&value), NrOfBytes, BOOL_TRUE );
 
@@ -3164,6 +3446,49 @@ static RESULT TC358749XBG_IsiGetSensorIsiVersion
 	return result;
 }
 
+/*****************************************************************************/
+/**
+ *          TC358749XBG_IsiIsEvenFieldIss
+ *
+ * @brief   grants user write access to the camera register
+ *
+ * @param   handle      pointer to sensor description struct
+ * @param   address     sensor register to write
+ * @param   value       value to write
+ *
+ * @return  Return the result of the function call.
+ * @retval  RET_SUCCESS
+ * @retval  RET_WRONG_HANDLE
+ *
+ *****************************************************************************/
+static RESULT TC358749XBG_IsiIsEvenFieldIss
+(
+	IsiSensorHandle_t handle,
+	IsiSensorFrameInfo_t *pIsiSensorInfo,
+	bool *IsEvenFiled
+)
+{
+    RESULT result = RET_SUCCESS;
+
+    TRACE( TC358749XBG_INFO, "%s (enter)\n", __FUNCTION__);
+
+    if ( handle == NULL )
+    {
+        return ( RET_WRONG_HANDLE );
+    }
+
+    if ( pIsiSensorInfo == NULL )
+    {
+        return ( RET_OUTOFRANGE );
+    }
+
+	if (pIsiSensorInfo->pFrameNumFE == 0x1) {
+		*IsEvenFiled = false;
+	} else {
+		*IsEvenFiled = true;
+	}
+    return ( result );
+}
 
 /*****************************************************************************/
 /**
@@ -3206,6 +3531,7 @@ RESULT TC358749XBG_IsiGetSensorIss
         pIsiSensor->pIsiRegisterReadIss                 = TC358749XBG_IsiRegReadIss;
         pIsiSensor->pIsiRegisterWriteIss                = TC358749XBG_IsiRegWriteIss;
         pIsiSensor->pIsiGetResolutionIss                = TC358749XBG_IsiGetResolutionIss;
+        pIsiSensor->pIsiIsEvenFieldIss                  = TC358749XBG_IsiIsEvenFieldIss;
 
         /* AEC functions */
         pIsiSensor->pIsiExposureControlIss              = TC358749XBG_IsiExposureControlIss;
@@ -3437,6 +3763,7 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiGetSensorRevisionIss */
         0,                      /**< IsiSensor_t.pIsiRegisterReadIss */
         0,                      /**< IsiSensor_t.pIsiRegisterWriteIss */
+        0,                      /**< IsiSensor_t.pIsiIsEvenFieldIss */
 
         0,                      /**< IsiSensor_t.pIsiExposureControlIss */
         0,                      /**< IsiSensor_t.pIsiGetGainLimitsIss */

@@ -122,6 +122,7 @@ typedef RESULT (IsiCheckSensorConnectionIss_t)      ( IsiSensorHandle_t handle )
 typedef RESULT (IsiGetSensorRevisionIss_t)          ( IsiSensorHandle_t handle, uint32_t *p_value );
 typedef RESULT (IsiRegisterReadIss_t)               ( IsiSensorHandle_t handle, const uint32_t address, uint32_t *p_value );
 typedef RESULT (IsiRegisterWriteIss_t)              ( IsiSensorHandle_t handle, const uint32_t address, const uint32_t value );
+typedef RESULT (IsiIsEvenFieldIss_t)                ( IsiSensorHandle_t handle, IsiSensorFrameInfo_t *pIsiSensorInfo, bool *IsEvenFiled );
 
 /* AEC */
 typedef RESULT (IsiExposureControlIss_t)            ( IsiSensorHandle_t handle, const float NewGain, const float NewIntegrationTime, uint8_t *pNumberOfFramesToSkip, float *pSetGain, float *pSetIntegrationTime );
@@ -216,6 +217,8 @@ struct IsiSensor_s
     IsiGetSensorRevisionIss_t           *pIsiGetSensorRevisionIss;      /**< read sensor revision register (if available) */
     IsiRegisterReadIss_t                *pIsiRegisterReadIss;           /**< read sensor register */
     IsiRegisterWriteIss_t               *pIsiRegisterWriteIss;          /**< write sensor register */
+
+    IsiIsEvenFieldIss_t                 *pIsiIsEvenFieldIss;             /**< current field is even field or not */
 
     /* AEC functions */
     IsiExposureControlIss_t             *pIsiExposureControlIss;

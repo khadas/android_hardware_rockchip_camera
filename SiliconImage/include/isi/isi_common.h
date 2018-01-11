@@ -212,6 +212,12 @@ extern "C"
 #define ISI_RES_SVGAP60                        0x78320258        /**< 16 800x600@60   */
 #define ISI_RES_SVGAP120                       0xf0320258        /**< 16 800x600@120   */
 
+#define ISI_RES_1920_540P60                    0x7878021c        /**< 16 1920x540@60  */
+#define ISI_RES_720_480P60                     0x782d01e0        /**< 16 720x480@60  */
+#define ISI_RES_720_576P50                     0x642d0240        /**< 16 720x576@50  */
+#define ISI_RES_720_240P60                     0x782d00f0        /**< 16 720x240@60  */
+#define ISI_RES_720_288P50                     0x642d0120        /**< 16 720x288@50  */
+
 #define ISI_RES_1280_960P10                    0x145003c0        /**< 16 1280x960@10   */
 #define ISI_RES_1280_960P15                    0x1e5003c0        /**< 16 1280x960@15   */
 #define ISI_RES_1280_960P20                    0x285003c0        /**< 16 1280x960@20   */

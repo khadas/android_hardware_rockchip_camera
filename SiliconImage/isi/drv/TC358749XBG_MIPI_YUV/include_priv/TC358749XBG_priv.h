@@ -7,8 +7,12 @@
 
 /*
 *v0.1.0x00 : Create file;
+*v0.2.0x00 : change 749's drive capability to avoid pic size error;
+*v0.3.0x00 :
+*	1) add the state machine mechanism;
+*	2) add supported resolution: 1080P30, 1080I60, 576P/I50, 480P/I60;
 */
-#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 2, 0)
+#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 3, 0)
 
 
 
