@@ -292,12 +292,49 @@
     1) support CprocConfig and ConvRange distinguish between preview and capture.
     2) IMX214 tuning file.
     3) cam_board.xml update.
+*v1.0x48.0:
+    1) Add API to get and set AWB measure window
+*v1.0x49.0:
+    1) Fix the bug that illunation name "A" is parsed incorrectly
+*v1.0x50.0:
+    1) Add API to set and get color temperature
+*v1.0x51.0:
+    1) pid which interacts with kernel replace with self-defined ID.
+    2) add FilterLevelRegConf node parse in IQ files(modify by ouyang).
+    3) correct version num.
+*v1.0x52.0:
+    1) switch TX1/RX1 D-PHY from init TX status to RX status
+       before sensor stream on to avoid confliction.
+*v1.0x53.0:
+    1) support dual camera preview(isp0+isp1 for 3399).
+*v1.0x54.0:
+    1) bug exists in function HalSensorPwrSeq,fix it.
+*v1.0x55.0:
+    1) enable some print of getPreferedSensorRes.
+    1) add getPreferedSensorResForDumpRaw interface for dump raw data to get the min framerate res.
+*v1.0x56.0:
+    1) commit v1.0x51.0 is not complete, so complete it.
+*v1.0x57.0:
+    1) state judgement in AdpfReConfigure is not right, correct it.
+*v1.0x58.0:
+    1) support 3840_2160P7\3840_2160P10\3840_2160P15\3840_2160P20\3840_2160P25\3840_2160P30.
+*v2.0.0:
+    1) compatible with android O.
+*v2.1.0:
+    1)support 1920_540P60\720_480P60\720_576P50\720_240P60\720_288P50.
+    2)support even and odd field merge.
+*v2.0x02.0:
+    1) add awbExpprior outdoor swithoff para in IQ xml. Default: switch on;
+*2.0x3.0:
+    1) v1.0x53.0 eixts bug, fix it.
 */
 
 
 
 
-#define CONFIG_SILICONIMAGE_LIBISP_VERSION KERNEL_VERSION(1, 0x47, 0)
+
+#define CONFIG_SILICONIMAGE_LIBISP_VERSION KERNEL_VERSION(2, 0x03, 0)
+
 
 
 class CamEngineItf;
@@ -498,6 +535,8 @@ public:
     bool getFocusLimits( uint32_t &minFocus, uint32_t &maxFocus ) const;
     bool setFocus( uint32_t focus );
 
+    bool isEvenField( IsiSensorFrameInfo_t &SensorInfo, bool &isEvenField );
+
     bool getPathConfig( const CamEngineChainIdx_t idx, CamEnginePathType_t path, CamEnginePathConfig_t &pathConfig ) const;
     bool setPathConfig( const CamEngineChainIdx_t idx, const CamEnginePathConfig_t &mpConfig, const CamEnginePathConfig_t &spConfig );
 
@@ -544,6 +583,9 @@ public:
     bool getAwbStatus( bool &enabled, CamEngineAwbMode_t &mode, uint32_t &idx, CamEngineAwbRgProj_t &RgProj, bool &damping );
     bool chkAwbIllumination( CamIlluminationName_t   name );
 	bool isAwbStable();
+	bool SetAwbMeasuringWindow(int16_t x, int16_t y,uint16_t width,uint16_t height);
+	bool getAwbMeasureWindow(CamEngineWindow_t *measureWin);
+	bool getAwbTemperature(float *ct);
     bool startAdpf();
 	bool getMfdGain(	char *mfd_enable,float mfd_gain[],float mfd_frames[]);	
 	bool getUvnrPara( char *uvnr_enable,float uvnr_gain[],float uvnr_ratio[],float uvnr_distances[]);

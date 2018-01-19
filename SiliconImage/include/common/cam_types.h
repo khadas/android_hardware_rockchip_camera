@@ -805,6 +805,36 @@ typedef struct CamUvnrProfile_s
 	float 					distances[3];	/**< uvnr distances */
 } CamUvnrProfile_t;
 
+/*****************************************************************************/
+typedef struct CamFilterLevelRegConf_s {
+  uint8_t    FiltLevelRegConfEnable;
+  uint8_t*   p_FiltLevel;
+  uint8_t    ArraySize;
+  uint8_t*   p_grn_stage1;    /* ISP_FILT_MODE register fields*/
+  uint8_t    grn_stage1_ArraySize;
+  uint8_t*   p_chr_h_mode;    /* ISP_FILT_MODE register fields*/
+  uint8_t    chr_h_mode_ArraySize;
+  uint8_t*   p_chr_v_mode;    /* ISP_FILT_MODE register fields*/
+  uint8_t    chr_v_mode_ArraySize;
+  uint32_t*  p_thresh_bl0;
+  uint8_t    thresh_bl0_ArraySize;
+  uint32_t*  p_thresh_bl1;
+  uint8_t    thresh_bl1_ArraySize;
+  uint32_t*  p_thresh_sh0;
+  uint8_t    thresh_sh0_ArraySize;
+  uint32_t*  p_thresh_sh1;
+  uint8_t    thresh_sh1_ArraySize;
+  uint32_t*  p_fac_sh1;
+  uint8_t    fac_sh1_ArraySize;
+  uint32_t*  p_fac_sh0;
+  uint8_t    fac_sh0_ArraySize;
+  uint32_t*  p_fac_mid;
+  uint8_t    fac_mid_ArraySize;
+  uint32_t*  p_fac_bl0;
+  uint8_t    fac_bl0_ArraySize;
+  uint32_t*  p_fac_bl1;
+  uint8_t    fac_bl1_ArraySize;
+} CamFilterLevelRegConf_t;
 
 
 /*****************************************************************************/
@@ -833,6 +863,7 @@ typedef struct CamDpfProfile_s
     CamDenoiseLevelCurve_t        DenoiseLevelCurve;
     CamSharpeningLevelCurve_t     SharpeningLevelCurve;
 	float FilterEnable;
+	CamFilterLevelRegConf_t FiltLevelRegConf;
 } CamDpfProfile_t;
 
 
@@ -1020,7 +1051,7 @@ typedef struct CamCalibAwbGlobal_s
     float                   fRegionSizeDec;
     float                   awbMeasWinWidthScale;
     float                   awbMeasWinHeightScale;
-
+    float                   fExppriorOutdoorSwitchOff;
     CamCalibIIR_t           IIR;
 } CamCalibAwbGlobal_t;
 

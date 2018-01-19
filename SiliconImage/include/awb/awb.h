@@ -41,6 +41,7 @@
 #include <cameric_drv/cameric_isp_hist_drv_api.h>
 
 #include <cam_calibdb/cam_calibdb_api.h>
+#define ABS_DIFF( a, b )     ( (a > b) ? (a-b) : (b-a) )
 
 #ifdef __cplusplus
 extern "C"
@@ -82,6 +83,7 @@ typedef enum AwbRunMode_e
     AWB_MODE_INVALID                    = 0,        /**< initialization value */
     AWB_MODE_MANUAL                     = 1,        /**< run manual white balance */
     AWB_MODE_AUTO                       = 2,        /**< run auto white balance */
+    AWB_MODE_MANUAL_CT                  = 3,		/**< run manual white balance */
     AWB_MODE_MAX
 } AwbMode_t;
 
@@ -703,6 +705,25 @@ RESULT AwbGetIlluEstInfo
 	int *region,
 	int *count
 );
+void LineFitLeastSquares(float *data_x, float *data_y, int data_n,float *a,float *b);
+RESULT AwbFitTemperatureRgLine
+(
+	AwbHandle_t handle
+);
+RESULT AwbGetTemperature
+(
+	AwbHandle_t handle,
+	float *ct
+);
+
+RESULT AwbCalcWBgainbyCT
+(
+	AwbHandle_t handle,
+	float ct,
+	float * Rg,
+	float *Bg
+);
+
 
 #ifdef __cplusplus
 }

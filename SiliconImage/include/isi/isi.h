@@ -1157,6 +1157,29 @@ RESULT IsiMdiFocusCalibrate
 
 /*****************************************************************************/
 /**
+ *			IsiIsEvenField
+ *
+ * @brief	Retrieves the currently applied focus point.
+ *
+ * @param	handle			sensor instance handle
+ *
+ * @return	Return the result of the function call.
+ * @retval	RET_SUCCESS
+ * @retval	RET_WRONG_HANDLE
+ * @retval	RET_NULL_POINTER
+ *
+ *****************************************************************************/
+RESULT IsiIsEvenField
+(
+	IsiSensorHandle_t	handle,
+	IsiSensorFrameInfo_t	*SensorInfo,
+	bool *isEvenField
+);
+
+
+
+/*****************************************************************************/
+/**
  *          IsiActivateTestPattern
  *
  * @brief   Activates or deactivates sensor's test-pattern (normally a defined

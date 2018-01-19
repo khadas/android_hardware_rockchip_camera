@@ -150,6 +150,14 @@ extern RESULT CamerIcIspFltSetFilterParameter
     const CamerIcIspFltSharpeningLevel_t    SharpeningLevel
 );
 
+extern RESULT CamerIcIspFltSetFilterParameterRegValue
+(
+    CamerIcDrvHandle_t                      handle,
+    const CamerIcIspFltDeNoiseLevel_t       DeNoiseLevel,
+    const CamerIcIspFltSharpeningLevel_t    SharpeningLevel,
+    CamFilterLevelRegConf_t                 *pFiltLevelRegConf
+);
+
 
 #ifdef __cplusplus
 }

@@ -608,10 +608,14 @@ void DisplayAdapter::displayThread()
     NATIVE_HANDLE_TYPE *phnd;
     GraphicBufferMapper& mapper = GraphicBufferMapper::get();
     Message_cam msg;
+    mmerge_interface_t *merge_para;
     void *y_uv[3];
     long frame_used_flag = -1;
     Rect bounds;
+    bool is_interlace_resolution = true;
+    int mem_fd = -1;
     
+    is_interlace_resolution = mCameraDeinterlace->is_interlace_resolution();
     LOG_FUNCTION_NAME    
     while (mDisplayRuning != STA_DISPLAY_STOP) {
 display_receive_cmd:        
@@ -640,7 +644,8 @@ display_receive_cmd:
 
                     cameraDisplayBufferDestory();
                     mDisplayRuning = STA_DISPLAY_PAUSE;
-					setDisplayState(CMD_DISPLAY_PAUSE_DONE);
+                    setDisplayState(CMD_DISPLAY_PAUSE_DONE);
+                    mDisplayRgaEvenFrame = false;
                     if(msg.arg1)
                         ((Semaphore*)msg.arg1)->Signal();
                     break;
@@ -649,9 +654,10 @@ display_receive_cmd:
                 case CMD_DISPLAY_STOP:
                 {
                     LOGD("%s(%d): receive CMD_DISPLAY_STOP", __FUNCTION__,__LINE__);
-					cameraDisplayBufferDestory();
+                    cameraDisplayBufferDestory();
                     mDisplayRuning = STA_DISPLAY_STOP;
-					setDisplayState(CMD_DISPLAY_STOP_DONE);
+                    setDisplayState(CMD_DISPLAY_STOP_DONE);
+                    mDisplayRgaEvenFrame = false;
                     if(msg.arg1)
                         ((Semaphore*)msg.arg1)->Signal();
                     continue;
@@ -674,7 +680,6 @@ display_receive_cmd:
 
                     FramInfo_s* frame = (FramInfo_s*)msg.arg2;
                     frame_used_flag = (long)msg.arg3;
-
 
                     
                     queue_buf_index = (long)msg.arg1;                    
@@ -758,9 +763,14 @@ display_receive_cmd:
 							mDisplayWidth, mDisplayHeight,
 							false,frame->zoom_value);
                     #else
-						#if defined(TARGET_RK3188)
-							rk_camera_zoom_ipp(V4L2_PIX_FMT_NV12, (int)(frame->phy_addr), frame->frame_width, frame->frame_height,(int)(mDisplayBufInfo[queue_display_index].phy_addr),frame->zoom_value);
-						#else
+			merge_para=(mmerge_interface_t *)malloc(sizeof(mmerge_interface_t));
+			if(!merge_para){
+				LOGE("%s(%d): malloc merge_para structue failed!",__FUNCTION__,__LINE__);
+				goto display_receive_cmd;
+			}
+                      #if defined(TARGET_RK3188)
+                        rk_camera_zoom_ipp(V4L2_PIX_FMT_NV12, (int)(frame->phy_addr), frame->frame_width, frame->frame_height,(int)(mDisplayBufInfo[queue_display_index].phy_addr),frame->zoom_value);
+                      #else
                             if(g_ctsV_flag &&((mDisplayWidth==176&&mDisplayHeight==144)||(mDisplayWidth==352&&mDisplayHeight==288))) {
                                 arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12,
                                         (char*)(frame->vir_addr), (char*)mDisplayBufInfo[queue_display_index].vir_addr,
@@ -768,41 +778,73 @@ display_receive_cmd:
                                         mDisplayWidth, mDisplayHeight,
                                         false,frame->zoom_value);
                             }else{
-								#if defined(RK_DRM_GRALLOC)
-								int dst_stride = mDisplayBufInfo[queue_display_index].stride;
+				#if defined(RK_DRM_GRALLOC)
+				int dst_stride = mDisplayBufInfo[queue_display_index].stride;
+				merge_para->src_width = frame->frame_width;
+				merge_para->src_height = frame->frame_height;
+				merge_para->dst_width = mDisplayWidth;
+				merge_para->dst_height = mDisplayHeight;
+				merge_para->zoom_val = frame->zoom_value;
+				merge_para->mirror = false;
+				merge_para->isNeedCrop = true;
+				merge_para->isDstNV21 = false;
+				merge_para->is_even_field = frame->is_even_field;
+				if (frame->vir_addr_valid){
+					merge_para->src = (char*)(frame->vir_addr);
+					merge_para->dst = (short int *)(mDisplayBufInfo[queue_display_index].vir_addr);
+					merge_para->is_viraddr_valid = frame->vir_addr_valid;
+				} else{
+					int mem_fd = -1;
+					util_get_gralloc_buf_fd(*(mDisplayBufInfo[queue_display_index].buffer_hnd),&mem_fd);
+					merge_para->src = (char*)(frame->phy_addr);
+					merge_para->dst = (short int *)((long)(mem_fd));
+					merge_para->is_viraddr_valid = frame->vir_addr_valid;
+				}
+				err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+				if (err){
+					arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12,
+							(char*)(frame->vir_addr),
+							(char*)(mDisplayBufInfo[queue_display_index].vir_addr),
+							frame->frame_width, frame->frame_height,
+							mDisplayWidth,
+							mDisplayHeight,
+							false,
+							frame->zoom_value);
+				}
+				#else
+				#if (defined(TARGET_RK312x) || defined(TARGET_RK3328)) && defined(ANDROID_7_X)
+				merge_para->src = (char*)(frame->phy_addr);
+				merge_para->dst = (short int *)(mDisplayBufInfo[queue_display_index].phy_addr);
+				merge_para->is_viraddr_valid = false;
+				err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+				#else
+				merge_para->src = (char*)(frame->vir_addr);
+				merge_para->dst = (short int *)(mDisplayBufInfo[queue_display_index].vir_addr);
+				merge_para->is_viraddr_valid = true;
+				err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+				#endif
+				#endif
+				if(is_interlace_resolution) {
+					if(!merge_para->is_even_field) {
+						if(mFrameProvider)
+							mFrameProvider->returnFrame(frame->frame_index,frame_used_flag);
+						mDisplayRgaEvenFrame = true;
+						goto display_receive_cmd;
+					} else {
+						if(mDisplayRgaEvenFrame) {
+							mDisplayRgaEvenFrame = false;
+						} else {
+							if(mFrameProvider)
+								mFrameProvider->returnFrame(frame->frame_index,frame_used_flag);
+							goto display_receive_cmd;
+						}
+					}
+				}
+			}
+			#endif
 
-								if (frame->vir_addr_valid){
-	                                err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-	                                        (char*)(frame->vir_addr), (short int *)(mDisplayBufInfo[queue_display_index].vir_addr),
-	                                        mDisplayWidth,mDisplayHeight,frame->zoom_value,false,true,false,dst_stride,frame->vir_addr_valid);
-                                } else{
-    								int mem_fd = -1;
-									util_get_gralloc_buf_fd(*(mDisplayBufInfo[queue_display_index].buffer_hnd),&mem_fd);
-									err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-											(char*)(frame->phy_addr), (short int *)((long)(mem_fd)),
-											mDisplayWidth,mDisplayHeight,frame->zoom_value,false,true,false,dst_stride,frame->vir_addr_valid);
-								}
-                                if (err){
-                                    arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12, (char*)(frame->vir_addr),
-                                        (char*)(mDisplayBufInfo[queue_display_index].vir_addr),frame->frame_width, frame->frame_height,
-                                        mDisplayWidth,mDisplayHeight,false,frame->zoom_value);
-                                }
-								#else
-                                #if (defined(TARGET_RK312x) || defined(TARGET_RK3328)) && defined(ANDROID_7_X)
-                                rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-                                        (char*)(frame->phy_addr), (short int *)(mDisplayBufInfo[queue_display_index].phy_addr),/* 'phy_add' is buffer fd here */
-                                        mDisplayWidth,mDisplayHeight,frame->zoom_value,false,true,false,false);
-                                #else
-                                rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-                                        (char*)(frame->vir_addr), (short int *)(mDisplayBufInfo[queue_display_index].vir_addr),
-                                        mDisplayWidth,mDisplayHeight,frame->zoom_value,false,true,false,true);
-                                #endif
-								#endif
-                            }
-						#endif
-
-                    #endif
-                    }
+                #endif
+                }
 
                     setBufferState(queue_display_index, 1);
                     mapper.unlock((buffer_handle_t)mDisplayBufInfo[queue_display_index].priv_hnd);

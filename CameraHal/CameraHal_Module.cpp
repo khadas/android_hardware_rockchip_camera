@@ -70,10 +70,10 @@ camera_module_t HAL_MODULE_INFO_SYM = {
     get_camera_info: camera_get_camera_info,
     set_callbacks:NULL,
     get_vendor_tag_ops:NULL,
-#if defined(ANDROID_5_X)
+#if (defined(ANDROID_5_X) || defined(ANDROID_6_X) || defined(ANDROID_7_X))
     open_legacy:NULL,
 #endif
-#if defined(ANDROID_6_X)
+#if (defined(ANDROID_6_X) || defined(ANDROID_7_X))
     set_torch_mode:NULL,
     init:NULL,
 #endif
@@ -730,9 +730,13 @@ int camera_get_number_of_cameras(void)
         goto camera_get_number_of_cameras_end;
 
     {
-		property_set(CAMERAHAL_CAM_OTP_PROPERTY_KEY, "true");
+        //property_set(CAMERAHAL_CAM_OTP_PROPERTY_KEY, "true");
+        property_set(CAMERAHAL_CAM_OTP_LSC_PROPERTY_KEY, "false");
+        property_set(CAMERAHAL_CAM_OTP_LSC_ENABLE_PROPERTY_KEY, "false");
+        property_set(CAMERAHAL_CAM_OTP_AWB_PROPERTY_KEY, "false");
+        property_set(CAMERAHAL_CAM_OTP_AWB_ENABLE_PROPERTY_KEY, "false");
         memset(version,0x00,sizeof(version));
-        sprintf(version,"%d.%d.%d",((CONFIG_CAMERAHAL_VERSION&0xff0000)>>16),
+        sprintf(version,"0x%x.0x%x.0x%x",((CONFIG_CAMERAHAL_VERSION&0xff0000)>>16),
             ((CONFIG_CAMERAHAL_VERSION&0xff00)>>8),CONFIG_CAMERAHAL_VERSION&0xff);
         property_set(CAMERAHAL_VERSION_PROPERTY_KEY,version);
 
@@ -742,7 +746,7 @@ int camera_get_number_of_cameras(void)
         }
 
         memset(version,0x00,sizeof(version));
-        sprintf(version,"%d.%d.%d",((ConfigBoardXmlVersion&0xff0000)>>16),
+        sprintf(version,"0x%x.0x%x.0x%x",((ConfigBoardXmlVersion&0xff0000)>>16),
             ((ConfigBoardXmlVersion&0xff00)>>8),ConfigBoardXmlVersion&0xff);
         property_set(CAMERAHAL_CAMBOARDXML_PARSER_PROPERTY_KEY,version);
 
@@ -755,12 +759,12 @@ int camera_get_number_of_cameras(void)
         camEngVerItf->getVersion(&camEngVer);
         
         memset(version,0x00,sizeof(version));
-        sprintf(version,"%d.%d.%d",((camEngVer.libisp_ver&0xff0000)>>16),
+        sprintf(version,"0x%x.0x%x.0x%x",((camEngVer.libisp_ver&0xff0000)>>16),
             ((camEngVer.libisp_ver&0xff00)>>8),camEngVer.libisp_ver&0xff);
         property_set(CAMERAHAL_LIBISP_PROPERTY_KEY,version);
 
         memset(version,0x00,sizeof(version));
-        sprintf(version,"%d.%d.%d",((camEngVer.isi_ver&0xff0000)>>16),
+        sprintf(version,"0x%x.0x%x.0x%x",((camEngVer.isi_ver&0xff0000)>>16),
             ((camEngVer.isi_ver&0xff00)>>8),camEngVer.isi_ver&0xff);
         property_set(CAMERAHAL_ISI_PROPERTY_KEY,version);
 
@@ -789,7 +793,7 @@ int camera_get_number_of_cameras(void)
     	        strncpy(camInfoTmp[cam_cnt&0x01].driver, pSensorInfo->mSensorDriver, sizeof(camInfoTmp[cam_cnt&0x01].driver));
 				unsigned int SensorDrvVersion = profiles->mDevieVector[i]->mLoadSensorInfo.mpI2cInfo->sensor_drv_version;
 				memset(version,0x00,sizeof(version));
-    	        sprintf(version,"%d.%d.%d",((SensorDrvVersion&0xff0000)>>16),
+		sprintf(version,"0x%x.0x%x.0x%x",((SensorDrvVersion&0xff0000)>>16),
 	    	            ((SensorDrvVersion&0xff00)>>8),SensorDrvVersion&0xff);
 						 
     	        if(pSensorInfo->mFacing == RK_CAM_FACING_FRONT){     
@@ -810,7 +814,7 @@ int camera_get_number_of_cameras(void)
 
     			unsigned int CamsysDrvVersion = profiles->mDevieVector[i]->mCamsysVersion.drv_ver;
     	        memset(version,0x00,sizeof(version));
-    	        sprintf(version,"%d.%d.%d",((CamsysDrvVersion&0xff0000)>>16),
+		sprintf(version,"0x%x.0x%x.0x%x",((CamsysDrvVersion&0xff0000)>>16),
     	            ((CamsysDrvVersion&0xff00)>>8),CamsysDrvVersion&0xff);
     	        property_set(CAMERAHAL_CAMSYS_VERSION_PROPERTY_KEY,version);
     		}
@@ -881,7 +885,7 @@ int camera_get_number_of_cameras(void)
                 }
 
                 memset(version,0x00,sizeof(version));
-                sprintf(version,"%d.%d.%d",((capability.version&0xff0000)>>16),
+                sprintf(version,"0x%x.0x%x.0x%x",((capability.version&0xff0000)>>16),
                     ((capability.version&0xff00)>>8),capability.version&0xff);
                 property_set(CAMERAHAL_V4L2_VERSION_PROPERTY_KEY,version);
 				

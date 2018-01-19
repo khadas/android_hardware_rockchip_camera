@@ -184,7 +184,8 @@ int CameraIspAdapter::cameraCreate(int cameraId)
 	isp_halpara.mem_ops = NULL;
 #endif
 
-    isp_halpara.mipi_lanes = mipiLaneNum;
+	isp_halpara.mipi_lanes = mipiLaneNum;
+	isp_halpara.phy_index = pCamInfo->mHardInfo.mSensorInfo.mPhy.info.mipi.phy_index;
 	mCtxCbResChange.pIspAdapter = (void*)this;
 	isp_halpara.sensorpowerupseq = pCamInfo->mHardInfo.mSensorInfo.mSensorPowerupSequence;
 	isp_halpara.vcmpowerupseq = pCamInfo->mHardInfo.mVcmInfo.mVcmPowerupSequence;	
@@ -198,8 +199,9 @@ int CameraIspAdapter::cameraCreate(int cameraId)
 	isp_halpara.clkin_delay = pCamInfo->mHardInfo.mSensorInfo.mClkin_delay;
 	isp_halpara.vcmpwr_delay = pCamInfo->mHardInfo.mVcmInfo.mVcmpwr_delay;	
 	isp_halpara.vcmpwrdn_delay = pCamInfo->mHardInfo.mVcmInfo.mVcmpwrdn_delay;	
-    m_camDevice = new CamDevice( HalHolder::handle(dev_filename,&isp_halpara), CameraIspAdapter_AfpsResChangeCb, (void*)&mCtxCbResChange ,NULL, mipiLaneNum);
-	
+    m_halHolder = new HalHolder(dev_filename,&isp_halpara);
+    m_camDevice = new CamDevice( m_halHolder->handle(), CameraIspAdapter_AfpsResChangeCb, (void*)&mCtxCbResChange ,NULL, mipiLaneNum);
+
 	//load sensor
     loadSensor( cameraId);
     //open image
@@ -267,10 +269,8 @@ int CameraIspAdapter::cameraDestroy()
         disconnectCamera();
         delete m_camDevice;
         m_camDevice = NULL;
-        if(HalHolder::m_halHolder){
-            delete HalHolder::m_halHolder;
-            HalHolder::m_halHolder = NULL;
-        }
+        delete m_halHolder;
+        m_halHolder = NULL;
     }
     LOG_FUNCTION_NAME_EXIT
     return 0;
@@ -354,8 +354,11 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
     bool low_illumin = false;
     bool is_video = false;
     rk_cam_total_info *pCamInfo = gCamInfos[mCamId].pcam_total_info;
+    char res_prop[PROPERTY_VALUE_MAX];
     
     property_set("sys.hdmiin.display", "0");//just used by hdmi-in
+    memset(res_prop,0,sizeof(res_prop));
+    property_get("sys.hdmiin.resolution",res_prop, "false");
     if ( ( !m_camDevice->hasSensor() ) &&
          ( !m_camDevice->hasImage()  ) ){
           goto startPreview_end;
@@ -383,8 +386,8 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
 
     //need to change resolution ?
     if((preview_w != mCamPreviewW) ||(preview_h != mCamPreviewH)
-        || (w != mCamDrvWidth) || (h != mCamDrvHeight)){
-
+        || (w != mCamDrvWidth) || (h != mCamDrvHeight)
+        || strcmp(res_prop,"false")){
         //change resolution
         //get sensor res
         int width_sensor = 0,height_sensor = 0;
@@ -394,9 +397,13 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
         float curGain,curExp; /* ddl@rock-chips.com: v1.0x15.0 */
 
         memset(&resReq, 0x00, sizeof(CamEngineBestSensorResReq_t));
-        resReq.request_w = preview_w;
-        resReq.request_h = preview_h;
-
+	if(!mCameraDeinterlace->is_interlace_resolution()) {
+		resReq.request_w = preview_w;
+		resReq.request_h = preview_h;
+	} else {
+		resReq.request_w = preview_w;
+		resReq.request_h = preview_h/2;
+	}
         
         if ((m_camDevice->getIntegrationTime(curExp) == false)) {
             curExp = 0.0;
@@ -420,9 +427,11 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
         }
         
         resReq.requset_aspect = (bool_t)false;        
-        resReq.request_fullfov = (bool_t)mImgAllFovReq;        
-        m_camDevice->getPreferedSensorRes(&resReq);
-        
+        resReq.request_fullfov = (bool_t)mImgAllFovReq;
+        err = m_camDevice->getPreferedSensorRes(&resReq);
+        if (!err)
+            m_camDevice->getResolution(resReq.resolution);
+
         width_sensor = ISI_RES_W_GET(resReq.resolution);
         height_sensor = ISI_RES_H_GET(resReq.resolution);
 		
@@ -538,6 +547,72 @@ startPreview_end:
 	LOG_FUNCTION_NAME_EXIT
 	return -1;
 }
+
+status_t CameraIspAdapter::startPreviewEx(int preview_w,int preview_h,int w, int h, int fmt, CamEngineBestSensorResReq_t resReq)
+{
+	LOG_FUNCTION_NAME
+	bool err;
+
+	if ( ( !m_camDevice->hasSensor() ) &&
+		 ( !m_camDevice->hasImage()  ) ){
+		  goto startPreview_end;
+		}
+
+	if((fmt != mISPOutputFmt)){
+		//restart isp
+		cameraDestroy();
+		mISPOutputFmt = fmt;
+		cameraCreate(mCamId);
+	}
+
+	//need to change resolution
+	if((preview_w != mCamPreviewW) ||(preview_h != mCamPreviewH)
+		|| (w != mCamDrvWidth) || (h != mCamDrvHeight)){
+
+		//change resolution
+		//get sensor res
+		int width_sensor = 0,height_sensor = 0;
+		CamEnginePathConfig_t mainPathConfig ,selfPathConfig;
+
+		m_camDevice->getPreferedSensorRes(&resReq);
+		width_sensor = ISI_RES_W_GET(resReq.resolution);
+		height_sensor = ISI_RES_H_GET(resReq.resolution);
+
+		//stop streaming
+		if(-1 == stop())
+			goto startPreview_end;
+
+		m_camDevice->changeResolution(resReq.resolution,false);
+
+		m_camDevice->getPathConfig(CHAIN_MASTER,CAM_ENGINE_PATH_MAIN,mainPathConfig);
+		m_camDevice->getPathConfig(CHAIN_MASTER,CAM_ENGINE_PATH_SELF,selfPathConfig);
+		m_camDevice->setPathConfig( CHAIN_MASTER, mainPathConfig, selfPathConfig  );
+
+		//start streaming
+		if(-1 == start())
+			goto startPreview_end;
+
+		mCamDrvWidth = width_sensor;
+		mCamDrvHeight = height_sensor;
+		mCamPreviewH = preview_h;
+		mCamPreviewW = preview_w;
+
+	}else{
+		if(mPreviewRunning == 0){
+			if(-1 == start())
+				goto startPreview_end;
+		}
+	}
+
+	mPreviewRunning = 1;
+
+	LOG_FUNCTION_NAME_EXIT
+	return 0;
+startPreview_end:
+	LOG_FUNCTION_NAME_EXIT
+	return -1;
+}
+
 status_t CameraIspAdapter::stopPreview()
 {
     LOG_FUNCTION_NAME
@@ -1015,7 +1090,7 @@ void CameraIspAdapter::initDefaultParameters(int camFd)
                 } else if (pixels > 3000000) {
                     parameterString.append(",1600x1200,1024x768");
                 } else if (pixels >= 1920000) {
-                    parameterString.append(",1024x768");
+                    parameterString.append(",1600x1200,1024x768");
                 }
             } else if (max_w*10/max_h == 160/9) {   // 16:9 Sensor
 
@@ -1594,11 +1669,11 @@ status_t CameraIspAdapter::autoFocus()
 {
     bool shot = false,err_af = false;
     CamEngineWindow_t afWin;
-#if 1    
+
     if(mIsCtsTest){
         goto finish_focus;
     }
-#endif
+
     if (strcmp(mParameters.get(CameraParameters::KEY_FOCUS_MODE), CameraParameters::FOCUS_MODE_AUTO) == 0) {
         if (mAfChk == false) {
             LOG1("Focus mode is Auto and areas not change, CheckAfShot!");
@@ -1797,6 +1872,7 @@ void CameraIspAdapter::loadSensor( const int cameraId)
         rk_cam_total_info *pCamInfo = gCamInfos[cameraId].pcam_total_info;
         if(mIsCtsTest)
 			pCamInfo->mSoftInfo.mFrameRate = 30;
+
         if ( true == m_camDevice->openSensor( pCamInfo, mSensorItfCur ) )
         {
         	bool res = m_camDevice->checkVersion(pCamInfo);
@@ -2329,12 +2405,18 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
 	int tem_val;
 	ulong_t phy_addr=0;
 
+	bool is_even_field = true;
+	IsiSensorFrameInfo_t SensorFrameInfo;
 	Mutex::Autolock lock(mLock);
     // get & check buffer meta data
     PicBufMetaData_t *pPicBufMetaData = (PicBufMetaData_t *)(pMediaBuffer->pMetaData);
     HalHandle_t  tmpHandle = m_camDevice->getHalHandle();
 
     debugShowFPS();
+
+	SensorFrameInfo.pFrameNumFE = pMediaBuffer->pFrameNumFE;
+	SensorFrameInfo.pFrameNumFS = pMediaBuffer->pFrameNumFS;
+	m_camDevice->isEvenField(SensorFrameInfo,is_even_field);
 
     if(pPicBufMetaData->Type == PIC_BUF_TYPE_YCbCr420 || pPicBufMetaData->Type == PIC_BUF_TYPE_YCbCr422){        
         if(pPicBufMetaData->Type == PIC_BUF_TYPE_YCbCr420){
@@ -2504,6 +2586,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
           tmpFrame->vir_addr = (ulong_t)y_addr_vir;
           tmpFrame->frame_fmt = fmt;
     	  
+          tmpFrame->is_even_field = is_even_field;
           tmpFrame->used_flag = 0;
 
           #if (USE_RGA_TODO_ZOOM == 1)  
@@ -2542,6 +2625,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
             tmpFrame->frame_height= height;
             tmpFrame->vir_addr = (ulong_t)y_addr_vir;
             tmpFrame->frame_fmt = fmt;
+            tmpFrame->is_even_field = is_even_field;
             tmpFrame->used_flag = 1;
 #if (USE_RGA_TODO_ZOOM == 1)  
             tmpFrame->zoom_value = mZoomVal;
@@ -2648,6 +2732,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
 	                tmpFrame->frame_height= height;
 	                //tmpFrame->vir_addr = (ulong_t)y_addr_vir;
 	                tmpFrame->frame_fmt = fmt;
+	                tmpFrame->is_even_field = is_even_field;
 	                tmpFrame->used_flag = 2;
 	                tmpFrame->res = &mImgAllFovReq;
 #if (USE_RGA_TODO_ZOOM == 1)  
@@ -2930,6 +3015,12 @@ void CameraIspAdapter::getSensorMaxRes(unsigned int &max_w, unsigned int &max_h)
 
 }
 
+void CameraIspAdapter::setMwb_Temp(uint32_t colortemperature)
+{
+	        m_camDevice->stopAwb();
+		m_camDevice->startAwb(CAM_ENGINE_AWB_MODE_MANUAL_CT, colortemperature, (bool_t)true);
+}
+
 void CameraIspAdapter::setMwb(const char *white_balance)
 {
 	uint32_t illu_index = 1;
@@ -3039,7 +3130,7 @@ PROCESS_CMD:
                         m_camDevice->getIntegrationTime(time);
                         stopPreview();
                     }
-					m_camDevice->enableSensorOTP((bool_t)false);//disable sensor otp awb if it has.
+                    m_camDevice->enableSensorOTP((bool_t)true);//enable sensor otp if it has.
                 }else if(curTuneTask->mTuneFmt == CAMERIC_MI_DATAMODE_YUV422){
                     curFmt = ISP_OUT_YUV422_SEMI;
                     curTuneTask->mForceRGBOut = true;
@@ -3047,8 +3138,17 @@ PROCESS_CMD:
                     LOGE("this format %d is not support",curTuneTask->mTuneFmt);
                 }
                     
-                
-                startPreview(curPreW, curPreH, curPreW, curPreH,curFmt, false);
+                if(curFmt == ISP_OUT_RAW12){
+                    CamEngineBestSensorResReq_t resReq;
+                    memset(&resReq, 0x00, sizeof(CamEngineBestSensorResReq_t));
+                    resReq.request_w = curPreW;
+                    resReq.request_h = curPreH;
+                    resReq.request_fps = 0;
+                    resReq.request_exp_t = 1;
+                    startPreviewEx(curPreW, curPreH, curPreW, curPreH,curFmt,resReq);
+                } else{
+                    startPreview(curPreW, curPreH, curPreW, curPreH,curFmt, false);
+                }
 
                 // need to do following steps in RAW capture mode ?
                 // following modules are bypassed in RAW mode ?

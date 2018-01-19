@@ -88,6 +88,7 @@ LOCAL_SRC_FILES:=\
 	CameraHal_Tracer.c\
 	CameraIspTunning.cpp \
 	SensorListener.cpp\
+	CameraDeinterlace.cpp
 
 ifeq ($(strip $(BOARD_USE_DRM)), true)
 ifneq ($(filter rk3368 rk3399 rk3288 rk3366, $(strip $(TARGET_BOARD_PLATFORM))), )

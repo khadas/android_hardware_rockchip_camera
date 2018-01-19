@@ -137,6 +137,7 @@ typedef struct HalContext_s *HalHandle_t;
 typedef struct HalPara_s
 {
     uint32_t   mipi_lanes;
+	uint8_t    phy_index;
 	uint32_t   sensorpowerupseq;
 	uint32_t   vcmpowerupseq;	
 //delay
@@ -669,6 +670,16 @@ RESULT HalGetMemoryMapFd(
   #error "unknow hardware plattform"
 #endif
 
+
+typedef enum CamerIcDriverID_e
+{
+    CAMERIC_DRIVER_ID_INVALID          = 0,
+    CAMERIC_DRIVER_ID_MIPI             = 1,
+    CAMERIC_DRIVER_ID_ISP              = 2,
+    CAMERIC_DRIVER_ID_MI               = 3,
+    CAMERIC_DRIVER_ID_MAX              = 4
+} CamerIcDriverID_t;
+
 /******************************************************************************
  * stuff below here requires the inline API implementations being included
  * as it requires some more hal variant depended header files being loaded
@@ -686,7 +697,9 @@ struct HalIrqCtx_s                                  // note: a forward declarati
 
     osInterrupt         OsIrq;                      /**< os layer abstraction for the interrupt */
     uint32_t            misValue;                   /**< value of the MIS-Register */
-
+    uint32_t            mFrameNumFS;                /**< 16 bit frame number from Frame Start (FS) short packet */
+    uint32_t            mFrameNumFE;                /**< 16 bit frame number from Frame End (FE) short packet */
+    CamerIcDriverID_t   id;
 #if defined ( HAL_ALTERA )
     fpga_irq_handle_t   AlteraIrqHandle;            /**< handle for multiple interrupt handler */
 #endif

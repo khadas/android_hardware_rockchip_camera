@@ -65,7 +65,7 @@ using namespace android;
 #endif
 #define RK_BOARD_XML_PATH "/etc/cam_board.xml"
 #define RK_DEFAULT_MEDIA_PROFILES_XML_PATH "/etc/media_profiles_default.xml"
-#if defined(ANDROID_5_X)
+#if (defined(ANDROID_5_X) || defined(ANDROID_6_X) || defined(ANDROID_7_X))
 #define RK_DST_MEDIA_PROFILES_XML_PATH "/data/camera/media_profiles.xml"
 #define RK_TMP_MEDIA_PROFILES_XML_PATH "/data/camera/media_profiles_tmp.xml"
 #else

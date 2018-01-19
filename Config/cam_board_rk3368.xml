@@ -1048,7 +1048,8 @@
 					<DV_QVGA name="qvga" width="320" height="240" fps="30" support="0"></DV_QVGA>
 					<DV_CIF name="cif" width="352" height="288" fps="30" support="0"></DV_CIF>
 					<DV_VGA name="480p" width="640" height="480" fps="30" support="0"></DV_VGA>
-					<DV_480P name="480p" width="720" height="480" fps="30" support="0"></DV_480P>
+					<DV_480P name="480p" width="720" height="480" fps="60" support="1"></DV_480P>
+					<DV_576P name="576p" width="720" height="576" fps="50" support="1"></DV_576P>
 					<DV_720P name="720p" width="1280" height="720" fps="60" support="1"></DV_720P>
 					<DV_1080P name="1080p" width="1920" height="1080" fps="60" support="1"></DV_1080P>
 				</DV>

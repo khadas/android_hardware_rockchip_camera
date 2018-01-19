@@ -172,7 +172,7 @@ typedef struct CamerIcRegDescriptionDrvConfig_s
  *****************************************************************************/
 RESULT CamerIcInitRegDescriptionDrv
 (
-    const CamerIcRegDescriptionDrvConfig_t  *pConfig
+    HalHandle_t hal
 );
 
 
@@ -192,7 +192,7 @@ RESULT CamerIcInitRegDescriptionDrv
  *****************************************************************************/
 RESULT CamerIcReleaseRegDescriptionDrv
 (
-    void
+    HalHandle_t hal
 );
 
 
@@ -213,6 +213,7 @@ RESULT CamerIcReleaseRegDescriptionDrv
  *****************************************************************************/
 RESULT CamerIcGetRegister
 (
+    HalHandle_t hal,
     const ulong_t   address,
     uint32_t        *value
 );
@@ -235,6 +236,7 @@ RESULT CamerIcGetRegister
  *****************************************************************************/
 RESULT CamerIcSetRegister
 (
+    HalHandle_t hal,
     const ulong_t   address,
     const uint32_t  value
 );

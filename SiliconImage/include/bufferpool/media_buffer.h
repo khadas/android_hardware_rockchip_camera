@@ -65,6 +65,8 @@ typedef struct MediaBuffer_s
     bool_t        isFull;       /**< Flag set to TRUE when buffer is put in queue as a full buffer */
     void*         pNext;        /**< Common next pointer that can be used to create linked lists of media buffers. */
     void*         pMetaData;    /**< Pointer to optional meta data structure. */
+    uint16_t      pFrameNumFS;	/* *< 16 bit frame number from Frame Start (FS) short packet */
+    uint16_t      pFrameNumFE;	/* *< 16 bit frame number from Frame End (FE) short packet */
 } MediaBuffer_t;
 
 

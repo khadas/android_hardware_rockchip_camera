@@ -4,6 +4,7 @@
 //usb camera adapter
 #include "CameraHal.h"
 #include "cam_api/camdevice.h"
+#include "cam_api/halholder.h"
 #include "oslayer/oslayer.h"
 #include <string>
 #include <utils/KeyedVector.h>
@@ -63,6 +64,7 @@ public:
     CameraIspAdapter(int cameraId);
     virtual ~CameraIspAdapter();
     virtual status_t startPreview(int preview_w,int preview_h,int w, int h, int fmt,bool is_capture);
+    status_t startPreviewEx(int preview_w,int preview_h,int w, int h, int fmt, CamEngineBestSensorResReq_t resReq);
     virtual status_t stopPreview();
     virtual int setParameters(const CameraParameters &params_set,bool &isRestartValue);
     virtual void initDefaultParameters(int camFd);
@@ -153,6 +155,7 @@ private:
     void flashControl(bool on);
     bool isNeedToEnableFlash();
 	void setMwb(const char *white_balance);
+	void setMwb_Temp(uint32_t colortemperature);
 	void setMe(const char *exposure);
     Mutex mMfdOPLock;
     Condition mMfdOPCond;
@@ -174,6 +177,7 @@ private:
 
 protected:
     CamDevice       *m_camDevice;
+    HalHolder     *m_halHolder;
     KeyedVector<void *, void *> mFrameInfoArray;
     Mutex  mFrameArrayLock;     
     void clearFrameArray();

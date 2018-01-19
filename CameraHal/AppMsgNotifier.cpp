@@ -66,7 +66,9 @@ AppMsgNotifier::AppMsgNotifier(CameraAdapter *camAdp)
     mFaceContext = NULL;
     mRecPrevCbDataEn = true;
     mRecMetaDataEn = true;
-	mIsStoreMD = false;
+    mIsStoreMD = false;
+    mEvenOddInfo.Video_index = -1;
+    mEvenOddInfo.Newframe_flag = false;
     memset(&mFaceDetectorFun,0,sizeof(struct face_detector_func_s));
     int i ;
     //request mVideoBufs
@@ -333,6 +335,7 @@ bool AppMsgNotifier::isNeedSendToFaceDetect()
 void AppMsgNotifier::notifyNewFaceDecFrame(FramInfo_s* frame)
 {
    if (mFaceDetectionDone) {
+       mFaceDetectionDone = false;
        //send to app msg thread
        Message_cam msg;
        Mutex::Autolock lock(mFaceDecLock);
@@ -351,14 +354,14 @@ void AppMsgNotifier::notifyNewFaceDecFrame(FramInfo_s* frame)
 void AppMsgNotifier::setPictureRawBufProvider(BufferProvider* bufprovider)
 {
     mRawBufferProvider = bufprovider;
-	#if (JPEG_BUFFER_DYNAMIC == 0)
+	#if (CONFIG_JPEG_BUFFER_DYNAMIC == 0)
     mRawBufferProvider->createBuffer(1, 0x1500000, RAWBUFFER,mRawBufferProvider->is_cif_driver);
 	#endif
  }
 void AppMsgNotifier::setPictureJpegBufProvider(BufferProvider* bufprovider)
 {
     mJpegBufferProvider = bufprovider;
-	#if (JPEG_BUFFER_DYNAMIC == 0)
+	#if (CONFIG_JPEG_BUFFER_DYNAMIC == 0)
     mJpegBufferProvider->createBuffer(1, 0x1600000,JPEGBUFFER,mJpegBufferProvider->is_cif_driver);
 	#endif
 }
@@ -762,9 +765,10 @@ int AppMsgNotifier::stopRecording()
     if(msg.arg1){
         sem.Wait();
     }
-	mIsStoreMD = false;
-	grallocVideoBufFree();
-	grallocDevDeinit();
+    mIsStoreMD = false;
+    mEvenOddInfo.Video_index = -1;
+    grallocVideoBufFree();
+    grallocDevDeinit();
     LOG_FUNCTION_NAME_EXIT
     return 0;
 }
@@ -910,16 +914,40 @@ bool AppMsgNotifier::isNeedSendToDataCB()
 
 void AppMsgNotifier::notifyNewPicFrame(FramInfo_s* frame)
 {
-    //send to enc thread;
-   // encProcessThreadCommandQ
-               //send a msg to disable preview frame cb
-    Message_cam msg;
-    Mutex::Autolock lock(mPictureLock); 
-    mPictureInfo.num--;
-    msg.command = EncProcessThread::CMD_ENCPROCESS_SNAPSHOT;
-    msg.arg2 = (void*)(frame);
-    msg.arg3 = (void*)(frame->used_flag);
-    encProcessThreadCommandQ.put(&msg);
+	//send to enc thread;
+	// encProcessThreadCommandQ
+	//send a msg to disable preview frame cb
+	Message_cam msg;
+	Mutex::Autolock lock(mPictureLock);
+	bool is_interlace_resolution = true;
+
+	msg.command = EncProcessThread::CMD_ENCPROCESS_SNAPSHOT;
+	msg.arg2 = (void*)(frame);
+	msg.arg3 = (void*)(frame->used_flag);
+	encProcessThreadCommandQ.put(&msg);
+
+	is_interlace_resolution = mCameraDeinterlace->is_interlace_resolution();
+	if(is_interlace_resolution){
+		if(!mEvenOddInfo.Newframe_flag){
+			if(!frame->is_even_field){
+				mEvenOddInfo.Newframe_flag = true;
+				frame->merge_status = PIC_ALLOC_BUFF;//alloc buffer and save data
+			} else {
+				frame->merge_status = PIC_ALLOC_RETURN;//do nothing
+			}
+		} else {
+			if(!frame->is_even_field) {
+				frame->merge_status = PIC_ODD_SAVE;//don't alloc buffer but need save data
+			} else {
+				frame->merge_status = PIC_EVEN_SAVE;//don't alloc buffer but need save data
+				mPictureInfo.num--;
+			}
+			mEvenOddInfo.Newframe_flag = false;
+		}
+	} else {
+		frame->merge_status = PIC_ALLOC_BUFF;//alloc buffer and save data
+		mEvenOddInfo.Newframe_flag = false;
+	}
 }
 
 void AppMsgNotifier::callback_notify_shutter()
@@ -1317,7 +1345,7 @@ int AppMsgNotifier::Jpegfillgpsinfo(RkGPSInfo *gpsInfo,picture_info_s &params)
 }
 
 int AppMsgNotifier::captureEncProcessPicture(FramInfo_s* frame){
-    int ret = 0;
+	int ret = 0;
 	int jpeg_w,jpeg_h,i,jpeg_buf_w,jpeg_buf_h;
 	unsigned int pictureSize;
 	int jpegSize;
@@ -1328,7 +1356,7 @@ int AppMsgNotifier::captureEncProcessPicture(FramInfo_s* frame){
 	int err = 0;
 	int rotation = 0;
 	JpegEncInInfo JpegInInfo;
-	JpegEncOutInfo JpegOutInfo;  
+	JpegEncOutInfo JpegOutInfo;
 	RkExifInfo exifInfo;
 	RkGPSInfo gpsInfo;
 	char ExifAsciiPrefix[8] = {'A', 'S', 'C', 'I', 'I', '\0', '\0', '\0'};
@@ -1337,21 +1365,26 @@ int AppMsgNotifier::captureEncProcessPicture(FramInfo_s* frame){
 	double latitude,longtitude,altitude;
 	long timestamp;
 	JpegEncType encodetype;
-    int picfmt;
-    long rawbuf_phy;
-    long rawbuf_vir;
-    long jpegbuf_phy;
-    long jpegbuf_vir;
-    long input_phy_addr,input_vir_addr;
-    long output_phy_addr,output_vir_addr;
-    int jpegbuf_size;
+	int picfmt;
+	long rawbuf_phy;
+	long rawbuf_vir;
+	long jpegbuf_phy;
+	long jpegbuf_vir;
+	long input_phy_addr,input_vir_addr;
+	long output_phy_addr,output_vir_addr;
+	int jpegbuf_size;
 	int bufindex;
-    bool mIs_Verifier = false;
+	bool mIs_Verifier = false;
 	char prop_value[PROPERTY_VALUE_MAX];
+	Picmergestatus_t Cap_merge_status = frame->merge_status;
+	mmerge_interface_t *merge_para;
+	bool is_interlace_resolution = true;
+
 	memset(&JpegInInfo,0x00,sizeof(JpegEncInInfo));
 	memset(&JpegOutInfo,0x00,sizeof(JpegEncOutInfo));
 	memset(&exifInfo,0x00,sizeof(exifInfo));
-	quality = mPictureInfo.quality;	
+	quality = mPictureInfo.quality;
+	is_interlace_resolution = mCameraDeinterlace->is_interlace_resolution();
 	/*only for passing cts yzm*/
 	property_get("sys.cts_camera.status",prop_value, "false");
 	if(!strcmp(prop_value,"true")){
@@ -1397,20 +1430,32 @@ int AppMsgNotifier::captureEncProcessPicture(FramInfo_s* frame){
 		pictureSize = (pictureSize & 0xfffff000) + 0x1000;
 	}
 
-    jpegbuf_size = 0x1400000; //pictureSize;
-    #if (JPEG_BUFFER_DYNAMIC == 1)
-    //create raw & jpeg buffer
-    ret = mRawBufferProvider->createBuffer(1, pictureSize, RAWBUFFER,mRawBufferProvider->is_cif_driver);
-    if(ret < 0){
-        LOGE("mRawBufferProvider->createBuffer FAILED");
-        goto 	captureEncProcessPicture_exit;
+    jpegbuf_size = 0x1400000;//pictureSize;
+    switch (Cap_merge_status){
+        case PIC_ALLOC_BUFF:
+           #if (CONFIG_JPEG_BUFFER_DYNAMIC == 1)
+            //create raw & jpeg buffer
+           ret = mRawBufferProvider->createBuffer(1, pictureSize, RAWBUFFER,mRawBufferProvider->is_cif_driver);
+           if(ret < 0){
+               LOGE("mRawBufferProvider->createBuffer FAILED");
+               goto	captureEncProcessPicture_exit;
+           }
+           ret = mJpegBufferProvider->createBuffer(1, jpegbuf_size,JPEGBUFFER,mJpegBufferProvider->is_cif_driver);
+           if(ret < 0){
+               LOGE("mJpegBufferProvider->createBuffer FAILED");
+               goto	captureEncProcessPicture_exit;
+           }
+           #endif
+        break;
+
+        case PIC_ALLOC_RETURN:
+            ret = 1;
+            return ret;
+        break;
+
+        default :
+        break;
     }
-    ret = mJpegBufferProvider->createBuffer(1, jpegbuf_size,JPEGBUFFER,mJpegBufferProvider->is_cif_driver);
-    if(ret < 0){
-        LOGE("mJpegBufferProvider->createBuffer FAILED");
-        goto 	captureEncProcessPicture_exit;
-    }
-    #endif
 
     bufindex=mRawBufferProvider->getOneAvailableBuffer(&rawbuf_phy, &rawbuf_vir);
     if(bufindex < 0){
@@ -1448,6 +1493,11 @@ int AppMsgNotifier::captureEncProcessPicture(FramInfo_s* frame){
 
 	LOGD("captureEncProcessPicture,rotation = %d,jpeg_w = %d,jpeg_h = %d",rotation,jpeg_w,jpeg_h);
 
+	merge_para=(mmerge_interface_t *)malloc(sizeof(mmerge_interface_t));
+	if(!merge_para){
+		LOGE("%s(%d): malloc merge_para structue failed!",__FUNCTION__,__LINE__);
+		goto captureEncProcessPicture_exit;
+	}
     //2. copy to output buffer for mirro and flip
 	/*ddl@rock-chips.com: v0.4.7*/
     // bool rotat_180 = false; //used by ipp
@@ -1471,26 +1521,44 @@ int AppMsgNotifier::captureEncProcessPicture(FramInfo_s* frame){
                 {
                   mIs_Verifier = false;
                 }
-				#if defined(RK_DRM_GRALLOC)
-				if (frame->vir_addr_valid) {
-					err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height, 
-			                            (char*)(frame->vir_addr), (short int *)rawbuf_vir, 
-			                            jpeg_w,jpeg_h,frame->zoom_value,false,!mIs_Verifier,false,0,frame->vir_addr_valid);
-		        } else {
-					err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height, 
-			                            (char*)(frame->phy_addr), (short int *)rawbuf_phy, 
-			                            jpeg_w,jpeg_h,frame->zoom_value,false,!mIs_Verifier,false,0,frame->vir_addr_valid);
-			    }
-				if (err < 0)
-					arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12, (char*)(frame->vir_addr),
-						(char*)rawbuf_vir,frame->frame_width, frame->frame_height,
-						 jpeg_w, jpeg_h,false,frame->zoom_value);
-				#else
-				rga_nv12_scale_crop(frame->frame_width, frame->frame_height, 
-		                            (char*)(frame->vir_addr), (short int *)rawbuf_vir, 
-		                            jpeg_w,jpeg_h,frame->zoom_value,false,!mIs_Verifier,false);
-				#endif
-			#endif
+                merge_para->src_width = frame->frame_width;
+                merge_para->src_height = frame->frame_height;
+                merge_para->dst_width = jpeg_w;
+                merge_para->dst_height = jpeg_h;
+                merge_para->zoom_val = frame->zoom_value;
+                merge_para->mirror = false;
+                merge_para->isNeedCrop = !mIs_Verifier;
+                merge_para->isDstNV21 = false;
+                merge_para->is_even_field = frame->is_even_field;
+
+                #if defined(RK_DRM_GRALLOC)
+                if (frame->vir_addr_valid){
+                  merge_para->src = (char*)(frame->vir_addr);
+                  merge_para->dst = (short int *)rawbuf_vir;
+                } else {
+                  merge_para->src = (char*)(frame->phy_addr);
+                  merge_para->dst = (short int *)rawbuf_phy;
+                }
+                merge_para->is_viraddr_valid = frame->vir_addr_valid;
+                err =  mCameraDeinterlace->odd_even_field_merge(merge_para);
+                if (err < 0){
+                  arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12, (char*)(frame->vir_addr),
+                                            (char*)rawbuf_vir,frame->frame_width, frame->frame_height,
+                                            jpeg_w, jpeg_h,false,frame->zoom_value);
+                }
+                #else
+                merge_para->src = (char*)(frame->vir_addr);
+                merge_para->dst = (short int *)rawbuf_vir;
+                merge_para->is_viraddr_valid = true;
+                err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+                #endif
+                if(is_interlace_resolution) {
+                  if((Cap_merge_status == PIC_ALLOC_BUFF) || (Cap_merge_status == PIC_ODD_SAVE)) {
+                    ret = 1;
+                    return ret;
+                  }
+                }
+               #endif
         #endif
         input_phy_addr = output_phy_addr;
         input_vir_addr = output_vir_addr;
@@ -1657,7 +1725,7 @@ LOG2("\nJpegInInfo.y_rgb_addr=0x%x\n"
 
 captureEncProcessPicture_exit: 
  //destroy raw and jpeg buffer
- #if (JPEG_BUFFER_DYNAMIC == 1)
+ #if (CONFIG_JPEG_BUFFER_DYNAMIC == 1)
     mRawBufferProvider->freeBuffer();
     mJpegBufferProvider->freeBuffer();
  #endif
@@ -1676,8 +1744,15 @@ int AppMsgNotifier::processPreviewDataCb(FramInfo_s* frame){
     int ret = 0;
     int pixFmt;
     int err;
-	sp<MemoryHeapBase> mHeap;
+    bool Video_even_field;
+    bool is_interlace_resolution = true;
+    mmerge_interface_t *merge_para;
+    sp<MemoryHeapBase> mHeap;
+
     mDataCbLock.lock();
+    Video_even_field = frame->is_even_field;
+    is_interlace_resolution = mCameraDeinterlace->is_interlace_resolution();
+
     if ((mMsgTypeEnabled & CAMERA_MSG_PREVIEW_FRAME) && mDataCb) {
         //compute request mem size
         int tempMemSize = 0;
@@ -1720,12 +1795,18 @@ int AppMsgNotifier::processPreviewDataCb(FramInfo_s* frame){
 			arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV21, (char*)(frame->vir_addr),
 					(char*)tmpPreviewMemory->data,frame->frame_width, frame->frame_height,mPreviewDataW, mPreviewDataH,mDataCbFrontMirror,frame->zoom_value);
 #else
+	merge_para=(mmerge_interface_t *)malloc(sizeof(mmerge_interface_t));
+	if(!merge_para){
+		LOGE("%s(%d): malloc merge_para structue failed!",__FUNCTION__,__LINE__);
+		return -1;;
+	}
+
         if(g_ctsV_flag &&((mPreviewDataW==176&&mPreviewDataH==144)||(mPreviewDataW==352&&mPreviewDataH==288))) {
             arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, pixFmt, (char*)(frame->vir_addr),
                                         (char*)tmpPreviewMemory->data,frame->frame_width, frame->frame_height,
                                         mPreviewDataW, mPreviewDataH,false,frame->zoom_value);
         }else{
-			#if defined(RK_DRM_GRALLOC)
+
             if (!strcmp("com.tencent.mobileqq:MSF",mCallingProcess)
                 || !strcmp("com.tencent.mobileqq:peak",mCallingProcess)){
                 //workround fix qq self capture little video problem.
@@ -1733,20 +1814,29 @@ int AppMsgNotifier::processPreviewDataCb(FramInfo_s* frame){
 					(char*)tmpPreviewMemory->data,frame->frame_width, frame->frame_height,mPreviewDataW, mPreviewDataH,
                     mDataCbFrontMirror,frame->zoom_value);
             }else{
-			    err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-					(char*)(frame->vir_addr), (short int *)(tmpPreviewMemory->data), 
-					mPreviewDataW,mPreviewDataH,frame->zoom_value,mDataCbFrontMirror,true,!isYUV420p,0,true);
-                if (err){
-                    arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12, (char*)(frame->vir_addr),
-                        (char*)(tmpPreviewMemory->data),frame->frame_width, frame->frame_height,
-                        mPreviewDataW,mPreviewDataH,mDataCbFrontMirror,frame->zoom_value);
-                 }
+	          merge_para->src_width = frame->frame_width;
+	          merge_para->src_height = frame->frame_height;
+	          merge_para->dst_width = mPreviewDataW;
+	          merge_para->dst_height = mPreviewDataH;
+	          merge_para->zoom_val = frame->zoom_value;
+	          merge_para->mirror = mDataCbFrontMirror;
+	          merge_para->isNeedCrop = true;
+	          merge_para->isDstNV21 = !isYUV420p;
+	          merge_para->is_even_field = Video_even_field;
+	          merge_para->src = (char*)(frame->vir_addr);
+	          merge_para->dst = (short int *)(tmpPreviewMemory->data);
+	          merge_para->is_viraddr_valid = true;
+	          err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+            if (err){
+                arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12, (char*)(frame->vir_addr),
+                    (char*)(tmpPreviewMemory->data),frame->frame_width, frame->frame_height,
+                    mPreviewDataW,mPreviewDataH,mDataCbFrontMirror,frame->zoom_value);
+             }
+	          if((!Video_even_field) && (is_interlace_resolution)) {
+	              ret = 0;
+	              return ret;
+	          }
             }
-			#else
-            rga_nv12_scale_crop(frame->frame_width, frame->frame_height, 
-					(char*)(frame->vir_addr), (short int *)(tmpPreviewMemory->data), 
-					mPreviewDataW,mPreviewDataH,frame->zoom_value,mDataCbFrontMirror,true,!isYUV420p);
-			#endif
         }
 #endif
 			//arm_yuyv_to_nv12(frame->frame_width, frame->frame_height,(char*)(frame->vir_addr), (char*)buf_vir);
@@ -1783,9 +1873,22 @@ int AppMsgNotifier::processPreviewDataCb(FramInfo_s* frame){
 }
 
 int AppMsgNotifier::processVideoCb(FramInfo_s* frame){
-    int ret = 0,buf_index = -1;
+	int ret = 0,buf_index = -1;
 	long buf_phy = 0,buf_vir = 0;
-    int err;
+	int err;
+	bool Video_even_field;
+	bool is_interlace_resolution = true;
+
+	mmerge_interface_t *merge_para;
+	is_interlace_resolution = mCameraDeinterlace->is_interlace_resolution();
+	Video_even_field = frame->is_even_field;
+
+	merge_para=(mmerge_interface_t *)malloc(sizeof(mmerge_interface_t));
+	if(!merge_para){
+		LOGE("%s(%d): malloc merge_para structue failed!",__FUNCTION__,__LINE__);
+		return -1;;
+	}
+
 	if(mIsStoreMD == false){	
 	    //get one available buffer
 	    if((buf_index = mVideoBufferProvider->getOneAvailableBuffer(&buf_phy,&buf_vir)) == -1){
@@ -1807,28 +1910,48 @@ int AppMsgNotifier::processVideoCb(FramInfo_s* frame){
 	                                        (char*)buf_vir,frame->frame_width, frame->frame_height,
 	                                        mRecordW, mRecordH,false,frame->zoom_value);
 	        }else{
-				#if defined(RK_DRM_GRALLOC)
-				if (frame->vir_addr_valid){
-		            err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-		                                (char*)(frame->vir_addr), (short int *)buf_vir,
-		                                mRecordW,mRecordH,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
-	            } else{
-					long fd = mVideoBufferProvider->getBufShareFd(buf_index);
-					err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-										(char*)(frame->phy_addr), (short int *)fd,
-										mRecordW,mRecordH,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
-	            }
-                if (err){
+                  merge_para->src_width = frame->frame_width;
+                  merge_para->src_height = frame->frame_height;
+
+                  merge_para->dst_width = mRecordW;
+                  merge_para->dst_height = mRecordH;
+                  merge_para->zoom_val = frame->zoom_value;
+                  merge_para->mirror = false;
+                  merge_para->isNeedCrop = true;
+                  merge_para->isDstNV21 = false;
+
+                  merge_para->is_even_field = Video_even_field;
+
+                  #if defined(RK_DRM_GRALLOC)
+                  if (frame->vir_addr_valid){
+                    merge_para->src = (char*)(frame->vir_addr);
+                    merge_para->dst = (short int *)buf_vir;
+                    merge_para->is_viraddr_valid = frame->vir_addr_valid;
+                  } else {
+                    long fd = mVideoBufferProvider->getBufShareFd(buf_index);
+                    merge_para->src = (char*)(frame->phy_addr);
+                    merge_para->dst = (short int *)fd;
+                    merge_para->is_viraddr_valid = frame->vir_addr_valid;
+                  }
+
+                  err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+                  if (err){
                     arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12, (char*)(frame->vir_addr),
-                            (char*)(buf_vir),frame->frame_width, frame->frame_height,
-                            mRecordW,mRecordH,false,frame->zoom_value);
+                                                (char*)(buf_vir),frame->frame_width, frame->frame_height,
+                                                mRecordW,mRecordH,false,frame->zoom_value);
+                  }
+                  #else
+		  merge_para->src = (char*)(frame->vir_addr);
+		  merge_para->dst = (short int *)buf_vir;
+		  merge_para->is_viraddr_valid = false;
+
+		  err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+                  #endif
+                  if((!Video_even_field) && (is_interlace_resolution)) {
+                    ret = 0;
+                    return ret;
+                  }
                 }
-				#else
-	            rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-	                                (char*)(frame->vir_addr), (short int *)buf_vir,
-	                                mRecordW,mRecordH,frame->zoom_value,false,true,false);
-				#endif
-	        }
 	        #endif
 
 	        mVideoBufferProvider->flushBuffer(buf_index);
@@ -1836,14 +1959,33 @@ int AppMsgNotifier::processVideoCb(FramInfo_s* frame){
 	        LOG1("EncPicture:V4L2_PIX_FMT_NV12,arm_camera_yuv420_scale_arm");
 	    }
 	}else{
-		buf_index = grallocVideoBufGetAvailable();
-		if(buf_index >= CONFIG_CAMERA_VIDEOENC_BUF_CNT)
-		{
-			LOGE("%s(%d):no available buffer",__FUNCTION__,__LINE__);
-			ret = -1;
-			return ret;
+		if(!is_interlace_resolution) {
+			mEvenOddInfo.Video_index = grallocVideoBufGetAvailable();
+			if(buf_index >= CONFIG_CAMERA_VIDEOENC_BUF_CNT)
+			{
+				LOGE("%s(%d):no available buffer",__FUNCTION__,__LINE__);
+				ret = -1;
+				return ret;
+			}
+			mGrallocVideoBuf[buf_index]->buf_state = 1;
+		} else {
+			if(!Video_even_field) {
+				mEvenOddInfo.Video_index = grallocVideoBufGetAvailable();
+				if(buf_index >= CONFIG_CAMERA_VIDEOENC_BUF_CNT)
+				{
+					LOGE("%s(%d):no available buffer",__FUNCTION__,__LINE__);
+					ret = -1;
+					return ret;
+				}
+				mGrallocVideoBuf[buf_index]->buf_state = 1;
+			}else{
+				if(mEvenOddInfo.Video_index == -1){
+					ret = 0;
+					return ret;
+				}
+			}
 		}
-		mGrallocVideoBuf[buf_index]->buf_state = 1;
+		buf_index = mEvenOddInfo.Video_index;
 
 		if((frame->frame_fmt == V4L2_PIX_FMT_NV12)){
         #if 0
@@ -1852,34 +1994,50 @@ int AppMsgNotifier::processVideoCb(FramInfo_s* frame){
             (char*)buf_vir,frame->frame_width, frame->frame_height,
             mRecordW, mRecordH,false,frame->zoom_value);
         #else
-		
-		#if defined(RK_DRM_GRALLOC)
-		if (frame->vir_addr_valid){
-		    err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-		                (char*)(frame->vir_addr), (short int*)(mGrallocVideoBuf[buf_index]->vir_addr),
-		                mRecordW,mRecordH,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
-	    } else{
-            err = rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-                        (char*)(frame->phy_addr), (short int*)(mGrallocVideoBuf[buf_index]->phy_addr),
-                        mRecordW,mRecordH,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
-	    }
-        if (err){
+          merge_para->src_width = frame->frame_width;
+          merge_para->src_height = frame->frame_height;
+
+          merge_para->dst_width = mRecordW;
+          merge_para->dst_height = mRecordH;
+          merge_para->zoom_val = frame->zoom_value;
+          merge_para->mirror = false;
+          merge_para->isNeedCrop = true;
+          merge_para->isDstNV21 = false;
+          merge_para->is_even_field = Video_even_field;
+
+          #if defined(RK_DRM_GRALLOC)
+          if (frame->vir_addr_valid){
+            merge_para->src = (char*)(frame->vir_addr);
+            merge_para->dst = (short int*)(mGrallocVideoBuf[buf_index]->vir_addr);
+          } else {
+            merge_para->src = (char*)(frame->phy_addr);
+            merge_para->dst = (short int*)(mGrallocVideoBuf[buf_index]->phy_addr);
+          }
+          merge_para->is_viraddr_valid = frame->vir_addr_valid;
+          err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+          if (err){
             arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12, V4L2_PIX_FMT_NV12, (char*)(frame->vir_addr),
-                    (char*)(mGrallocVideoBuf[buf_index]->vir_addr),frame->frame_width, frame->frame_height,
-                    mRecordW,mRecordH,false,frame->zoom_value);
-        }
-		#else
-        	#if (defined(TARGET_RK312x) || defined(TARGET_RK3328)) && defined(ANDROID_7_X)
-			    rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-			                (char*)(frame->phy_addr), (short int*)(mGrallocVideoBuf[buf_index]->phy_addr),
-			                mRecordW,mRecordH,frame->zoom_value,false,true,false,false);
-            #else
-			    rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-			                (char*)(frame->vir_addr), (short int*)(mGrallocVideoBuf[buf_index]->vir_addr),
-			                mRecordW,mRecordH,frame->zoom_value,false,true,false,true);
-            #endif
-		#endif
-        #endif
+                                        (char*)(mGrallocVideoBuf[buf_index]->vir_addr),frame->frame_width, frame->frame_height,
+                                        mRecordW,mRecordH,false,frame->zoom_value);
+          }
+          #else
+          #if (defined(TARGET_RK312x) || defined(TARGET_RK3328)) && defined(ANDROID_7_X)
+	  merge_para->src = (char*)(frame->phy_addr);
+	  merge_para->dst = (short int*)(mGrallocVideoBuf[buf_index]->phy_addr);
+	  merge_para->is_viraddr_valid = false;
+          err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+          #else
+          merge_para->src = (char*)(frame->vir_addr);
+          merge_para->dst = (short int*)(mGrallocVideoBuf[buf_index]->vir_addr);
+          merge_para->is_viraddr_valid = true;
+          err = mCameraDeinterlace->odd_even_field_merge(merge_para);
+          #endif
+          #endif
+          if((!Video_even_field) && (is_interlace_resolution)) {
+            ret = 0;
+            return ret;
+          }
+	#endif
 
         callback_video_frame(mVideoBufs[buf_index]);
 		}
@@ -2034,29 +2192,27 @@ void AppMsgNotifier::encProcessThread()
 				case EncProcessThread::CMD_ENCPROCESS_SNAPSHOT:
 				{
 					FramInfo_s *frame = (FramInfo_s*)msg.arg2;
+					int ret = 0;
 					
 					LOGD("%s(%d): receive CMD_SNAPSHOT_SNAPSHOT with buffer %p,mEncPictureNum=%d",__FUNCTION__,__LINE__, (void*)frame->frame_index,mEncPictureNum);
 
-                    //set picture encode info
-					{
-						Mutex::Autolock lock(mPictureLock); 
-
-                        if((mEncPictureNum > 0) && (mRunningState & STA_RECEIVE_PIC_FRAME)){
-                            mEncPictureNum--;
-                            if(!mEncPictureNum)
-    						//mReceivePictureFrame = false;
-    						mRunningState &= ~STA_RECEIVE_PIC_FRAME;
-                        }else{
-                            LOGD("%s(%d): needn't enc this frame!",__FUNCTION__,__LINE__);
-                        }
-                    }
                     /* zyc@rock-chips.com: v0.0x22.0 */ 
-					captureEncProcessPicture(frame);
-
-                    //return frame
-                    frame_used_flag = (long)msg.arg3;
-                    mFrameProvider->returnFrame(frame->frame_index,frame_used_flag);
-					
+					ret = captureEncProcessPicture(frame);
+					{
+					    //set picture encode info
+						Mutex::Autolock lock(mPictureLock);
+						if((mEncPictureNum > 0) && (mRunningState & STA_RECEIVE_PIC_FRAME) && (ret == 0)){
+							mEncPictureNum--;
+							if(!mEncPictureNum) {
+								//mReceivePictureFrame = false;
+								mRunningState &= ~STA_RECEIVE_PIC_FRAME;
+							}
+						}else{
+							LOGD("%s(%d): needn't enc this frame!",__FUNCTION__,__LINE__);
+						}
+					}
+					frame_used_flag = (long)msg.arg3;
+					mFrameProvider->returnFrame(frame->frame_index,frame_used_flag);
 					break;
 				}
 				case EncProcessThread::CMD_ENCPROCESS_PAUSE:

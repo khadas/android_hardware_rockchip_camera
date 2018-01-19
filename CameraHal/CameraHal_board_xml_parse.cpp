@@ -892,14 +892,14 @@ void camera_board_profiles::StartElementHandler(void *userData, const char *name
 		pCamInfoProfiles->mBoardXmlVersion = ( (highBit&0xff)<<16 ) + ( (middleBit&0xff)<<8 ) + (lowBit&0xff) ;
         ALOGD("\n\n\n Cam_board.xml Version Check: \n");
         ALOGD("    /etc/cam_board.xml : %s\n",atts[1]);
-        ALOGD("    CameraHal_board_xml_parser: v%d.%d.%d\n",
+        ALOGD("    CameraHal_board_xml_parser: v0x%x.0x%x.0x%x\n",
             (ConfigBoardXmlVersion&0xff0000)>>16,
             (ConfigBoardXmlVersion&0xff00)>>8,
             ConfigBoardXmlVersion&0xff);
 	}
     /* ddl@rock-chips.com: v1.3.0 */
     if(pCamInfoProfiles->mBoardXmlVersion != ConfigBoardXmlVersion) {
-		ALOGE("cam_board.xml version(v%d.%d.%d) != xml parser version(v%d.%d.%d)\n",
+		ALOGE("cam_board.xml version(v0x%x.0x%x.0x%x) != xml parser version(v0x%x.0x%x.0x%x)\n",
           (pCamInfoProfiles->mBoardXmlVersion&0xff0000)>>16,
           (pCamInfoProfiles->mBoardXmlVersion&0xff00)>>8,
           pCamInfoProfiles->mBoardXmlVersion&0xff,
@@ -1518,16 +1518,16 @@ int camera_board_profiles::RegisterSensorDevice(rk_cam_total_info* pCamInfo)
 	ALOGD("\n\n\n CamSys_Head.h Version Check:\n");
 	err = ioctl(camsys_fd, CAMSYS_VERCHK, &(pCamInfo->mCamsysVersion));
 	if(!err){
-        ALOGD("    Kernel camsys_head.h: v%d.%d.%d\n",
+        ALOGD("    Kernel camsys_head.h: v0x%x.0x%x.0x%x\n",
             (pCamInfo->mCamsysVersion.head_ver&0xff0000)>>16,
             (pCamInfo->mCamsysVersion.head_ver&0xff00)>>8,
             (pCamInfo->mCamsysVersion.head_ver&0xff));
-        ALOGD("    Kernel camsys_drv :   v%d.%d.%d\n",
+        ALOGD("    Kernel camsys_drv :   v0x%x.0x%x.0x%x\n",
             (pCamInfo->mCamsysVersion.drv_ver&0xff0000)>>16,
             (pCamInfo->mCamsysVersion.drv_ver&0xff00)>>8,
             (pCamInfo->mCamsysVersion.drv_ver&0xff));
 
-        ALOGD("    CameraHal camsys_head.h : v%d.%d.%d\n",
+        ALOGD("    CameraHal camsys_head.h : v0x%x.0x%x.0x%x\n",
             (CAMSYS_HEAD_VERSION&0xff0000)>>16,
             (CAMSYS_HEAD_VERSION&0xff00)>>8,
             (CAMSYS_HEAD_VERSION&0xff));

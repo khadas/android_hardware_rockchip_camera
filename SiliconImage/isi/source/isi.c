@@ -1860,6 +1860,55 @@ RESULT IsiMdiFocusGet
 }
 
 
+/*****************************************************************************/
+/**
+ *			IsiIsEvenField
+ *
+ * @brief	Retrieves the currently applied focus point.
+ *
+ * @param	handle			sensor instance handle
+ *
+ * @return	Return the result of the function call.
+ * @retval	RET_SUCCESS
+ * @retval	RET_WRONG_HANDLE
+ * @retval	RET_NULL_POINTER
+ *
+ *****************************************************************************/
+RESULT IsiIsEvenField
+(
+	IsiSensorHandle_t	handle,
+	IsiSensorFrameInfo_t	*SensorInfo,
+	bool *isEvenField
+)
+{
+	IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
+
+	RESULT result = RET_SUCCESS;
+
+	TRACE( ISI_INFO, "%s: (enter)\n", __FUNCTION__);
+
+	if ( pSensorCtx == NULL )
+	{
+		return ( RET_WRONG_HANDLE );
+	}
+
+	if ( SensorInfo == NULL )
+	{
+		return ( RET_NULL_POINTER );
+	}
+
+	if ( pSensorCtx->pSensor->pIsiIsEvenFieldIss == NULL )
+	{
+		return ( RET_NOTSUPP );
+	}
+
+	result = pSensorCtx->pSensor->pIsiIsEvenFieldIss( pSensorCtx, SensorInfo,isEvenField );
+	TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
+
+	return ( result );
+}
+
+
 
 /*****************************************************************************/
 /**
@@ -2211,7 +2260,8 @@ RESULT IsiGetResolutionParam
         case ISI_RES_VGAP15:
         case ISI_RES_VGAP20:
         case ISI_RES_VGAP30:
-        case ISI_RES_VGAP60:
+	case ISI_RES_VGAP60:
+	case ISI_RES_VGAP100:
         case ISI_RES_VGAP120:
 
         case ISI_RES_SVGAP5:
@@ -2338,6 +2388,13 @@ RESULT IsiGetResolutionParam
 		case ISI_RES_3120_3120P15:
 		case ISI_RES_3120_3120P25:
 		case ISI_RES_2112_1560P30:
+
+	case ISI_RES_3840_2160P7:
+	case ISI_RES_3840_2160P10:
+	case ISI_RES_3840_2160P15:
+	case ISI_RES_3840_2160P20:
+	case ISI_RES_3840_2160P25:
+	case ISI_RES_3840_2160P30:
 
         case ISI_RES_2104_1560P7:
         case ISI_RES_2104_1560P10:

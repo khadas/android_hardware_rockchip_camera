@@ -202,6 +202,7 @@ extern "C"
 #define ISI_RES_VGAP20                         0x282801e0        /**<  1  640x480     */
 #define ISI_RES_VGAP30                         0x3c2801e0        /**<  1  640x480     */
 #define ISI_RES_VGAP60                         0x782801e0        /**<  1  640x480     */
+#define ISI_RES_VGAP100                        0xc82801e0        /**<  1  640x480     */
 #define ISI_RES_VGAP120                        0xf02801e0        /**<  1  640x480     */
 
 #define ISI_RES_SVGAP5                         0x0a320258        /**< 16 800x600@5   */
@@ -317,6 +318,14 @@ extern "C"
 #define ISI_RES_2104_1560P40                   0x50838618
 #define ISI_RES_2104_1560P50                   0x64838618
 #define ISI_RES_2104_1560P60                   0x78838618
+
+#define ISI_RES_3840_2160P7                    0x0ef00870      /**<  3840x2160    */
+#define ISI_RES_3840_2160P10                   0x14f00870      /**<  3840x2160    */
+#define ISI_RES_3840_2160P15                   0x1ef00870      /**<  3840x2160    */
+#define ISI_RES_3840_2160P20                   0x28f00870      /**<  3840x2160    */
+#define ISI_RES_3840_2160P25                   0x32f00870      /**<  3840x2160    */
+#define ISI_RES_3840_2160P30                   0x3cf00870      /**<  3840x2160    */
+
 
 #define ISI_RES_4224_3136P4                    0x09080c40
 #define ISI_RES_4224_3136P7                    0x0f080c40      /**<  5 4416x3312    */

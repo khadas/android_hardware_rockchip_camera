@@ -135,6 +135,7 @@ CameraHal::CameraHal(int cameraId)
 	    else if(gCamInfos[cameraId].pcam_total_info->mHardInfo.mSensorInfo.mPhy.type == CamSys_Phy_Mipi){
 	        LOGD("it is a isp  camera");
 	        mCameraAdapter = new CameraIspAdapter(cameraId);
+	        mCameraDeinterlace = new CameraDeinterlace();
 	    }
 	    else{
 	        LOGD("it is a soc camera!");
@@ -339,6 +340,11 @@ CameraHal::~CameraHal()
 			LOG1("exit command OK.");
    		mCommandThread->requestExitAndWait();
     	mCommandThread.clear();
+	}
+
+	if(mCameraDeinterlace){
+		delete mCameraDeinterlace;
+		mCameraDeinterlace =NULL;
 	}
 
     LOGD("CameraHal destory success");
@@ -889,6 +895,7 @@ void CameraHal::commandThread()
     int app_previw_w = 0,app_preview_h = 0;
     bool isRestartPreview = false;
     char prop_value[PROPERTY_VALUE_MAX];
+    char res_prop[PROPERTY_VALUE_MAX];
     LOG_FUNCTION_NAME
 
     while(shouldLive) {
@@ -914,7 +921,9 @@ get_command:
                 if(prevStatus){                    
                     //get preview size
                     property_get("sys.cts_camera.status",prop_value, "false");
-                    if(strcmp(prop_value,"true") && ((prefered_w != drv_w) || (prefered_h != drv_h))){
+                    memset(res_prop, 0, sizeof(res_prop));
+                    property_get("sys.hdmiin.resolution",res_prop, "false");
+                    if(strcmp(prop_value,"true") && ((prefered_w != drv_w) || (prefered_h != drv_h) || strcmp(res_prop,"false"))){
                         if (mDisplayAdapter->getDisplayStatus() == DisplayAdapter::STA_DISPLAY_RUNNING) {
                             err=mDisplayAdapter->pauseDisplay();
         					if(err != -1)

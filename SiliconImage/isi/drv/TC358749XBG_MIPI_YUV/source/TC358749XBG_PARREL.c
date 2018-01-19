@@ -269,7 +269,7 @@ static uint8_t framerate_count(IsiSensorHandle_t handle)
 		fps = pixclk / (h_total * v_total);
 	}
 
-	TRACE( TC358749XBG_ERROR, "%s h_total:%d, v_total:%d, pixclk:%d, fps:%d\n",
+	TRACE( TC358749XBG_DEBUG, "%s h_total:%d, v_total:%d, pixclk:%d, fps:%d\n",
 		__FUNCTION__, h_total, v_total, pixclk, fps);
 
 	return fps;

@@ -20,23 +20,28 @@
 *        1) add support mipi phy configuration;
 *        2) add support io domain and mclk driver strength configuration;
 *v0.7.0:
-		 1) add flash_trigger_out control
+         1) add flash_trigger_out control
 *v0.8.0:
-		 1) support isp iommu
+         1) support isp iommu
 *v0.9.0:
          1) add dev_name in struct camsys_devio_name_s;
 *v0.a.0:
          1) support external flash IC
 *v0.b.0:
-		 1) add CamSys_SensorBit0_CifBit4 in enum camsys_cifio_e.
+         1) add CamSys_SensorBit0_CifBit4 in enum camsys_cifio_e.
 *v0.c.0:
-		 1) support sensor powerup sequence configurable.
+         1) support sensor powerup sequence configurable.
 *v0.d.0:
-		 1) powerup sequence type moved to common_head.h.
+         1) powerup sequence type moved to common_head.h.
 *v0.e.0:
-		 1) add fs_id, fe_id and some reserved bytes in struct camsys_irqsta_s.
+         1) add fs_id, fe_id and some reserved bytes in struct camsys_irqsta_s.
+*v0.f.0:
+         1) add pid in struct camsys_irqsta_s.
+*v1.0.0:
+         1) add enum camsys_mipiphy_dir_e.
 */
-#define CAMSYS_HEAD_VERSION           KERNEL_VERSION(0, 0xe, 0)
+
+#define CAMSYS_HEAD_VERSION           KERNEL_VERSION(1, 0x0, 0)
 
 #define CAMSYS_MARVIN_DEVNAME         "camsys_marvin"           
 #define CAMSYS_CIF0_DEVNAME           "camsys_cif0"
@@ -60,11 +65,12 @@
 #define CAMSYS_DEVCFG_SHUTTER         0x00000004
 
 typedef struct camsys_irqsta_s {
-    unsigned int ris;                 //Raw interrupt status
-    unsigned int mis;                 //Masked interrupt status
+	unsigned int ris;   //Raw interrupt status
+	unsigned int mis;   //Masked interrupt status
 	unsigned int fs_id; // frame number from Frame Start (FS) short packet
 	unsigned int fe_id; // frame number from Frame End (FE) short packet
-	unsigned int reserved[4];
+	int          pid;
+	unsigned int reserved[3];
 } camsys_irqsta_t;
 
 typedef struct camsys_irqcnnt_s {
@@ -170,10 +176,16 @@ typedef struct camsys_flash_info_s {
     camsys_gpio_info_t        fl_en;
 } camsys_flash_info_t;
 
+enum camsys_mipiphy_dir_e {
+    CamSys_Mipiphy_Rx = 0,
+    CamSys_Mipiphy_Tx = 1,
+};
+
 typedef struct camsys_mipiphy_s {
     unsigned int                data_en_bit;        // data lane enable bit;
     unsigned int                bit_rate;           // Mbps/lane
     unsigned int                phy_index;          // phy0,phy1
+    enum camsys_mipiphy_dir_e   dir;                // direction
 } camsys_mipiphy_t;
 
 typedef enum camsys_fmt_e {

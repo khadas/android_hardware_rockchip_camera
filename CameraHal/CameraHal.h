@@ -37,7 +37,7 @@
 #include <cutils/atomic.h>
 #include <linux/version.h>
 #include <linux/videodev2.h>
-#if defined(ANDROID_5_X)
+#if (defined(ANDROID_5_X) || defined(ANDROID_6_X) || defined(ANDROID_7_X))
 #include <linux/v4l2-controls.h>
 #endif
 #include <binder/MemoryBase.h>
@@ -127,23 +127,42 @@ extern "C" int cameraFormatConvert(int v4l2_fmt_src, int v4l2_fmt_dst, const cha
 							int dst_w, int dst_h, int dstbuf_w,
 							bool mirror);
 
-#if defined(RK_DRM_GRALLOC) 							
-extern "C" int rga_nv12_scale_crop(
-		int src_width, int src_height, char *src, short int *dst,
-		int dst_width,int dst_height,int zoom_val,
-		bool mirror,bool isNeedCrop,bool isDstNV21,
-		int dst_stride = 0,
-		bool is_viraddr_valid = false
-		);
-#else
-extern "C" int rga_nv12_scale_crop(
-		int src_width, int src_height, char *src, short int *dst,
-		int dst_width,int dst_height,int zoom_val,
-		bool mirror,bool isNeedCrop,bool isDstNV21,
-		bool is_viraddr_valid = true
-		);
-#endif
+typedef struct mmerge_interface {
+	char *src;
+	int src_width;
+	int src_height;
+	short int *dst;
+	int dst_width;
+	int dst_height;
+	int zoom_val;
+	bool mirror;
+	bool isNeedCrop;
+	bool isDstNV21;
+	bool is_viraddr_valid;
+	bool is_even_field;
+} mmerge_interface_t;
 
+typedef struct mrga_interface {
+	char *src;
+	int offset_x;
+	int offset_y;
+	int src_vir_width;
+	int src_vir_height;
+	int src_width;
+	int src_height;
+	short int *dst;
+	int dst_vir_width;
+	int dst_vir_height;
+	int dst_width;
+	int dst_height;
+	int zoom_val;
+	bool mirror;
+	bool isNeedCrop;
+	bool isDstNV21;
+	bool is_viraddr_valid;
+} mrga_interface_t;
+
+extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para );
 extern "C" int rk_camera_zoom_ipp(int v4l2_fmt_src, int srcbuf, int src_w, int src_h,int dstbuf,int zoom_value);
 extern "C" void generateJPEG(uint8_t* data,int w, int h,unsigned char* outbuf,int* outSize);
 extern "C" int util_get_gralloc_buf_fd(buffer_handle_t handle,int* fd);
@@ -746,10 +765,47 @@ v1.0x4f.0:
      1)rk312x support mirror and flip with rga.
      2)usb camera's width and height need align to 16,the extra eight rows need to be croped
        of some resolution such as 2592x1952,1920x1088,800x608.
+v1.0x51.0
+  1) merge from 68 server CameraHal00_Release version v1.0x59.0, include follow versions:
+	v1.0x50.0
+	  1) Add API to set and get color temperature.
+	v1.0x51.0
+	  1) pass phy_index to hal_mockup for use.
+	v1.0x52.0
+	  1) support isp0+isp1 dual-cam preview for 3399.
+	v1.0x53.0
+	  1) implement drm flush interface.
+	v1.0x54.0
+	  1) call startPreviewEx when dump raw data to start preview.
+	v1.0x55.0
+	  1) add lsc and awb property to control OTP data apply.
+	v1.0x56.0
+	  1) android version macro included is not accurate,correct it.
+	v1.0x57.0
+	  1) merge from mid server,include:
+	    v1.0x50.0
+	     1) remove GRALLOC_USAGE_HW_TEXTURE|GRALLOC_USAGE_HW_RENDER flag (e.g. gralloc not use cache)
+		for rk3368 andrdoid7.1 to bypass gralloc DDK bug.
+	    v1.0x50.1
+	     1) fix rk3366 android7.1 compile error.
+	    v1.0x50.2
+	     1) use arm to scale again after rga2 scale fail.
+	    v1.0x50.3
+	     1) add usb camera hot-plugin-out support.
+	     2) add ov8865 driver to compile.
+	    v1.0x50.4
+	     1)rk312x support mirror and flip with rga.
+	     2)usb camera's width and height need align to 16,the extra eight rows need to be croped
+	       of some resolution such as 2592x1952,1920x1088,800x608.
+	v1.0x58.0
+	  1) change the RGA interface.
+	  2) support even and odd field merge.
+	v1.0x59.0
+	  1) version format string is wrong in CameraHal_Module.cpp, correct it.
 */
 
 
-#define CONFIG_CAMERAHAL_VERSION KERNEL_VERSION(1, 0x50, 0x4)
+#define CONFIG_CAMERAHAL_VERSION KERNEL_VERSION(1, 0x51, 0x0)
 
 
 /*  */
@@ -798,7 +854,9 @@ v1.0x4f.0:
 #define CONFIG_CAMERA_BACK_PREVIEW_FPS_MIN     3000        
 #define CONFIG_CAMERA_BACK_PREVIEW_FPS_MAX     40000
 
-#define CONFIG_CAMERA_SCALE_CROP_ISP           1
+#define CONFIG_CAMERA_SCALE_CROP_ISP           0
+#define CONFIG_JPEG_BUFFER_DYNAMIC             1
+#define CONFIG_EVEN_ODD_MERGE                  1
 
 #define CAMERAHAL_VERSION_PROPERTY_KEY                  "sys_graphic.cam_hal.ver"
 #define CAMERAHAL_CAMSYS_VERSION_PROPERTY_KEY           "sys_graphic.cam_drv_camsys.ver"
@@ -807,7 +865,11 @@ v1.0x4f.0:
 #define CAMERAHAL_ISI_PROPERTY_KEY                      "sys_graphic.cam_isi.ver"
 #define CAMERAHAL_CAMBOARDXML_PARSER_PROPERTY_KEY       "sys_graphic.cam_camboard.ver"
 #define CAMERAHAL_TRACE_LEVEL_PROPERTY_KEY              "sys_graphic.cam_trace"
-#define CAMERAHAL_CAM_OTP_PROPERTY_KEY					"sys_graphic.cam_otp"
+//#define CAMERAHAL_CAM_OTP_PROPERTY_KEY				"sys_graphic.cam_otp"
+#define CAMERAHAL_CAM_OTP_LSC_PROPERTY_KEY				"sys_graphic.cam_otp_lsc"
+#define CAMERAHAL_CAM_OTP_LSC_ENABLE_PROPERTY_KEY		"sys_graphic.cam_otp_lsc_enable"
+#define CAMERAHAL_CAM_OTP_AWB_PROPERTY_KEY				"sys_graphic.cam_otp_awb"
+#define CAMERAHAL_CAM_OTP_AWB_ENABLE_PROPERTY_KEY		"sys_graphic.cam_otp_awb_enable"
 
 
 #define CAMERA_PMEM_NAME                     "/dev/pmem_cam"
@@ -847,7 +909,6 @@ v1.0x4f.0:
 
 #endif
 
-#define JPEG_BUFFER_DYNAMIC		(1)
 
 #define V4L2_BUFFER_MAX             32
 #define V4L2_BUFFER_MMAP_MAX        16
@@ -965,6 +1026,9 @@ public:
 
 class DisplayAdapter;
 class AppMsgNotifier;
+class CameraDeinterlace;
+extern CameraDeinterlace* mCameraDeinterlace;
+
 typedef struct cameraparam_info cameraparam_info_s;
 //diplay buffer ÓÉdisplay adapterÀà×ÔÐÐ¹ÜÀí¡£
 
@@ -1341,10 +1405,24 @@ private:
 
     Mutex mDisplayLock;
     Condition mDisplayCond;
-	int mDisplayState;
+    int mDisplayState;
+    bool mDisplayRgaEvenFrame;
 
     MessageQueue    displayThreadCommandQ;
     sp<DisplayThread> mDisplayThread;
+};
+
+class CameraDeinterlace
+{
+public:
+	CameraDeinterlace();
+	~CameraDeinterlace();
+
+	bool is_interlace_resolution(void);
+	int odd_even_field_merge(mmerge_interface_t* merge_para ) ;
+
+private:
+	int cameraConfig(const CameraParameters &tmpparams,bool isInit,bool &isRestartValue);
 };
 
 typedef struct cameraparam_info{
@@ -1407,6 +1485,12 @@ struct CamCaptureInfo_s
     int output_phy_addr;
     int output_vir_addr;
     int output_buflen;
+};
+
+//even frame and odd frame informations
+struct EvenOddInfo_s{
+	int Video_index;
+	bool Newframe_flag;
 };
 
 typedef void (*FaceDetector_start_func)(void *context,int width, int height, int format);
@@ -1719,6 +1803,7 @@ private:
     bool mDataCbFrontMirror;
     bool mDataCbFrontFlip;
     int mPicSize;
+    EvenOddInfo_s mEvenOddInfo;
     camera_memory_t* mPicture;
     face_detector_func_s mFaceDetectorFun;
     FaceDector_nofity_func mFaceDectNotify;

@@ -733,7 +733,7 @@ int camera_request_framerate(const char* dev_path, int camid, struct xml_video_e
 	 		}
 	 	}
     } else {
-        LOGE("%s.%d  Current camera driver version: %d.%d.%d, It is not support CameraHal_MediaProfile\n",
+        LOGE("%s.%d  Current camera driver version: 0x%x.0x%x.0x%x, It is not support CameraHal_MediaProfile\n",
             __FUNCTION__,__LINE__,
             (CamDriverCapability.version>>16) & 0xff,(CamDriverCapability.version>>8) & 0xff,
             CamDriverCapability.version & 0xff); 

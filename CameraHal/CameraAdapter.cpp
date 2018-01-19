@@ -369,8 +369,8 @@ int CameraAdapter::cameraCreate(int cameraId)
 	    goto exit1;
     }
     
-    LOGD("Camera driver: %s  Card Name:%s  Driver version: %d.%d.%d  CameraHal version: %d.%d.%d ",mCamDriverCapability.driver,
-        mCamDriverCapability.card,(mCamDriverCapability.version>>16) & 0xff,(mCamDriverCapability.version>>8) & 0xff,
+    LOGD("Camera driver: %s Card Name:%s Driver version: 0x%x.0x%x.0x%x  CameraHal version: 0x%x.0x%x.0x%x ",mCamDriverCapability.driver,
+        mCamDriverCapability.card, (mCamDriverCapability.version>>16) & 0xff,(mCamDriverCapability.version>>8) & 0xff,
         mCamDriverCapability.version & 0xff,(CONFIG_CAMERAHAL_VERSION>>16) & 0xff,(CONFIG_CAMERAHAL_VERSION>>8) & 0xff,
         CONFIG_CAMERAHAL_VERSION & 0xff);
 

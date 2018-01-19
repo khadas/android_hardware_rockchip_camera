@@ -49,6 +49,7 @@ typedef enum CamEngineAwbMode_e
     CAM_ENGINE_AWB_MODE_INVALID = 0,    /**< invalid mode (only for initialization) */
     CAM_ENGINE_AWB_MODE_MANUAL  = 1,    /**< manual mode */
     CAM_ENGINE_AWB_MODE_AUTO    = 2,    /**< run auto mode */
+    CAM_ENGINE_AWB_MODE_MANUAL_CT=3,
     CAM_ENGINE_AWB_MODE_MAX
 } CamEngineAwbMode_t;
 
@@ -203,6 +204,27 @@ typedef enum CamEngine3aLock_e
 
 /*****************************************************************************/
 /**
+ * @brief   This functions get the AWB temperature.
+ *
+ * @param   hCamEngine          Handle to the CamEngine instance.
+ * @param   ct                  color temperature
+ *
+ * @return  Return the result of the function call.
+ * @retval  RET_SUCCESS         function succeed
+ * @retval  RET_INVALID_PARM    invalid configuration
+ * @retval  RET_OUTOFRANGE      a configuration parameter is out of range
+ * @retval  RET_WRONG_HANDLE    invalid instance handle
+ *
+ *****************************************************************************/
+
+RESULT CamEngineAwbGetTemperature
+(
+    CamEngineHandle_t           hCamEngine,
+    float*                      ct
+);
+
+/*****************************************************************************/
+/**
  * @brief   This functions starts the Auto-White-Balance.
  *
  * @param   hCamEngine          Handle to the CamEngine instance.
@@ -262,6 +284,42 @@ RESULT CamEngineAwbReset
     CamEngineHandle_t           hCamEngine      /**< handle CamEngine */
 );
 /* ddl@rock-chips.com: v0.0x29.0 */
+
+/*****************************************************************************/
+/**
+ * @brief   This function configures the CamerIC ISP AWB measuring window.
+ *
+ * @param   handle              CamerIc driver handle
+ * @param   x                   start x position of measuring window
+ * @param   y                   start y position of measuring window
+ * @param   width               width of measuring window
+ * @param   height              height of measuring window
+ *
+ * @return                      Return the result of the function call.
+ * @retval  RET_SUCCESS         Configuration successfully applied
+ * @retval  RET_WRONG_HANDLE    handle is invalid
+ * @retval  RET_OUTOFRANGE      At least one perameter of out range
+ *
+ *****************************************************************************/
+
+RESULT CamEngineAwbSetMeasuringWindow
+(
+    CamEngineHandle_t        hCamEngine,
+    int16_t                  x,
+    int16_t                  y,
+    uint16_t                 width,
+    uint16_t                 height
+);
+/******************************************************************************
+ * CamEngineAwbGetMeasuringWindow()
+ *****************************************************************************/
+RESULT CamEngineAwbGetMeasuringWindow
+(
+    CamEngineHandle_t               hCamEngine,
+    CamEngineWindow_t               *pWindow
+);
+
+
 /******************************************************************************
  * CamEngine3aLock()
  *****************************************************************************/

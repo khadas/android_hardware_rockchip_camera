@@ -52,20 +52,15 @@
 class HalHolder
 {
 public:
-    static HalHandle_t handle(char* dev_filename, HalPara_t *para);
+    HalHandle_t handle();
     ~HalHolder();
-
     static int NumOfCams();
-
-    static HalHolder* m_halHolder;
-
-private:
     HalHolder(char* dev_filename, HalPara_t *para);
     HalHolder (const HalHolder& other);
     HalHolder& operator = (const HalHolder& other);
 
 private:
-    static HalHandle_t m_hHal;
+    HalHandle_t m_hHal;
 };
 
 

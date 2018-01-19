@@ -244,6 +244,25 @@ extern RESULT CamerIcIspAwbSetMeasuringWindow
     const uint16_t      height
 );
 
+/*****************************************************************************/
+/**
+ * @brief   This function configures the CamerIC ISP AWB measuring window.
+ *
+ * @param   handle              CamerIc driver handle
+ * @param   pWindow             measuring window
+
+ * @return                      Return the result of the function call.
+ * @retval  RET_SUCCESS         Configuration successfully applied
+ * @retval  RET_WRONG_HANDLE    handle is invalid
+ * @retval  RET_OUTOFRANGE      At least one perameter of out range
+ *
+ *****************************************************************************/
+extern RESULT CamerIcIspAwbGetMeasuringWindow
+(
+    CamerIcDrvHandle_t  handle,
+    CamerIcWindow_t   *pWindow
+);
+
 
 /*****************************************************************************/
 /**
