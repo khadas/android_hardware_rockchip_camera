@@ -945,6 +945,7 @@ void AppMsgNotifier::notifyNewPicFrame(FramInfo_s* frame)
 			mEvenOddInfo.Newframe_flag = false;
 		}
 	} else {
+		mPictureInfo.num--;
 		frame->merge_status = PIC_ALLOC_BUFF;//alloc buffer and save data
 		mEvenOddInfo.Newframe_flag = false;
 	}
