@@ -380,13 +380,15 @@ static uint8_t framerate_count(IsiSensorHandle_t handle)
 				}
 				break;
 			case STATUS_VIDEO_TX:
-				if (fps != framerate_count(handle)) {
-					TRACE( TC358749XBG_ERROR, "%s framerate change, reinit!\n", __FUNCTION__);
+				if (abs(fps - framerate_count(handle)) > 3) {
+					TRACE( TC358749XBG_ERROR, "%s framerate change, reinit! vi_format:%d fps:%d\n",
+						__FUNCTION__, vi_format, framerate_count(handle));
 					gStatus = STATUS_READY;
 					break;
 				}
 				if (last_format != vi_format) {
-					TRACE( TC358749XBG_ERROR, "%s vi_format change, reinit!\n", __FUNCTION__);
+					TRACE( TC358749XBG_ERROR, "%s vi_format change, reinit! vi_format:%d fps:%d\n",
+						__FUNCTION__, vi_format, framerate_count(handle));
 					gStatus = STATUS_READY;
 					break;
 				}
@@ -540,12 +542,15 @@ static RESULT TC358749XBG_IsiReleaseSensorIss
 
     MEMSET( pTC358749XBGCtx, 0, sizeof( TC358749XBG_Context_t ) );
     free ( pTC358749XBGCtx );
-    gStatus = STATUS_POWER_ON;
     bHdmiinExit = true;
 	if ( OSLAYER_OK != osThreadWait( &gHdmiinThreadId) )
 		TRACE( TC358749XBG_DEBUG, "%s wait hdmiiin listener thread exit\n", __FUNCTION__);
 	if ( OSLAYER_OK != osThreadClose( &gHdmiinThreadId ) )
 		TRACE( TC358749XBG_DEBUG, "%s hdmiiin listener thread exit\n", __FUNCTION__);
+
+    gStatus = STATUS_POWER_ON;
+    property_set("sys.hdmiin.resolution", "false");
+
     TRACE( TC358749XBG_INFO, "%s (exit)\n", __FUNCTION__);
 
     return ( result );
