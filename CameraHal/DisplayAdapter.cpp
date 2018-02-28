@@ -612,10 +612,8 @@ void DisplayAdapter::displayThread()
     void *y_uv[3];
     long frame_used_flag = -1;
     Rect bounds;
-    bool is_interlace_resolution = true;
     int mem_fd = -1;
     
-    is_interlace_resolution = mCameraDeinterlace->is_interlace_resolution();
     LOG_FUNCTION_NAME    
     while (mDisplayRuning != STA_DISPLAY_STOP) {
 display_receive_cmd:        
@@ -824,7 +822,7 @@ display_receive_cmd:
 				err = mCameraDeinterlace->odd_even_field_merge(merge_para);
 				#endif
 				#endif
-				if(is_interlace_resolution) {
+				if(mCameraDeinterlace->is_interlace_resolution()) {
 					if(!merge_para->is_even_field) {
 						if(mFrameProvider)
 							mFrameProvider->returnFrame(frame->frame_index,frame_used_flag);
