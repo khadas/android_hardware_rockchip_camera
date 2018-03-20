@@ -857,13 +857,13 @@ int camera_get_number_of_cameras(void)
         	    LOGD("Video device(%s): video capture not supported.\n",cam_path);
             } else {
             	rk_cam_total_info* pNewCamInfo = new rk_cam_total_info();
-                memset(camInfoTmp[cam_cnt&0x01].device_path,0x00, sizeof(camInfoTmp[cam_cnt&0x01].device_path));
-                strcat(camInfoTmp[cam_cnt&0x01].device_path,cam_path);
-                memset(camInfoTmp[cam_cnt&0x01].fival_list,0x00, sizeof(camInfoTmp[cam_cnt&0x01].fival_list));
-                memcpy(camInfoTmp[cam_cnt&0x01].driver,capability.driver, sizeof(camInfoTmp[cam_cnt&0x01].driver));
-                camInfoTmp[cam_cnt&0x01].version = capability.version;
+                memset(camInfoTmp[cam_cnt].device_path,0x00, sizeof(camInfoTmp[cam_cnt].device_path));
+                strcat(camInfoTmp[cam_cnt].device_path,cam_path);
+                memset(camInfoTmp[cam_cnt].fival_list,0x00, sizeof(camInfoTmp[cam_cnt].fival_list));
+                memcpy(camInfoTmp[cam_cnt].driver,capability.driver, sizeof(camInfoTmp[cam_cnt].driver));
+                camInfoTmp[cam_cnt].version = capability.version;
                 if (strstr((char*)&capability.card[0], "front") != NULL) {
-                    camInfoTmp[cam_cnt&0x01].facing_info.facing = CAMERA_FACING_FRONT;
+                    camInfoTmp[cam_cnt].facing_info.facing = CAMERA_FACING_FRONT;
 #ifdef LAPTOP
                 } else if (strstr((char*)&capability.card[0], "HP HD") != NULL
                     || strstr((char*)&capability.card[0], "HP IR")) {
@@ -874,14 +874,14 @@ int camera_get_number_of_cameras(void)
                     LOGD("Camera %d name: %s", (cam_cnt&0x01), gUsbCameraNames[cam_cnt&0x01].string());
 #endif
                 } else {
-                    camInfoTmp[cam_cnt&0x01].facing_info.facing = CAMERA_FACING_BACK;
+                    camInfoTmp[cam_cnt].facing_info.facing = CAMERA_FACING_BACK;
                 }  
                 ptr = strstr((char*)&capability.card[0],"-");
                 if (ptr != NULL) {
                     ptr++;
-                    camInfoTmp[cam_cnt&0x01].facing_info.orientation = atoi(ptr);
+                    camInfoTmp[cam_cnt].facing_info.orientation = atoi(ptr);
                 } else {
-                    camInfoTmp[cam_cnt&0x01].facing_info.orientation = 0;
+                    camInfoTmp[cam_cnt].facing_info.orientation = 0;
                 }
 
                 memset(version,0x00,sizeof(version));
@@ -1215,8 +1215,9 @@ int camera_get_number_of_cameras(void)
     }
     #endif
     
-    memcpy(&gCamInfos[0], &camInfoTmp[0], sizeof(rk_cam_info_t));
-    memcpy(&gCamInfos[1], &camInfoTmp[1], sizeof(rk_cam_info_t));
+    for (int i = 0; i < gCamerasNumber; i++) {
+        memcpy(&gCamInfos[i], &camInfoTmp[i], sizeof(rk_cam_info_t));
+    }
 
 
     property_get("ro.sf.hwrotation", property, "0");
