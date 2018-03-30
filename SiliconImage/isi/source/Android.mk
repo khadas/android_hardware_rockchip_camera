@@ -26,7 +26,18 @@ LOCAL_CFLAGS += -DLINUX  -DMIPI_USE_CAMERIC -DHAL_MOCKUP -DCAM_ENGINE_DRAW_DOM_O
 #LOCAL_LDFLAGS := $(full_path)/out/target/product/rk30sdk/obj/STATIC_LIBRARIES/libisp_hal_intermediates/libisp_hal.a
 #LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 
-LOCAL_SHARED_LIBRARIES:=libisp_silicomimageisp_api
+ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 7.0)))
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3326)
+MY_ISP_LIB_NAME := lib_rkisp12_api
+else
+MY_ISP_LIB_NAME := lib_rkisp1_api
+endif
+else
+MY_ISP_LIB_NAME := libisp_silicomimageisp_api
+endif
+
+LOCAL_SHARED_LIBRARIES += \
+	$(MY_ISP_LIB_NAME)
 
 LOCAL_MODULE:= libisp_isi
 

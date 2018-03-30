@@ -1403,11 +1403,13 @@ struct otp_struct {
     int flag_of_lsc_calib;
 };
 
-//for test,just for compile
-#define  RG_Ratio_Typical (0x16f)
-#define  BG_Ratio_Typical (0x16f)
+#define  RG_Ratio_Typical_Default (0x16f)
+#define  BG_Ratio_Typical_Default (0x16f)
+static int  RG_Ratio_Typical = 0x0;
+static int  BG_Ratio_Typical = 0x0;
 
 static struct otp_struct g_otp_info ={0};
+static bool bDumpRaw_OTP_switch = false;
 
 
 // index: index of otp group. (1, 2, 3)
@@ -1476,19 +1478,21 @@ static int read_otp(
     
         (*otp_ptr).flag_of_lsc_calib = sensor_i2c_read_p(context,camsys_fd,0x28,i2c_base_info);
 
-        TRACE( Sensor_ERROR, "%s flag_of_base_info(0x%x) module_integrator_id(0x%x) flag_of_wb_calib(0x%x)\n", __FUNCTION__,
+		property_set("sys_graphic.cam_otp_awb", "true");//awb info in OTP
+		property_set("sys_graphic.cam_otp_awb_enable", "true");
+        TRACE( Sensor_DEBUG, "%s flag_of_base_info(0x%x) module_integrator_id(0x%x) flag_of_wb_calib(0x%x)\n", __FUNCTION__,
         (*otp_ptr).flag_of_base_info,(*otp_ptr).module_integrator_id,(*otp_ptr).flag_of_wb_calib);
 
-        TRACE( Sensor_ERROR, "%s mozu: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
+        TRACE( Sensor_DEBUG, "%s mozu: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
         (*otp_ptr).r_value,(*otp_ptr).b_value,(*otp_ptr).gr_value,(*otp_ptr).gb_value);
 
-        TRACE( Sensor_ERROR, "%s golden: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
+        TRACE( Sensor_DEBUG, "%s golden: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
         (*otp_ptr).golden_r_value,(*otp_ptr).golden_b_value,(*otp_ptr).golden_gr_value,(*otp_ptr).golden_gb_value);
 
-        TRACE( Sensor_ERROR, "%s mozu: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
+        TRACE( Sensor_DEBUG, "%s mozu: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
         (*otp_ptr).rg_ratio_high,(*otp_ptr).rg_ratio_low,(*otp_ptr).bg_ratio_high,(*otp_ptr).bg_ratio_low,(*otp_ptr).grgb_ratio_high,(*otp_ptr).grgb_ratio_low);
 
-        TRACE( Sensor_ERROR, "%s golden: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
+        TRACE( Sensor_DEBUG, "%s golden: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
         (*otp_ptr).golden_rg_ratio_high,(*otp_ptr).golden_rg_ratio_low,(*otp_ptr).golden_bg_ratio_high,(*otp_ptr).golden_bg_ratio_low,(*otp_ptr).golden_grgb_ratio_high,(*otp_ptr).golden_grgb_ratio_low);
     }
 
@@ -1534,20 +1538,22 @@ static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
 {
     int rg, bg, R_gain, G_gain, B_gain, Base_gain, temp, i;
     int golden_rg, golden_bg;
+    char prop_value[PROPERTY_VALUE_MAX];
+
     // apply OTP WB Calibration
     if ((*otp_ptr).flag_of_wb_calib & 0x01) {
             rg = ((*otp_ptr).r_value*2)<<10 / ((*otp_ptr).gr_value + (*otp_ptr).gb_value);
             bg = ((*otp_ptr).b_value*2)<<10 / ((*otp_ptr).gr_value + (*otp_ptr).gb_value);
             golden_rg = ((*otp_ptr).golden_r_value*2)<<10 / ((*otp_ptr).golden_gr_value + (*otp_ptr).golden_gb_value);
             golden_bg = ((*otp_ptr).golden_b_value*2)<<10 / ((*otp_ptr).golden_gr_value + (*otp_ptr).golden_gb_value);
-            TRACE( Sensor_ERROR,  "%s: success  rg(0x%x) bg(0x%x)  golden_rg(0x%x) golden_bg(0x%x)!!!\n",  __FUNCTION__,rg,bg,golden_rg,golden_bg);
+            TRACE( Sensor_DEBUG,  "%s: success  rg(0x%x) bg(0x%x)  golden_rg(0x%x) golden_bg(0x%x)!!!\n",  __FUNCTION__,rg,bg,golden_rg,golden_bg);
     
         //calculate G gain
         R_gain = (golden_rg*1000) / rg;
         B_gain = (golden_bg*1000) / bg;
         G_gain = 1000;
 
-        TRACE(Sensor_ERROR, "R_gain(%d) B_gain(%d) G_gain(%d) \n", R_gain,B_gain,G_gain);
+        TRACE(Sensor_DEBUG, "R_gain(%d) B_gain(%d) G_gain(%d) \n", R_gain,B_gain,G_gain);
         if (R_gain < 1000 || B_gain < 1000)
         {
             if (R_gain < B_gain)
@@ -1564,25 +1570,81 @@ static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
         G_gain = 0x100 * G_gain / (Base_gain);
         
     // update sensor WB gain
-        if (R_gain>0x100) {
-            IMX214_write_i2c( handle,0x0210, R_gain>>8);
-            IMX214_write_i2c( handle,0x0211, R_gain & 0x00ff);
-        }
-        if (G_gain>0x100) {
-            IMX214_write_i2c( handle,0x020e, G_gain>>8);
-            IMX214_write_i2c( handle,0x020f, G_gain & 0x00ff);
-            IMX214_write_i2c( handle,0x0214, G_gain>>8);
-            IMX214_write_i2c( handle,0x0215, G_gain & 0x00ff);
-        }
-        if (B_gain>0x100) {
-            IMX214_write_i2c( handle,0x0212, B_gain>>8);
-            IMX214_write_i2c( handle,0x0213, B_gain & 0x00ff);
+    	property_get("sys_graphic.cam_otp_awb_enable", prop_value, "true");
+    	if (!strcmp(prop_value,"true")) {
+	        if (R_gain>0x100) {
+	            IMX214_write_i2c( handle,0x0210, R_gain>>8);
+	            IMX214_write_i2c( handle,0x0211, R_gain & 0x00ff);
+	        }
+	        if (G_gain>0x100) {
+	            IMX214_write_i2c( handle,0x020e, G_gain>>8);
+	            IMX214_write_i2c( handle,0x020f, G_gain & 0x00ff);
+	            IMX214_write_i2c( handle,0x0214, G_gain>>8);
+	            IMX214_write_i2c( handle,0x0215, G_gain & 0x00ff);
+	        }
+	        if (B_gain>0x100) {
+	            IMX214_write_i2c( handle,0x0212, B_gain>>8);
+	            IMX214_write_i2c( handle,0x0213, B_gain & 0x00ff);
+	        }
+	        TRACE( Sensor_DEBUG,  "%s: success  R_gain(0x%x) G_gain(0x%x)  B_gain(0x%x)!!!\n",  __FUNCTION__,R_gain,G_gain,B_gain);
         }
     }
     
-    TRACE( Sensor_ERROR,  "%s: success  R_gain(0x%x) G_gain(0x%x)  B_gain(0x%x)!!!\n",  __FUNCTION__,R_gain,G_gain,B_gain);
+    TRACE( Sensor_DEBUG,  "%s: exit!\n",  __FUNCTION__);
     return (*otp_ptr).flag_of_wb_calib;
 }
+
+static RESULT Sensor_IsiSetOTPInfo
+(
+    IsiSensorHandle_t       handle,
+    uint32_t OTPInfo
+)
+{
+	RESULT result = RET_SUCCESS;
+
+    Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
+
+    TRACE( Sensor_INFO, "%s (enter)\n", __FUNCTION__);
+
+    if ( pSensorCtx == NULL )
+    {
+        TRACE( Sensor_ERROR, "%s: Invalid sensor handle (NULL pointer detected)\n", __FUNCTION__ );
+        return ( RET_WRONG_HANDLE );
+    }
+
+	RG_Ratio_Typical = OTPInfo>>16;
+	BG_Ratio_Typical = OTPInfo&0xffff;
+
+	TRACE( Sensor_DEBUG, "%s:  --AWB(RG,BG) in IQ file is (0x%x, 0x%x)\n", __FUNCTION__ , RG_Ratio_Typical, BG_Ratio_Typical);
+	if((RG_Ratio_Typical==0) && (BG_Ratio_Typical==0)){
+		RG_Ratio_Typical = RG_Ratio_Typical_Default;
+		BG_Ratio_Typical = BG_Ratio_Typical_Default;
+		TRACE( Sensor_DEBUG, "%s:  --Finally, AWB(RG,BG) is (0x%x, 0x%x)\n", __FUNCTION__ , RG_Ratio_Typical, BG_Ratio_Typical);
+	}
+	return (result);
+}
+
+static RESULT Sensor_IsiEnableOTP
+(
+    IsiSensorHandle_t       handle,
+    const bool_t enable
+)
+{
+	RESULT result = RET_SUCCESS;
+
+    Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
+
+    TRACE( Sensor_INFO, "%s (enter)\n", __FUNCTION__);
+
+    if ( pSensorCtx == NULL )
+    {
+        TRACE( Sensor_ERROR, "%s: Invalid sensor handle (NULL pointer detected)\n", __FUNCTION__ );
+        return ( RET_WRONG_HANDLE );
+    }
+	bDumpRaw_OTP_switch = enable;
+	return (result);
+}
+
 
 /*****************************************************************************/
 /**
@@ -1608,7 +1670,7 @@ static RESULT Sensor_IsiSetupSensorIss
 
     RESULT result = RET_SUCCESS;
 
-    TRACE( Sensor_ERROR, "%s (enter)\n", __FUNCTION__);
+    TRACE( Sensor_DEBUG, "%s (enter)\n", __FUNCTION__);
 
     if ( pSensorCtx == NULL )
     {
@@ -1709,13 +1771,11 @@ static RESULT Sensor_IsiSetupSensorIss
         pSensorCtx->Configured = BOOL_TRUE;
     }
 
-    #if 1
     if(g_otp_info.flag_of_wb_calib == 0x01){
         apply_otp(pSensorCtx,&g_otp_info);
     }
-    #endif
 
-    TRACE( Sensor_ERROR, "%s: (exit)\n", __FUNCTION__);
+    TRACE( Sensor_DEBUG, "%s: (exit)\n", __FUNCTION__);
 
     return ( result );
 }
@@ -1755,7 +1815,6 @@ static RESULT Sensor_IsiChangeSensorResolutionIss
 
     RESULT result = RET_SUCCESS;
 
-    //TRACE( Sensor_INFO, "%s (enter)\n", __FUNCTION__);
     TRACE( Sensor_INFO, "%s (enter)  Resolution: %dx%d@%dfps\n", __FUNCTION__,
         ISI_RES_W_GET(Resolution),ISI_RES_H_GET(Resolution), ISI_FPS_GET(Resolution));
 
@@ -1787,7 +1846,7 @@ static RESULT Sensor_IsiChangeSensorResolutionIss
      if (Resolution != Caps.Resolution) {
         return RET_OUTOFRANGE;
     }
-	//TRACE( Sensor_ERROR, "%s (11111111enter)  \n", __FUNCTION__);
+
     if ( Resolution == pSensorCtx->Config.Resolution )
     {
         // well, no need to worry
@@ -1800,7 +1859,7 @@ static RESULT Sensor_IsiChangeSensorResolutionIss
         char *szResName = NULL;
 
 		bool_t res_no_chg;
-		//TRACE( Sensor_ERROR, "%s (2222222222enter)  \n", __FUNCTION__);
+
         if (!((ISI_RES_W_GET(Resolution)==ISI_RES_W_GET(pSensorCtx->Config.Resolution)) && 
             (ISI_RES_H_GET(Resolution)==ISI_RES_H_GET(pSensorCtx->Config.Resolution))) ) {
 
@@ -1812,7 +1871,7 @@ static RESULT Sensor_IsiChangeSensorResolutionIss
         } else {
             res_no_chg = BOOL_TRUE;
         }
-		//TRACE( Sensor_ERROR, "%s (333333333enter)  \n", __FUNCTION__);
+
         result = IsiGetResolutionName( Resolution, &szResName );
         TRACE( Sensor_INFO, "%s: NewRes=0x%08x (%s)\n", __FUNCTION__, Resolution, szResName);
 
@@ -1859,7 +1918,7 @@ static RESULT Sensor_IsiChangeSensorResolutionIss
         //	*pNumberOfFramesToSkip = 0;
     }
 
-    TRACE( Sensor_ERROR, "%s (exit)  result: 0x%x\n", __FUNCTION__, result);
+    TRACE( Sensor_DEBUG, "%s (exit)  result: 0x%x\n", __FUNCTION__, result);
 
     return ( result );
 }
@@ -1922,7 +1981,7 @@ static RESULT Sensor_IsiSensorSetStreamingIss
         result = Sensor_IsiRegWriteIss ( pSensorCtx, Sensor_MODE_SELECT, (RegValue & ~0x01U) );
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
 
-        TRACE(Sensor_ERROR," STREAM OFF ++++++++++++++");
+        TRACE(Sensor_ERROR," STREAM OFF");
     }
 
     if (result == RET_SUCCESS)
@@ -2123,7 +2182,7 @@ static RESULT Sensor_IsiRegReadIss
 {
     RESULT result = RET_SUCCESS;
 
-  //  TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
     if ( handle == NULL )
     {
@@ -2141,13 +2200,13 @@ static RESULT Sensor_IsiRegReadIss
         {
             NrOfBytes = 1;
         }
- //       TRACE( Sensor_REG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x)\n", __FUNCTION__, NrOfBytes, address);
+        TRACE( Sensor_REG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x)\n", __FUNCTION__, NrOfBytes, address);
 
         *p_value = 0;
         result = IsiI2cReadSensorRegister( handle, address, (uint8_t *)p_value, NrOfBytes, BOOL_TRUE );
     }
 
-  //  TRACE( Sensor_ERROR, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, *p_value);
+    TRACE( Sensor_DEBUG, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, *p_value);
 
     return ( result );
 }
@@ -2180,7 +2239,7 @@ static RESULT Sensor_IsiRegWriteIss
 
     uint8_t NrOfBytes;
 
-  //  TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
     if ( handle == NULL )
     {
@@ -2192,11 +2251,11 @@ static RESULT Sensor_IsiRegWriteIss
     {
         NrOfBytes = 1;
     }
-//    TRACE( Sensor_REG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x 0x%08x)\n", __FUNCTION__, NrOfBytes, address, value);
+    TRACE( Sensor_REG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x 0x%08x)\n", __FUNCTION__, NrOfBytes, address, value);
 
     result = IsiI2cWriteSensorRegister( handle, address, (uint8_t *)(&value), NrOfBytes, BOOL_TRUE );
 
-//    TRACE( Sensor_ERROR, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, value);
+    TRACE( Sensor_DEBUG, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, value);
 
     return ( result );
 }
@@ -2283,7 +2342,7 @@ static RESULT Sensor_IsiGetIntegrationTimeLimitsIss
     RESULT result = RET_SUCCESS;
 
 
-    TRACE( Sensor_INFO, "%s: (------oyyf enter) \n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: enter\n", __FUNCTION__);
 
     if ( pSensorCtx == NULL )
     {
@@ -2300,7 +2359,7 @@ static RESULT Sensor_IsiGetIntegrationTimeLimitsIss
     *pMinIntegrationTime = pSensorCtx->AecMinIntegrationTime;
     *pMaxIntegrationTime = pSensorCtx->AecMaxIntegrationTime;
 
-    TRACE( Sensor_INFO, "%s: (------oyyf exit) (\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: exit\n", __FUNCTION__);
 
     return ( result );
 }
@@ -2431,7 +2490,7 @@ RESULT Sensor_IsiSetGainIss
     uint16_t usGain = 0;
 
 
-    //TRACE( Sensor_ERROR, "%s: (enter) %f  (%f -- %f)\n", __FUNCTION__,NewGain,pSensorCtx->AecMinGain,pSensorCtx->AecMaxGain);
+    TRACE( Sensor_DEBUG, "%s: (enter) %f  (%f -- %f)\n", __FUNCTION__,NewGain,pSensorCtx->AecMinGain,pSensorCtx->AecMaxGain);
 
     if ( pSensorCtx == NULL )
     {
@@ -2468,7 +2527,7 @@ RESULT Sensor_IsiSetGainIss
     //return current state
     *pSetGain = pSensorCtx->AecCurGain;
 
-    //TRACE( Sensor_ERROR, "%s: setgain mubiao(%f) shiji(%f) usGain(%d)\n", __FUNCTION__, NewGain, *pSetGain,usGain);
+    TRACE( Sensor_DEBUG, "%s: setgain mubiao(%f) shiji(%f) usGain(%d)\n", __FUNCTION__, NewGain, *pSetGain,usGain);
 
     return ( result );
 }
@@ -2545,7 +2604,7 @@ RESULT Sensor_IsiGetIntegrationTimeIncrementIss
 
     RESULT result = RET_SUCCESS;
 
-    TRACE( Sensor_INFO, "%s: (-------oyyf)(enter)\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
     if ( pSensorCtx == NULL )
     {
@@ -2561,7 +2620,7 @@ RESULT Sensor_IsiGetIntegrationTimeIncrementIss
     //_smallest_ increment the sensor/driver can handle (e.g. used for sliders in the application)
     *pIncr = pSensorCtx->AecIntegrationTimeIncrement;
 
-    TRACE( Sensor_INFO, "%s: (------oyyf)(exit) pSensorCtx->AecIntegrationTimeIncrement(%f)\n", __FUNCTION__,pSensorCtx->AecIntegrationTimeIncrement);
+    TRACE( Sensor_INFO, "%s: (exit) pSensorCtx->AecIntegrationTimeIncrement(%f)\n", __FUNCTION__,pSensorCtx->AecIntegrationTimeIncrement);
 
     return ( result );
 }
@@ -4223,6 +4282,8 @@ RESULT Sensor_IsiGetSensorIss
 		pIsiSensor->pIsiGetSensorIsiVer					= Sensor_IsiGetSensorIsiVersion;//oyyf
 		pIsiSensor->pIsiGetSensorTuningXmlVersion		= Sensor_IsiGetSensorTuningXmlVersion;//oyyf
 		pIsiSensor->pIsiCheckOTPInfo                    = check_read_otp;//zyc
+		pIsiSensor->pIsiSetSensorOTPInfo				= Sensor_IsiSetOTPInfo;
+		pIsiSensor->pIsiEnableSensorOTP					= Sensor_IsiEnableOTP;
         pIsiSensor->pIsiCreateSensorIss                 = Sensor_IsiCreateSensorIss;
         pIsiSensor->pIsiReleaseSensorIss                = Sensor_IsiReleaseSensorIss;
         pIsiSensor->pIsiGetCapsIss                      = Sensor_IsiGetCapsIss;

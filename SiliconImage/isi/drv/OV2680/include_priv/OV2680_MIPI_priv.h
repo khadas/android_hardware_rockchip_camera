@@ -1,35 +1,3 @@
-//OV2680_MIPI_priv.h
-/*****************************************************************************/
-/*!
- *  \file        OV2680_priv.h \n
- *  \version     1.0 \n
- *  \author      Meinicke \n
- *  \brief       Private header file for sensor specific code of the OV13850. \n
- *
- *  \revision    $Revision: 432 $ \n
- *               $Author: neugebaa $ \n
- *               $Date: 2009-06-30 11:48:59 +0200 (Di, 30 Jun 2009) $ \n
- *               $Id: OV13850_priv.h 432 2009-06-30 09:48:59Z neugebaa $ \n
- */
-/*  This is an unpublished work, the copyright in which vests in Silicon Image
- *  GmbH. The information contained herein is the property of Silicon Image GmbH
- *  and is supplied without liability for errors or omissions. No part may be
- *  reproduced or used expect as authorized by contract or other written
- *  permission. Copyright(c) Silicon Image GmbH, 2009, all rights reserved.
- */
-/*****************************************************************************/
-
-/*Modify by oyyf@rock-chips.com*/
-/*
-#ifndef _OV2680_PRIV_H
-#define _OV2680_PRIV_H
-
-#include "isi_priv.h"
-
-#if( OV2680_DRIVER_USAGE == USE_CAM_DRV_EN )
-*/
-
-
 #ifndef __OV2680_PRIV_H__
 #define __OV2680_PRIV_H__
 
@@ -56,9 +24,11 @@ extern "C"
 *   1). support isi v0.0xd.0
 *v0.5.0
 *   1). remove streamon register from initial table.
+*v0.6.0
+*   1) remove unused code.
 */
 
-#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 5, 0x00) 
+#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 6, 0x00) 
 
 
 #define Sensor_CHIP_ID_HIGH_BYTE            (0x300a) // r - 

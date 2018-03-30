@@ -176,6 +176,10 @@ typedef struct AecConfig_s
     AecEcmFlickerPeriod_t   EcmFlickerSelect;       /**< flicker period selection */
 //    float                   EcmT0fac;             /**< start of flicker avoidance as multiple of flicker period: EcmT0 = EcmT0fac * EcmTflicker*/
 //    float                   EcmA0;                /**< linear: slope of gain */
+
+	uint32_t	histBinNum;
+	uint32_t    hGridNum;
+	uint32_t	vGridNum;
 } AecConfig_t;
 
 
@@ -188,8 +192,8 @@ typedef struct AecConfig_s
  *****************************************************************************/
 RESULT AecSetMeanLumaGridWeights
 (
-    AecHandle_t handle,
-    const unsigned char  *pWeights
+	AecHandle_t handle,
+	const CamerIcHistWeights_t	 *pWeights
 );
 
 /*****************************************************************************/
@@ -292,7 +296,7 @@ RESULT AecReConfigure
 RESULT AecSemExecute
 (
     AecHandle_t         handle,
-    CamerIcMeanLuma_t   luma
+    CamerIcMeanLuma_t   *pLuma
 );
 
 
@@ -313,7 +317,7 @@ RESULT AecSemExecute
 RESULT AecClmExecute
 (
     AecHandle_t         handle,
-    CamerIcHistBins_t   bins
+    CamerIcHistBins_t   *pBins
 );
 
 
@@ -619,7 +623,7 @@ RESULT AecUnLock
 RESULT AecGetGridWeights
 (
 	AecHandle_t handle,
-	CamerIcHistWeights_t pWeights
+	CamerIcHistWeights_t *pWeights
 );
 
 

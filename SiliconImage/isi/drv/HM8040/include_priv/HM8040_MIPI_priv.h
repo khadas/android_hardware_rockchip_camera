@@ -16,11 +16,12 @@ extern "C"
 *              SILICONIMAGE LIBISP VERSION NOTE
 *
 *v0.1.0 : first version
-
+*v0.2.0 : add the delay time to recovery working status for sensor in below cases:
+*         1.enable/disable the streaming funciton by setting Reg[0x0100]
 */
 
 
-#define CONFIG_SENSOR_DRV_VERSION  KERNEL_VERSION(0, 1, 0)
+#define CONFIG_SENSOR_DRV_VERSION  KERNEL_VERSION(0, 2, 0)
 
 /*****************************************************************************
  * System control registers

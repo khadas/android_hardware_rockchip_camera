@@ -68,6 +68,15 @@ endif
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
+ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 7.0)))
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3326)
+MY_ISP_LIB_NAME := lib_rkisp12_api
+else
+MY_ISP_LIB_NAME := lib_rkisp1_api
+endif
+else
+MY_ISP_LIB_NAME := libisp_silicomimageisp_api
+endif
 LOCAL_SRC_FILES:=\
 	CameraHalUtil.cpp\
 	MessageQueue.cpp\
@@ -147,7 +156,7 @@ LOCAL_SHARED_LIBRARIES:= \
     libion\
     libvpu\
     libdl\
-    libisp_silicomimageisp_api \
+    $(MY_ISP_LIB_NAME) \
     libexpat \
     libskia \
     libhardware \

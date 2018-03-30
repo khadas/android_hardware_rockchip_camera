@@ -112,6 +112,7 @@
                <fRgProjIllToCwf index="1" size="[1 1]" type="double">[-0.1]</fRgProjIllToCwf>
                <fRgProjIllToCwfWeight index="1" size="[1 1]" type="double">[0]</fRgProjIllToCwfWeight>
                <awb_clip_outdoor index="1" size="[1 3]" type="char">D65</awb_clip_outdoor>
+	      <awbExppriorOutdoorSwitchOff index="1" size="[1 1]" type="double">[0]</awbExppriorOutdoorSwitchOff>
                <IIR index="1" size="[1 1]" type="struct">
                   <DampCoefAdd index="1" size="[1 1]" type="double">[0.05]</DampCoefAdd>
                   <DampCoefSub index="1" size="[1 1]" type="double">[0.05]</DampCoefSub>
@@ -200,6 +201,7 @@
                <fRgProjIllToCwf index="1" size="[1 1]" type="double">[-0.1]</fRgProjIllToCwf>
                <fRgProjIllToCwfWeight index="1" size="[1 1]" type="double">[0]</fRgProjIllToCwfWeight>
                <awb_clip_outdoor index="1" size="[1 3]" type="char">D65</awb_clip_outdoor>
+	      <awbExppriorOutdoorSwitchOff index="1" size="[1 1]" type="double">[0]</awbExppriorOutdoorSwitchOff>
                <IIR index="1" size="[1 1]" type="struct">
                   <DampCoefAdd index="1" size="[1 1]" type="double">[0.05]</DampCoefAdd>
                   <DampCoefSub index="1" size="[1 1]" type="double">[0.05]</DampCoefSub>

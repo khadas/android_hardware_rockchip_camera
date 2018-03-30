@@ -1,15 +1,3 @@
-//OV8858 the same with ov14825
-
-/******************************************************************************
- *
- * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
- * No part of this work may be reproduced, modified, distributed, transmitted,
- * transcribed, or translated into any language or computer format, in any form
- * or by any means without written permission of:
- * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
- * Germany
- *
- *****************************************************************************/
 /**
  * @file OV8858.c
  *
@@ -32,7 +20,6 @@
 
 #define  OV8858_NEWEST_TUNING_XML "18-7-2014_oyyf-hkw_OV8858_CMK-CB0407-FV1_v0.1.2"
 
-//hkw no use;
 #define CC_OFFSET_SCALING  2.0f
 #define I2C_COMPLIANT_STARTBIT 1U
 
@@ -277,7 +264,7 @@ static int g_sensor_version;
 
 int  RG_Ratio_Typical=0x0;
 int  BG_Ratio_Typical=0x0;
-bool bOTP_switch = true;
+static bool bDumpRaw_OTP_switch = false;
 
 #define  RG_Ratio_Typical_tongju (0x15c)
 #define  BG_Ratio_Typical_tongju (0x13f)
@@ -360,6 +347,8 @@ static int check_read_otp_R1A(
         (*otp_ptr).bg_ratio = (sensor_i2c_read_p(context,camsys_fd,addr + 1, i2c_base_info)<<2) + ((temp>>4) & 0x03);
         (*otp_ptr).light_rg = (sensor_i2c_read_p(context,camsys_fd,addr + 2, i2c_base_info)<<2) + ((temp>>2) & 0x03);
         (*otp_ptr).light_bg = (sensor_i2c_read_p(context,camsys_fd,addr + 3, i2c_base_info)<<2) + ((temp) & 0x03);
+         property_set("sys_graphic.cam_otp_awb", "true");
+         property_set("sys_graphic.cam_otp_awb_enable", "true");
         TRACE( OV8858_NOTICE0, "%s awb info in OTP(0x%x,0x%x,0x%x,0x%x)!\n", __FUNCTION__,(*otp_ptr).rg_ratio,(*otp_ptr).bg_ratio,
                                 (*otp_ptr).light_rg,(*otp_ptr).light_bg);
 
@@ -416,6 +405,8 @@ static int check_read_otp_R1A(
             (* otp_ptr).lenc[i]=sensor_i2c_read_p(context,camsys_fd,addr + i, i2c_base_info);
             TRACE( OV8858_INFO, "%s lsc 0x%x!\n", __FUNCTION__,(*otp_ptr).lenc[i]);
         }
+        property_set("sys_graphic.cam_otp_lsc", "true");
+        property_set("sys_graphic.cam_otp_lsc_enable", "true");
     }
     else {
         for(i=0;i<110;i++) {
@@ -473,11 +464,11 @@ static int check_read_otp_R2A(
 		temp = sensor_i2c_read_p(context,camsys_fd, addr + 7, i2c_base_info);
 		(*otp_ptr).rg_ratio = (sensor_i2c_read_p(context,camsys_fd, addr + 5, i2c_base_info)<<2) + ((temp>>6) & 0x03);
 		(*otp_ptr).bg_ratio = (sensor_i2c_read_p(context,camsys_fd, addr + 6, i2c_base_info)<<2) + ((temp>>4) & 0x03);
+		property_set("sys_graphic.cam_otp_awb", "true");
+		property_set("sys_graphic.cam_otp_awb_enable", "true");
 		TRACE( OV8858_ERROR, "%s awb info in module_integrator_id(0x%x) lens_id(0x%x) production_year_month_day(%d_%d_%d) !\n", 
 		__FUNCTION__,(*otp_ptr).module_integrator_id,(*otp_ptr).lens_id,(*otp_ptr).production_year,(*otp_ptr).production_month,(*otp_ptr).production_day);
         TRACE( OV8858_ERROR, "%s awb info in OTP(0x%x,0x%x)!\n", __FUNCTION__,(*otp_ptr).rg_ratio,(*otp_ptr).bg_ratio);		
-
-
 	}
 	else {
 		(*otp_ptr).flag = 0x00; // not info and AWB in OTP
@@ -533,6 +524,8 @@ static int check_read_otp_R2A(
 		(* otp_ptr).checksum = sensor_i2c_read_p(context,camsys_fd,addr + 240, i2c_base_info);
 		if((* otp_ptr).checksum == checksum2){
 			(*otp_ptr).flag |= 0x10;
+			property_set("sys_graphic.cam_otp_lsc", "true");
+			property_set("sys_graphic.cam_otp_lsc_enable", "true");
 		}
 	}
 	else {
@@ -627,6 +620,9 @@ static int check_read_otp(
 static int apply_otp_R1A(IsiSensorHandle_t   handle,struct otp_struct_R1A *otp_ptr)
 {
     int rg, bg, R_gain, G_gain, B_gain, Base_gain, temp, i;
+    char prop_value[PROPERTY_VALUE_MAX];
+
+	TRACE( OV8858_NOTICE0,  "%s: enter\n",  __FUNCTION__ );
     // apply OTP WB Calibration
     if ((*otp_ptr).flag & 0x40) {
         if((*otp_ptr).light_rg == 0){
@@ -660,30 +656,38 @@ static int apply_otp_R1A(IsiSensorHandle_t   handle,struct otp_struct_R1A *otp_p
         R_gain = 0x400 * R_gain / (Base_gain);
         B_gain = 0x400 * B_gain / (Base_gain);
         G_gain = 0x400 * G_gain / (Base_gain);
-    // update sensor WB gain
-        if (R_gain>0x400) {
-            OV8858_R2A_write_i2c( handle,0x5032, R_gain>>8);
-            OV8858_R2A_write_i2c( handle,0x5033, R_gain & 0x00ff);
-        }
-        if (G_gain>0x400) {
-            OV8858_R2A_write_i2c( handle,0x5034, G_gain>>8);
-            OV8858_R2A_write_i2c( handle,0x5035, G_gain & 0x00ff);
-        }
-        if (B_gain>0x400) {
-            OV8858_R2A_write_i2c( handle,0x5036, B_gain>>8);
-            OV8858_R2A_write_i2c( handle,0x5037, B_gain & 0x00ff);
+    	// update sensor WB gain
+		property_get("sys_graphic.cam_otp_awb_enable", prop_value, "true");
+		if (!strcmp(prop_value,"true")) {
+	        if (R_gain>0x400) {
+	            OV8858_R2A_write_i2c( handle,0x5032, R_gain>>8);
+	            OV8858_R2A_write_i2c( handle,0x5033, R_gain & 0x00ff);
+	        }
+	        if (G_gain>0x400) {
+	            OV8858_R2A_write_i2c( handle,0x5034, G_gain>>8);
+	            OV8858_R2A_write_i2c( handle,0x5035, G_gain & 0x00ff);
+	        }
+	        if (B_gain>0x400) {
+	            OV8858_R2A_write_i2c( handle,0x5036, B_gain>>8);
+	            OV8858_R2A_write_i2c( handle,0x5037, B_gain & 0x00ff);
+	        }
+	        TRACE( OV8858_NOTICE0,  "%s: apply awb OTP data\n",  __FUNCTION__ );
         }
     }
     // apply OTP Lenc Calibration
     if ((*otp_ptr).flag & 0x10) {
-        temp = OV8858_R2A_read_i2c( handle,0x5000);
-        temp = 0x80 | temp;
-        OV8858_R2A_write_i2c( handle,0x5000, temp);
-        for(i=0;i<110;i++) {
-            OV8858_R2A_write_i2c( handle,0x5800 + i, (*otp_ptr).lenc[i]);
+    	property_get("sys_graphic.cam_otp_lsc_enable", prop_value, "true");
+    	if (!strcmp(prop_value,"true")) {
+	        temp = OV8858_R2A_read_i2c( handle,0x5000);
+	        temp = 0x80 | temp;
+	        OV8858_R2A_write_i2c( handle,0x5000, temp);
+	        for(i=0;i<110;i++) {
+	            OV8858_R2A_write_i2c( handle,0x5800 + i, (*otp_ptr).lenc[i]);
+	        }
+	        TRACE( OV8858_NOTICE0,  "%s: apply lsc OTP data\n",  __FUNCTION__ );
         }
     }
-    TRACE( OV8858_NOTICE0,  "%s: success!!!\n",  __FUNCTION__ );
+    TRACE( OV8858_NOTICE0,  "%s: exit\n",  __FUNCTION__ );
     return (*otp_ptr).flag;
 }
 
@@ -695,7 +699,7 @@ static int apply_otp_R1A(IsiSensorHandle_t   handle,struct otp_struct_R1A *otp_p
 static int apply_otp_R2A(IsiSensorHandle_t   handle,struct otp_struct_R2A *otp_ptr)
 {
 	int rg, bg, R_gain, G_gain, B_gain, Base_gain, temp, i;
-	
+	char prop_value[PROPERTY_VALUE_MAX];
 	// apply OTP WB Calibration
 	if ((*otp_ptr).flag & 0x40) {
 		rg = (*otp_ptr).rg_ratio;
@@ -719,29 +723,37 @@ static int apply_otp_R2A(IsiSensorHandle_t   handle,struct otp_struct_R2A *otp_p
 		B_gain = 0x400 * B_gain / (Base_gain);
 		G_gain = 0x400 * G_gain / (Base_gain);
 		// update sensor WB gain
-		if (R_gain>0x400) {
-			OV8858_R2A_write_i2c(handle, 0x5032, R_gain>>8);
-			OV8858_R2A_write_i2c(handle, 0x5033, R_gain & 0x00ff);
-		}
-		if(G_gain>0x400) {
-			OV8858_R2A_write_i2c(handle, 0x5034, G_gain>>8);
-			OV8858_R2A_write_i2c(handle, 0x5035, G_gain & 0x00ff);
-		}
-		if(B_gain>0x400) {
-			OV8858_R2A_write_i2c(handle, 0x5036, B_gain>>8);
-			OV8858_R2A_write_i2c(handle, 0x5037, B_gain & 0x00ff);
+		property_get("sys_graphic.cam_otp_awb_enable", prop_value, "true");
+		if (!strcmp(prop_value,"true")) {
+			if (R_gain>0x400) {
+				OV8858_R2A_write_i2c(handle, 0x5032, R_gain>>8);
+				OV8858_R2A_write_i2c(handle, 0x5033, R_gain & 0x00ff);
+			}
+			if(G_gain>0x400) {
+				OV8858_R2A_write_i2c(handle, 0x5034, G_gain>>8);
+				OV8858_R2A_write_i2c(handle, 0x5035, G_gain & 0x00ff);
+			}
+			if(B_gain>0x400) {
+				OV8858_R2A_write_i2c(handle, 0x5036, B_gain>>8);
+				OV8858_R2A_write_i2c(handle, 0x5037, B_gain & 0x00ff);
+			}
+			TRACE( OV8858_NOTICE0,  "%s: apply awb OTP data\n",  __FUNCTION__ );
 		}
 	}
 	// apply OTP Lenc Calibration
 	if ((*otp_ptr).flag & 0x10) {
-		temp = OV8858_R2A_read_i2c(handle, 0x5000);
-		temp = 0x80 | temp;
-		OV8858_R2A_write_i2c(handle, 0x5000, temp);
-		for(i=0;i<240;i++) {
-			OV8858_R2A_write_i2c(handle, 0x5800 + i, (*otp_ptr).lenc[i]);
+	    property_get("sys_graphic.cam_otp_lsc_enable", prop_value, "true");
+    	if (!strcmp(prop_value,"true")) {
+			temp = OV8858_R2A_read_i2c(handle, 0x5000);
+			temp = 0x80 | temp;
+			OV8858_R2A_write_i2c(handle, 0x5000, temp);
+			for(i=0;i<240;i++) {
+				OV8858_R2A_write_i2c(handle, 0x5800 + i, (*otp_ptr).lenc[i]);
+			}
 		}
+		TRACE( OV8858_NOTICE0,  "%s: apply lsc OTP data\n",  __FUNCTION__ );
 	}
-	TRACE( OV8858_NOTICE0,  "%s: success!!!\n",  __FUNCTION__ );
+	TRACE( OV8858_NOTICE0,  "%s: exit!!!\n",  __FUNCTION__ );
 	return (*otp_ptr).flag;
 }
 
@@ -811,7 +823,7 @@ static RESULT OV8858_IsiEnableOTP
         TRACE( OV8858_ERROR, "%s: Invalid sensor handle (NULL pointer detected)\n", __FUNCTION__ );
         return ( RET_WRONG_HANDLE );
     }
-	bOTP_switch = enable;
+	bDumpRaw_OTP_switch = enable;
 	return (result);
 }
 
@@ -2199,24 +2211,16 @@ static RESULT OV8858_IsiSetupSensorIss
         return ( result );
     }
 
-	char prop_value[PROPERTY_VALUE_MAX];
-	property_get("sys_graphic.cam_otp", prop_value, "true");
     //set OTP
-    if(bOTP_switch && !strcmp(prop_value,"true")){
-        //struct otp_struct  otp_ptr;
-        //read_otp(handle,&otp_ptr);
-        if(g_sensor_version == OV8858_R1A){
-	        if(g_otp_info_R1A.flag != 0){
-	            TRACE( OV8858_NOTICE0, "%s: apply OTP info !!\n", __FUNCTION__);
-				apply_otp_R1A(handle,&g_otp_info_R1A);
-	        }
-    	}else if(g_sensor_version == OV8858_R2A){
-	        if(g_otp_info_R2A.flag != 0){
-	            TRACE( OV8858_NOTICE0, "%s: apply OTP info !!\n", __FUNCTION__);
-	            apply_otp_R2A(handle,&g_otp_info_R2A);
-	        }
-		}
-    }
+    if(g_sensor_version == OV8858_R1A){
+        if(g_otp_info_R1A.flag != 0){
+			apply_otp_R1A(handle,&g_otp_info_R1A);
+        }
+	}else if(g_sensor_version == OV8858_R2A){
+        if(g_otp_info_R2A.flag != 0){
+            apply_otp_R2A(handle,&g_otp_info_R2A);
+        }
+	}
     
     result = OV8858_IsiRegWriteIss( pOV8858Ctx, OV8858_MODE_SELECT, OV8858_MODE_SELECT_OFF );
     if ( result != RET_SUCCESS )

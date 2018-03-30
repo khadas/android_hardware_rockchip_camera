@@ -120,9 +120,12 @@ typedef struct _i2c_bus {
 #include <mrv2_all_regs_addr_map.h>
 #include <mrv_all_reg_description.h>
 #include <mrv_all_reg_descr_idx.h>
-  //#include <mrv_all_regs_mask.h>
-#include <mrv_all_regs.h>
 
+#if defined(RK_ISP_V12)
+#include <rkisp12_all_regs.h>
+#else
+#include <rkisp1_all_regs.h>
+#endif
 #include <vdu_all_regs_addr_map.h>
 #include <vdu_all_reg_description.h>
 #include <vdu_all_reg_descr_idx.h>

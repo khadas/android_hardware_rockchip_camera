@@ -108,8 +108,16 @@ typedef enum CamEngineAecDampingMode_e
  * @brief   Auto-Exposure-Control histogram.
  *
  *****************************************************************************/
-#define CAM_ENGINE_AEC_HIST_NUM_BINS           16  /**< number of bins */
-typedef uint32_t CamEngineAecHistBins_t[CAM_ENGINE_AEC_HIST_NUM_BINS];
+#if defined(RK_ISP_V12)
+#define CAM_ENGINE_AEC_HIST_NUM_BINS           32/**< number of bins */
+#else
+#define CAM_ENGINE_AEC_HIST_NUM_BINS           16/**< number of bins */
+#endif
+typedef struct CamEngineAecHistBins_s
+{
+	uint32_t *pHistBins;
+	uint32_t binNum;
+}CamEngineAecHistBins_t;
 
 
 
@@ -118,10 +126,26 @@ typedef uint32_t CamEngineAecHistBins_t[CAM_ENGINE_AEC_HIST_NUM_BINS];
  * @brief   Auto-Exposure-Control luminance grid.
  *
  *****************************************************************************/
+#if defined(RK_ISP_V12)
+#define CAM_ENGINE_AEC_EXP_GRID_ITEMS          81  /**< number of grid items (see @ref CamerIcMeanLuma_t) */
+#else
 #define CAM_ENGINE_AEC_EXP_GRID_ITEMS          25  /**< number of grid items (see @ref CamerIcMeanLuma_t) */
-typedef uint8_t CamEngineAecMeanLuma_t[CAM_ENGINE_AEC_EXP_GRID_ITEMS];
+#endif
+typedef struct CamEngineAecMeanLuma_s
+{
+	uint8_t * pMeanLuma;
+	uint32_t  size;
+}CamEngineAecMeanLuma_t;
 
-
+#if defined(RK_ISP_V12)
+#define CAM_ENGINE_AEC_HIST_GRID_WEIGHTS_H           9/**< number of bins */
+#define CAM_ENGINE_EXP_MEASURING_WIN_W               (pCamEngineCtx->outWindow.width)//FIXME
+#define CAM_ENGINE_EXP_MEASURING_WIN_H               (pCamEngineCtx->outWindow.height)
+#else
+#define CAM_ENGINE_AEC_HIST_GRID_WEIGHTS_H           5/**< number of bins */
+#define CAM_ENGINE_EXP_MEASURING_WIN_W               (( (4096-176) > pCamEngineCtx->outWindow.width)  ? pCamEngineCtx->outWindow.width : (4096-177))//FIXME
+#define CAM_ENGINE_EXP_MEASURING_WIN_H               (( (3072-140) > pCamEngineCtx->outWindow.height) ? pCamEngineCtx->outWindow.height: (3072-141))
+#endif
 
 /*****************************************************************************/
 /**

@@ -327,13 +327,12 @@
     1) add awbExpprior outdoor swithoff para in IQ xml. Default: switch on;
 *2.0x3.0:
     1) v1.0x53.0 eixts bug, fix it.
+*2.0x4.0:
+    1) support rkispv12,AE&HIST merged only.
 */
 
 
-
-
-
-#define CONFIG_SILICONIMAGE_LIBISP_VERSION KERNEL_VERSION(2, 0x03, 0)
+#define CONFIG_SILICONIMAGE_LIBISP_VERSION KERNEL_VERSION(2, 0x04, 0)
 
 
 

@@ -48,12 +48,12 @@ const IsiRegDescription_t Sensor_g_aRegDescription_fourlane[] =
 	{0x0000,   0x00, "eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_fourlane_resolution_1640_1232[] =
+const IsiRegDescription_t Sensor_g_fourlane_resolution_1632_1224[] =
 {
 	{0x0100,0x00,"0x0100",eReadWrite},
 	{0x0101,0x00,"0x0100",eReadWrite},
-	{0x0202,0x09,"0x0100",eReadWrite},
-	{0x0203,0xCC,"0x0100",eReadWrite},
+	//{0x0202,0x09,"0x0100",eReadWrite},
+	//{0x0203,0xCC,"0x0100",eReadWrite},
 	{0x0301,0x05,"0x0100",eReadWrite},
 	{0x0303,0x01,"0x0100",eReadWrite},
 	{0x0305,0x06,"0x0100",eReadWrite},
@@ -74,9 +74,9 @@ const IsiRegDescription_t Sensor_g_fourlane_resolution_1640_1232[] =
 	{0x034A,0x09,"0x0100",eReadWrite},
 	{0x034B,0x9F,"0x0100",eReadWrite},
 	{0x034C,0x06,"0x0100",eReadWrite},
-	{0x034D,0x68,"0x0100",eReadWrite},
+	{0x034D,0x60,"0x0100",eReadWrite},
 	{0x034E,0x04,"0x0100",eReadWrite},
-	{0x034F,0xD0,"0x0100",eReadWrite},
+	{0x034F,0xC8,"0x0100",eReadWrite},
 	{0x0383,0x01,"0x0100",eReadWrite},
 	{0x0387,0x01,"0x0100",eReadWrite},
 	{0x0390,0x01,"0x0100",eReadWrite},
@@ -114,7 +114,7 @@ const IsiRegDescription_t Sensor_g_fourlane_resolution_1640_1232[] =
 	{0x0000,   0x00, "eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_1640x1232P30_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_1632x1224P30_fourlane_fpschg[] =
 {
 
 	{0x0202,0x09,"0x0100",eReadWrite},
@@ -124,7 +124,7 @@ const IsiRegDescription_t Sensor_g_1640x1232P30_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_1640x1232P25_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_1632x1224P25_fourlane_fpschg[] =
 {
 	{0x0202,0x0B,"0x0100",eReadWrite},
 	{0x0203,0xC2,"0x0100",eReadWrite},
@@ -134,7 +134,7 @@ const IsiRegDescription_t Sensor_g_1640x1232P25_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_1640x1232P20_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_1632x1224P20_fourlane_fpschg[] =
 {
 	{0x0202,0x0E,"0x0100",eReadWrite},
 	{0x0203,0xB3,"0x0100",eReadWrite},
@@ -144,7 +144,7 @@ const IsiRegDescription_t Sensor_g_1640x1232P20_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_1640x1232P15_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_1632x1224P15_fourlane_fpschg[] =
 {
 	{0x0202,0x13,"0x0100",eReadWrite},
 	{0x0203,0x9B,"0x0100",eReadWrite},
@@ -154,7 +154,7 @@ const IsiRegDescription_t Sensor_g_1640x1232P15_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_1640x1232P10_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_1632x1224P10_fourlane_fpschg[] =
 {
 	{0x0202,0x1D,"0x0100",eReadWrite},
 	{0x0203,0x6B,"0x0100",eReadWrite},
@@ -164,12 +164,12 @@ const IsiRegDescription_t Sensor_g_1640x1232P10_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_fourlane_resolution_3280_2464[] =
+const IsiRegDescription_t Sensor_g_fourlane_resolution_3264_2448[] =
 {
 	{0x0100,0x00,"0x0100",eReadWrite},
 	{0x0101,0x00,"0x0100",eReadWrite},
-	{0x0202,0x09,"0x0100",eReadWrite},
-	{0x0203,0xCC,"0x0100",eReadWrite},
+	//{0x0202,0x09,"0x0100",eReadWrite},
+	//{0x0203,0xCC,"0x0100",eReadWrite},
 	{0x0301,0x05,"0x0100",eReadWrite},
 	{0x0303,0x01,"0x0100",eReadWrite},
 	{0x0305,0x06,"0x0100",eReadWrite},
@@ -186,13 +186,13 @@ const IsiRegDescription_t Sensor_g_fourlane_resolution_3280_2464[] =
 	{0x0346,0x00,"0x0100",eReadWrite},
 	{0x0347,0x00,"0x0100",eReadWrite},
 	{0x0348,0x0C,"0x0100",eReadWrite},
-	{0x0349,0xCF,"0x0100",eReadWrite},
+	{0x0349,0xBF,"0x0100",eReadWrite},
 	{0x034A,0x09,"0x0100",eReadWrite},
-	{0x034B,0x9F,"0x0100",eReadWrite},
+	{0x034B,0x8F,"0x0100",eReadWrite},
 	{0x034C,0x0C,"0x0100",eReadWrite},
-	{0x034D,0xD0,"0x0100",eReadWrite},
+	{0x034D,0xC0,"0x0100",eReadWrite},
 	{0x034E,0x09,"0x0100",eReadWrite},
-	{0x034F,0xA0,"0x0100",eReadWrite},
+	{0x034F,0x90,"0x0100",eReadWrite},
 	{0x0383,0x01,"0x0100",eReadWrite},
 	{0x0387,0x01,"0x0100",eReadWrite},
 	{0x0390,0x00,"0x0100",eReadWrite},
@@ -229,7 +229,7 @@ const IsiRegDescription_t Sensor_g_fourlane_resolution_3280_2464[] =
 	{0x0000,   0x00, "eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_3280x2464P30_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_3264x2448P30_fourlane_fpschg[] =
 {
 	{0x0202,0x09,"0x0100",eReadWrite},
 	{0x0203,0xCC,"0x0100",eReadWrite},
@@ -238,7 +238,7 @@ const IsiRegDescription_t Sensor_g_3280x2464P30_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_3280x2464P25_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_3264x2448P25_fourlane_fpschg[] =
 {
 	{0x0202,0x0B,"0x0100",eReadWrite},
 	{0x0203,0xC2,"0x0100",eReadWrite},
@@ -250,7 +250,7 @@ const IsiRegDescription_t Sensor_g_3280x2464P25_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_3280x2464P20_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_3264x2448P20_fourlane_fpschg[] =
 {
 	{0x0202,0x0E,"0x0100",eReadWrite},
 	{0x0203,0xB3,"0x0100",eReadWrite},
@@ -260,7 +260,7 @@ const IsiRegDescription_t Sensor_g_3280x2464P20_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_3280x2464P15_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_3264x2448P15_fourlane_fpschg[] =
 {
 	{0x0202,0x13,"0x0100",eReadWrite},
 	{0x0203,0x9B,"0x0100",eReadWrite},
@@ -270,7 +270,7 @@ const IsiRegDescription_t Sensor_g_3280x2464P15_fourlane_fpschg[] =
 	{0x0000 ,0x00,"eTableEnd",eTableEnd}
 };
 
-const IsiRegDescription_t Sensor_g_3280x2464P7_fourlane_fpschg[] =
+const IsiRegDescription_t Sensor_g_3264x2448P7_fourlane_fpschg[] =
 {
 	{0x0202,0x27,"0x0100",eReadWrite},
 	{0x0203,0x3B,"0x0100",eReadWrite},

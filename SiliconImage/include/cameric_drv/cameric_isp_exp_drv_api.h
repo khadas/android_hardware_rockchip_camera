@@ -43,9 +43,11 @@ extern "C"
 {
 #endif
 
-
+#if defined(RK_ISP_V12)
+#define CAMERIC_ISP_EXP_GRID_ITEMS          81  /**< number of grid items (see @ref CamerIcMeanLuma_t) */
+#else
 #define CAMERIC_ISP_EXP_GRID_ITEMS          25  /**< number of grid items (see @ref CamerIcMeanLuma_t) */
-
+#endif
 
 #define CAMERIC_ISP_EXP_GRID_00              0  /**< array position grid item 00 (see @ref CamerIcMeanLuma_t) */
 #define CAMERIC_ISP_EXP_GRID_10              1  /**< array position grid item 10 (see @ref CamerIcMeanLuma_t) */
@@ -99,7 +101,12 @@ typedef enum CamerIcIspExpMeasuringMode_e
  * @brief   Array type for ISP EXP measurment values.
  *
  *****************************************************************************/
-typedef uint8_t CamerIcMeanLuma_t[CAMERIC_ISP_EXP_GRID_ITEMS];
+//typedef uint8_t CamerIcMeanLuma_t[CAMERIC_ISP_EXP_GRID_ITEMS];
+typedef struct CamerIcMeanLuma_s
+{
+	uint8_t * pMeanLuma;
+	uint32_t  size;
+}CamerIcMeanLuma_t;
 
 
 

@@ -29,6 +29,8 @@
 
 #include "IMX179_MIPI_priv.h"
 
+#define IMX179_AF_ENABLE
+
 #define  Sensor_NEWEST_TUNING_XML "09-Jun-2015_ZYL-OYYF_IMX214_50013A7_v0.1.0"
 
 
@@ -50,14 +52,17 @@ CREATE_TRACER( Sensor_REG_DEBUG, "IMX179: ", INFO, 0U );
 
 #define Sensor_SLAVE_ADDR       0x20U                           /**< i2c slave address of the IMX179 camera sensor */
 #define Sensor_SLAVE_ADDR2      0x20U
-#define Sensor_SLAVE_AF_ADDR    0xe4U                           /**< i2c slave address of the IMX179 integrated AD5820 */
+#ifdef IMX179_AF_ENABLE
+#define Sensor_SLAVE_AF_ADDR    0x18U                           /**< i2c slave address of the IMX179 integrated AD5820 */
+//#define Sensor_SLAVE_AF_ADDR    0xe4U
+#endif
 #define Sensor_OTP_SLAVE_ADDR   0xA0U
 #define Sensor_OTP_SLAVE_ADDR2   0xA2U
 #define Sensor_OTP_REG_SIZE     1U
 #define Sensor_OTP_VALUE_SIZE     1U
 
 #define Sensor_MIN_GAIN_STEP   ( 1.0f /512.0f); /**< min gain step size used by GUI ( 32/(32-7) - 32/(32-6); min. reg value is 6 as of datasheet; depending on actual gain ) */
-#define Sensor_MAX_GAIN_AEC    ( 8.0f )            /**< max. gain used by the AEC (arbitrarily chosen, recommended by Omnivision) */
+#define Sensor_MAX_GAIN_AEC    ( 10.0f )            /**< max. gain used by the AEC (arbitrarily chosen, recommended by Omnivision) */
 
 
 /*!<
@@ -93,20 +98,20 @@ CREATE_TRACER( Sensor_REG_DEBUG, "IMX179: ", INFO, 0U );
 const char Sensor_g_acName[] = "IMX179_MIPI";
 
 extern const IsiRegDescription_t Sensor_g_aRegDescription_fourlane[];
-extern const IsiRegDescription_t Sensor_g_fourlane_resolution_3280_2464[];
-extern const IsiRegDescription_t Sensor_g_fourlane_resolution_1640_1232[];
+extern const IsiRegDescription_t Sensor_g_fourlane_resolution_3264_2448[];
+extern const IsiRegDescription_t Sensor_g_fourlane_resolution_1632_1224[];
 
-extern const IsiRegDescription_t Sensor_g_1640x1232P30_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_1640x1232P25_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_1640x1232P20_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_1640x1232P15_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_1640x1232P10_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_1632x1224P30_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_1632x1224P25_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_1632x1224P20_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_1632x1224P15_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_1632x1224P10_fourlane_fpschg[];
 
-extern const IsiRegDescription_t Sensor_g_3280x2464P30_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_3280x2464P25_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_3280x2464P20_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_3280x2464P15_fourlane_fpschg[];
-extern const IsiRegDescription_t Sensor_g_3280x2464P7_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_3264x2448P30_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_3264x2448P25_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_3264x2448P20_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_3264x2448P15_fourlane_fpschg[];
+extern const IsiRegDescription_t Sensor_g_3264x2448P7_fourlane_fpschg[];
 extern const IsiRegDescription_t Sensor_g_aRegDescription_twolane[];
 extern const IsiRegDescription_t Sensor_g_aRegDescription_onelane[];
 
@@ -162,11 +167,13 @@ static RESULT Sensor_IsiGetCalibGlobalFadeParam( IsiSensorHandle_t       handle,
 static RESULT Sensor_IsiGetCalibFadeParam( IsiSensorHandle_t   handle, IsiAwbFade2Parm_t   **ptIsiFadeParam);
 static RESULT Sensor_IsiGetIlluProfile( IsiSensorHandle_t   handle, const uint32_t CieProfile, IsiIlluProfile_t **ptIsiIlluProfile );
 
+#ifdef IMX179_AF_ENABLE
 static RESULT Sensor_IsiMdiInitMotoDriveMds( IsiSensorHandle_t handle );
 static RESULT Sensor_IsiMdiSetupMotoDrive( IsiSensorHandle_t handle, uint32_t *pMaxStep );
 static RESULT Sensor_IsiMdiFocusSet( IsiSensorHandle_t handle, const uint32_t Position );
 static RESULT Sensor_IsiMdiFocusGet( IsiSensorHandle_t handle, uint32_t *pAbsStep );
 static RESULT Sensor_IsiMdiFocusCalibrate( IsiSensorHandle_t handle );
+#endif
 
 static RESULT Sensor_IsiGetSensorMipiInfoIss( IsiSensorHandle_t handle, IsiSensorMipiInfo *ptIsiSensorMipiInfo);
 static RESULT Sensor_IsiGetSensorIsiVersion(  IsiSensorHandle_t   handle, unsigned int* pVersion);
@@ -239,8 +246,13 @@ static RESULT Sensor_IsiCreateSensorIss
     pSensorCtx->IsiCtx.NrOfAddressBytes       = 2U;
 
     pSensorCtx->IsiCtx.I2cAfBusNum            = pConfig->I2cAfBusNum;
+#ifdef IMX179_AF_ENABLE
     pSensorCtx->IsiCtx.SlaveAfAddress         = ( pConfig->SlaveAfAddr == 0 ) ? Sensor_SLAVE_AF_ADDR : pConfig->SlaveAfAddr;
-    pSensorCtx->IsiCtx.NrOfAfAddressBytes     = 1U;
+    pSensorCtx->IsiCtx.NrOfAfAddressBytes     = 0U;
+#else
+    pSensorCtx->IsiCtx.SlaveAfAddress         = pConfig->SlaveAfAddr;
+    pSensorCtx->IsiCtx.NrOfAfAddressBytes     = 0U;
+#endif
 
     pSensorCtx->IsiCtx.pSensor                = pConfig->pSensor;
 
@@ -375,53 +387,53 @@ static RESULT Sensor_IsiGetCapsIssInternal
             {
                 case 0:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_3280_2464P30;
+                    pIsiSensorCaps->Resolution = ISI_RES_3264_2448P30;
                     break;
                 }
 				
                 case 1:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_3280_2464P25;
+                    pIsiSensorCaps->Resolution = ISI_RES_3264_2448P25;
                     break;
                 }
                 case 2:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_3280_2464P20;
+                    pIsiSensorCaps->Resolution = ISI_RES_3264_2448P10;
                     break;
                 }
                 case 3:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_3280_2464P15;
+                    pIsiSensorCaps->Resolution = ISI_RES_3264_2448P15;
                     break;
                 }
                 case 4:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_3280_2464P7;
+                    pIsiSensorCaps->Resolution = ISI_RES_3264_2448P7;
                     break;
                 }
                 case 5:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_1640_1232P30;
+                    pIsiSensorCaps->Resolution = ISI_RES_1632_1224P30;
                     break;
                 }
                 case 6:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_1640_1232P25;
+                    pIsiSensorCaps->Resolution = ISI_RES_1632_1224P25;
                     break;
                 }
                 case 7:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_1640_1232P20;
+                    pIsiSensorCaps->Resolution = ISI_RES_1632_1224P20;
                     break;
                 }
                 case 8:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_1640_1232P15;
+                    pIsiSensorCaps->Resolution = ISI_RES_1632_1224P15;
                     break;
                 }
                 case 9:
                 {
-                    pIsiSensorCaps->Resolution = ISI_RES_1640_1232P10;
+                    pIsiSensorCaps->Resolution = ISI_RES_1632_1224P10;
                     break;
                 }
 
@@ -440,7 +452,7 @@ static RESULT Sensor_IsiGetCapsIssInternal
         pIsiSensorCaps->FieldSelection  = ISI_FIELDSEL_BOTH;
         pIsiSensorCaps->YCSequence      = ISI_YCSEQ_YCBYCR;           /**< only Bayer supported, will not be evaluated */
         pIsiSensorCaps->Conv422         = ISI_CONV422_NOCOSITED;
-        pIsiSensorCaps->BPat            = ISI_BPAT_BGBGGRGR;
+        pIsiSensorCaps->BPat            = ISI_BPAT_RGRGGBGB;
         pIsiSensorCaps->HPol            = ISI_HPOL_REFPOS;
         pIsiSensorCaps->VPol            = ISI_VPOL_POS;
         pIsiSensorCaps->Edge            = ISI_EDGE_FALLING;
@@ -510,14 +522,14 @@ const IsiSensorCaps_t Sensor_g_IsiSensorDefaultConfig =
     ISI_FIELDSEL_BOTH,          // FieldSel
     ISI_YCSEQ_YCBYCR,           // YCSeq
     ISI_CONV422_NOCOSITED,      // Conv422
-    ISI_BPAT_BGBGGRGR,          // BPat
+    ISI_BPAT_RGRGGBGB,          // BPat
     ISI_HPOL_REFPOS,            // HPol
     ISI_VPOL_POS,               // VPol
     ISI_EDGE_RISING,            // Edge
     ISI_BLS_OFF,                // Bls
     ISI_GAMMA_OFF,              // Gamma
     ISI_CCONV_OFF,              // CConv
-    ISI_RES_1640_1232P20,          // Res
+    ISI_RES_1632_1224P20,          // Res
     ISI_DWNSZ_SUBSMPL,          // DwnSz
     ISI_BLC_AUTO,               // BLC
     ISI_AGC_OFF,                // AGC
@@ -630,7 +642,7 @@ RESULT Sensor_SetupOutputFormat
     /* bayer-pattern */
     switch ( pConfig->BPat )            /* only ISI_BPAT_BGBGGRGR supported, no configuration needed */
     {
-        case ISI_BPAT_BGBGGRGR:
+        case ISI_BPAT_RGRGGBGB:
         {
             break;
         }
@@ -802,7 +814,7 @@ static RESULT Sensor_SetupOutputWindowInternal
     float    rVtPixClkFreq      = 0.0f;
     int xclk = 24000000;
 
-    TRACE( Sensor_INFO, "%s (enter)---pConfig->Resolution:%x\n", __FUNCTION__,pConfig->Resolution);
+    TRACE( Sensor_INFO, "%s (enter)pConfig->Resolution:%x\n", __FUNCTION__,pConfig->Resolution);
     
 	if(pSensorCtx->IsiSensorMipiInfo.ucMipiLanes == SUPPORT_MIPI_ONE_LANE){
 	    /* resolution */
@@ -830,45 +842,45 @@ static RESULT Sensor_SetupOutputWindowInternal
 	else if(pSensorCtx->IsiSensorMipiInfo.ucMipiLanes == SUPPORT_MIPI_FOUR_LANE){
 	    switch ( pConfig->Resolution )
 	    {                  
-            case ISI_RES_1640_1232P10:				   
-            case ISI_RES_1640_1232P15:                   
-            case ISI_RES_1640_1232P20:                   
-            case ISI_RES_1640_1232P25:	
-            case ISI_RES_1640_1232P30: 
+            case ISI_RES_1632_1224P10:
+            case ISI_RES_1632_1224P15:
+            case ISI_RES_1632_1224P20:
+            case ISI_RES_1632_1224P25:
+            case ISI_RES_1632_1224P30:
             {
                 if (set2Sensor == BOOL_TRUE) {
 					if (res_no_chg == BOOL_FALSE) {
-						if((result = IsiRegDefaultsApply((IsiSensorHandle_t)pSensorCtx, Sensor_g_fourlane_resolution_1640_1232)) != RET_SUCCESS){
+						if((result = IsiRegDefaultsApply((IsiSensorHandle_t)pSensorCtx, Sensor_g_fourlane_resolution_1632_1224)) != RET_SUCCESS){
 							result = RET_FAILURE;
 							TRACE( Sensor_ERROR, "%s: failed to set two lane ISI_RES_1640_1232 \n", __FUNCTION__ );
 			            }
 					}
 
                     #if 1
-				    if (pConfig->Resolution == ISI_RES_1640_1232P30) { 
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1640x1232P30_fourlane_fpschg);
-                    }else if (pConfig->Resolution == ISI_RES_1640_1232P25) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1640x1232P25_fourlane_fpschg);
-                    }else if (pConfig->Resolution == ISI_RES_1640_1232P20) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1640x1232P20_fourlane_fpschg);
-                    }else if (pConfig->Resolution == ISI_RES_1640_1232P15) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1640x1232P15_fourlane_fpschg);
-                    }else if (pConfig->Resolution == ISI_RES_1640_1232P10) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1640x1232P10_fourlane_fpschg);
+				    if (pConfig->Resolution == ISI_RES_1632_1224P30) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1632x1224P30_fourlane_fpschg);
+                    }else if (pConfig->Resolution == ISI_RES_1632_1224P25) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1632x1224P25_fourlane_fpschg);
+                    }else if (pConfig->Resolution == ISI_RES_1632_1224P20) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1632x1224P20_fourlane_fpschg);
+                    }else if (pConfig->Resolution == ISI_RES_1632_1224P15) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1632x1224P15_fourlane_fpschg);
+                    }else if (pConfig->Resolution == ISI_RES_1632_1224P10) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_1632x1224P10_fourlane_fpschg);
                     }   
                     #endif
 				}	
 				
 	            usLineLengthPck = 0x0d70;
-				if (pConfig->Resolution == ISI_RES_1640_1232P30) {
+				if (pConfig->Resolution == ISI_RES_1632_1224P30) {
 	            	usFrameLengthLines = 0x09d0;
-				}else if(pConfig->Resolution == ISI_RES_1640_1232P25) {
+				}else if(pConfig->Resolution == ISI_RES_1632_1224P25) {
 	            	usFrameLengthLines = 0x0bc6; 
-				}else if(pConfig->Resolution == ISI_RES_1640_1232P20) {
+				}else if(pConfig->Resolution == ISI_RES_1632_1224P20) {
 	            	usFrameLengthLines = 0x0eb7; 
-				}else if(pConfig->Resolution == ISI_RES_1640_1232P15) {
+				}else if(pConfig->Resolution == ISI_RES_1632_1224P15) {
 	            	usFrameLengthLines = 0x139f;
-				}else if(pConfig->Resolution == ISI_RES_1640_1232P10) {
+				}else if(pConfig->Resolution == ISI_RES_1632_1224P10) {
 	            	usFrameLengthLines = 0x1d6f; 
 				}
     		    osSleep( 10 );
@@ -877,31 +889,31 @@ static RESULT Sensor_SetupOutputWindowInternal
             }
 
             
-            case ISI_RES_3280_2464P30:
-	        case ISI_RES_3280_2464P25:
-	        case ISI_RES_3280_2464P20:
-			case ISI_RES_3280_2464P15:
-			case ISI_RES_3280_2464P7:
+            case ISI_RES_3264_2448P30:
+	        case ISI_RES_3264_2448P25:
+	        case ISI_RES_3264_2448P20:
+			case ISI_RES_3264_2448P15:
+			case ISI_RES_3264_2448P7:
 	        {
 	            if (set2Sensor == BOOL_TRUE) {
 					if (res_no_chg == BOOL_FALSE) {
-						if((result = IsiRegDefaultsApply((IsiSensorHandle_t)pSensorCtx, Sensor_g_fourlane_resolution_3280_2464)) != RET_SUCCESS){
+						if((result = IsiRegDefaultsApply((IsiSensorHandle_t)pSensorCtx, Sensor_g_fourlane_resolution_3264_2448)) != RET_SUCCESS){
 							result = RET_FAILURE;
 							TRACE( Sensor_ERROR, "%s: failed to set two lane ISI_RES_3280_2464 \n", __FUNCTION__ );
 			            }
 					}
 
 					#if 1
-				    if (pConfig->Resolution == ISI_RES_3280_2464P30) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3280x2464P30_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_3280_2464P25) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3280x2464P25_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_3280_2464P20) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3280x2464P20_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_3280_2464P15) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3280x2464P15_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_3280_2464P7) {
-                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3280x2464P7_fourlane_fpschg);
+				    if (pConfig->Resolution == ISI_RES_3264_2448P30) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3264x2448P30_fourlane_fpschg);
+                    } else if (pConfig->Resolution == ISI_RES_3264_2448P25) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3264x2448P25_fourlane_fpschg);
+                    } else if (pConfig->Resolution == ISI_RES_3264_2448P20) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3264x2448P20_fourlane_fpschg);
+                    } else if (pConfig->Resolution == ISI_RES_3264_2448P15) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3264x2448P15_fourlane_fpschg);
+                    } else if (pConfig->Resolution == ISI_RES_3264_2448P7) {
+                        result = IsiRegDefaultsApply( (IsiSensorHandle_t)pSensorCtx, Sensor_g_3264x2448P7_fourlane_fpschg);
                     }
 					
                     #endif
@@ -909,15 +921,15 @@ static RESULT Sensor_SetupOutputWindowInternal
 				}
 				
 	            usLineLengthPck = 0x0d70;
-				if(pConfig->Resolution == ISI_RES_3280_2464P30) {
+				if(pConfig->Resolution == ISI_RES_3264_2448P30) {
 	            	usFrameLengthLines = 0x09d0; 
-				}else if(pConfig->Resolution == ISI_RES_3280_2464P25) {
+				}else if(pConfig->Resolution == ISI_RES_3264_2448P25) {
 	            	usFrameLengthLines = 0x0bc6; 
-				}else if(pConfig->Resolution == ISI_RES_3280_2464P20) {
+				}else if(pConfig->Resolution == ISI_RES_3264_2448P20) {
 	            	usFrameLengthLines = 0x0eb7; 
-				}else if(pConfig->Resolution == ISI_RES_3280_2464P15) {
+				}else if(pConfig->Resolution == ISI_RES_3264_2448P15) {
 	            	usFrameLengthLines = 0x139f; 
-				}else if(pConfig->Resolution == ISI_RES_3280_2464P7) {
+				}else if(pConfig->Resolution == ISI_RES_3264_2448P7) {
 	            	usFrameLengthLines = 0x273f; 
 				}
     		    osSleep( 10 );
@@ -932,7 +944,7 @@ static RESULT Sensor_SetupOutputWindowInternal
 	        }
 	    }
 
-        rVtPixClkFreq = 480000000;//480000000; 
+        rVtPixClkFreq = 259253040;//480000000; 
 	}
     
 	// store frame timing for later use in AEC module  
@@ -940,7 +952,7 @@ static RESULT Sensor_SetupOutputWindowInternal
     pSensorCtx->LineLengthPck    = usLineLengthPck;
     pSensorCtx->FrameLengthLines = usFrameLengthLines;	
     
-    TRACE( Sensor_INFO, "%s AecMaxIntegrationTime:%f(****************exit): Resolution %dx%d@%dfps  MIPI %dlanes  res_no_chg: %d   rVtPixClkFreq: %f\n", __FUNCTION__,
+    TRACE( Sensor_ERROR, "%s AecMaxIntegrationTime:%f(exit): Resolution %dx%d@%dfps  MIPI %dlanes  res_no_chg: %d   rVtPixClkFreq: %f\n", __FUNCTION__,
     					pSensorCtx->AecMaxIntegrationTime,
                         ISI_RES_W_GET(pConfig->Resolution),ISI_RES_H_GET(pConfig->Resolution),
                         ISI_FPS_GET(pConfig->Resolution),
@@ -1156,7 +1168,7 @@ static RESULT Sensor_AecSetModeParameters
     //exposed way too dark from time to time)
     // (formula is usually MaxIntTime = (CoarseMax * LineLength + FineMax) / Clk
     //                     MinIntTime = (CoarseMin * LineLength + FineMin) / Clk )
-    pSensorCtx->AecMaxIntegrationTime = ( ((float)(pSensorCtx->FrameLengthLines - 4)) * ((float)pSensorCtx->LineLengthPck) ) / pSensorCtx->VtPixClkFreq;
+    pSensorCtx->AecMaxIntegrationTime = ( ((float)(pSensorCtx->FrameLengthLines )) * ((float)pSensorCtx->LineLengthPck)  + 488) / pSensorCtx->VtPixClkFreq;
     pSensorCtx->AecMinIntegrationTime = 0.0001f;    
 
     pSensorCtx->AecMaxGain = Sensor_MAX_GAIN_AEC;
@@ -1249,7 +1261,7 @@ struct otp_struct {
     int flag_of_lsc_calib;
 };
 
-//for test,just for compile
+
 #define  RG_Ratio_Typical (0x16f)
 #define  BG_Ratio_Typical (0x16f)
 
@@ -1317,31 +1329,30 @@ static int read_otp(
         (*otp_ptr).golden_r_value = sensor_i2c_read_p(context,camsys_fd,0x22,i2c_base_info);
         (*otp_ptr).golden_b_value = sensor_i2c_read_p(context,camsys_fd,0x23,i2c_base_info);
         (*otp_ptr).golden_gr_value = sensor_i2c_read_p(context,camsys_fd,0x24,i2c_base_info);
-        (*otp_ptr).golden_gb_value = sensor_i2c_read_p(context,camsys_fd,0x25,i2c_base_info);
-
-    
+        (*otp_ptr).golden_gb_value = sensor_i2c_read_p(context,camsys_fd,0x25,i2c_base_info);    
         (*otp_ptr).flag_of_lsc_calib = sensor_i2c_read_p(context,camsys_fd,0x28,i2c_base_info);
-
+        property_set("sys_graphic.cam_otp_awb", "true");//awb info in OTP
+		property_set("sys_graphic.cam_otp_awb_enable", "true");
         TRACE( Sensor_ERROR, "%s flag_of_base_info(0x%x) module_integrator_id(0x%x) flag_of_wb_calib(0x%x)\n", __FUNCTION__,
         (*otp_ptr).flag_of_base_info,(*otp_ptr).module_integrator_id,(*otp_ptr).flag_of_wb_calib);
 
-        TRACE( Sensor_ERROR, "%s mozu: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
+        TRACE( Sensor_INFO, "%s mozu: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
         (*otp_ptr).r_value,(*otp_ptr).b_value,(*otp_ptr).gr_value,(*otp_ptr).gb_value);
 
-        TRACE( Sensor_ERROR, "%s golden: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
+        TRACE( Sensor_INFO, "%s golden: r_value(0x%x) b_value(0x%x) gr_value(0x%x) gb_value(0x%x)\n", __FUNCTION__,
         (*otp_ptr).golden_r_value,(*otp_ptr).golden_b_value,(*otp_ptr).golden_gr_value,(*otp_ptr).golden_gb_value);
 
-        TRACE( Sensor_ERROR, "%s mozu: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
+        TRACE( Sensor_INFO, "%s mozu: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
         (*otp_ptr).rg_ratio_high,(*otp_ptr).rg_ratio_low,(*otp_ptr).bg_ratio_high,(*otp_ptr).bg_ratio_low,(*otp_ptr).grgb_ratio_high,(*otp_ptr).grgb_ratio_low);
 
-        TRACE( Sensor_ERROR, "%s golden: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
+        TRACE( Sensor_INFO, "%s golden: rg_value(0x%02x%02x) bg_value(0x%02x%02x) grgb_value(0x%02x%02x) \n", __FUNCTION__,
         (*otp_ptr).golden_rg_ratio_high,(*otp_ptr).golden_rg_ratio_low,(*otp_ptr).golden_bg_ratio_high,(*otp_ptr).golden_bg_ratio_low,(*otp_ptr).golden_grgb_ratio_high,(*otp_ptr).golden_grgb_ratio_low);
     }
 
     
     if((*otp_ptr).flag_of_wb_calib == 1){
         result = RET_SUCCESS;
-        TRACE( Sensor_ERROR, "%s support otp application \n", __FUNCTION__);
+        TRACE( Sensor_INFO, "%s support otp application \n", __FUNCTION__);
     }else{
         result = RET_NOTSUPP;
         TRACE( Sensor_ERROR, "%s WARN this sensor have not otp function !!!!\n", __FUNCTION__);
@@ -1379,20 +1390,22 @@ static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
 {
     int rg, bg, R_gain, G_gain, B_gain, Base_gain, temp, i;
     int golden_rg, golden_bg;
+    char prop_value[PROPERTY_VALUE_MAX];
+
     // apply OTP WB Calibration
     if ((*otp_ptr).flag_of_wb_calib & 0x01) {
             rg = ((*otp_ptr).r_value*2)<<10 / ((*otp_ptr).gr_value + (*otp_ptr).gb_value);
             bg = ((*otp_ptr).b_value*2)<<10 / ((*otp_ptr).gr_value + (*otp_ptr).gb_value);
             golden_rg = ((*otp_ptr).golden_r_value*2)<<10 / ((*otp_ptr).golden_gr_value + (*otp_ptr).golden_gb_value);
             golden_bg = ((*otp_ptr).golden_b_value*2)<<10 / ((*otp_ptr).golden_gr_value + (*otp_ptr).golden_gb_value);
-            TRACE( Sensor_ERROR,  "%s: success  rg(0x%x) bg(0x%x)  golden_rg(0x%x) golden_bg(0x%x)!!!\n",  __FUNCTION__,rg,bg,golden_rg,golden_bg);
+            TRACE( Sensor_DEBUG,  "%s: success  rg(0x%x) bg(0x%x)  golden_rg(0x%x) golden_bg(0x%x)!!!\n",  __FUNCTION__,rg,bg,golden_rg,golden_bg);
     
         //calculate G gain
         R_gain = (golden_rg*1000) / rg;
         B_gain = (golden_bg*1000) / bg;
         G_gain = 1000;
 
-        TRACE(Sensor_ERROR, "R_gain(%d) B_gain(%d) G_gain(%d) \n", R_gain,B_gain,G_gain);
+        TRACE(Sensor_DEBUG, "%s:R_gain(%d) B_gain(%d) G_gain(%d) \n", __FUNCTION__,R_gain,B_gain,G_gain);
         if (R_gain < 1000 || B_gain < 1000)
         {
             if (R_gain < B_gain)
@@ -1408,24 +1421,29 @@ static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
         B_gain = 0x100 * B_gain / (Base_gain);
         G_gain = 0x100 * G_gain / (Base_gain);
         
-    // update sensor WB gain
-        if (R_gain>0x100) {
-            IMX214_write_i2c( handle,0x0210, R_gain>>8);
-            IMX214_write_i2c( handle,0x0211, R_gain & 0x00ff);
-        }
-        if (G_gain>0x100) {
-            IMX214_write_i2c( handle,0x020e, G_gain>>8);
-            IMX214_write_i2c( handle,0x020f, G_gain & 0x00ff);
-            IMX214_write_i2c( handle,0x0214, G_gain>>8);
-            IMX214_write_i2c( handle,0x0215, G_gain & 0x00ff);
-        }
-        if (B_gain>0x100) {
-            IMX214_write_i2c( handle,0x0212, B_gain>>8);
-            IMX214_write_i2c( handle,0x0213, B_gain & 0x00ff);
+    	// update sensor WB gain
+    	property_get("cam_otp_awb_enable", prop_value, "true");
+    	if (!strcmp(prop_value,"true")) {
+	        if (R_gain>0x100) {
+	            IMX214_write_i2c( handle,0x0210, R_gain>>8);
+	            IMX214_write_i2c( handle,0x0211, R_gain & 0x00ff);
+	        }
+	        if (G_gain>0x100) {
+	            IMX214_write_i2c( handle,0x020e, G_gain>>8);
+	            IMX214_write_i2c( handle,0x020f, G_gain & 0x00ff);
+	            IMX214_write_i2c( handle,0x0214, G_gain>>8);
+	            IMX214_write_i2c( handle,0x0215, G_gain & 0x00ff);
+	        }
+	        if (B_gain>0x100) {
+	            IMX214_write_i2c( handle,0x0212, B_gain>>8);
+	            IMX214_write_i2c( handle,0x0213, B_gain & 0x00ff);
+	        }
+            TRACE( Sensor_DEBUG,  "%s: success  R_gain(0x%x) G_gain(0x%x)  B_gain(0x%x)!!!\n",
+            		__FUNCTION__,R_gain,G_gain,B_gain);
         }
     }
-    
-    TRACE( Sensor_ERROR,  "%s: success  R_gain(0x%x) G_gain(0x%x)  B_gain(0x%x)!!!\n",  __FUNCTION__,R_gain,G_gain,B_gain);
+    TRACE(Sensor_DEBUG, "%s:exit\n", __FUNCTION__);
+
     return (*otp_ptr).flag_of_wb_calib;
 }
 
@@ -1453,7 +1471,7 @@ static RESULT Sensor_IsiSetupSensorIss
 
     RESULT result = RET_SUCCESS;
 
-    TRACE( Sensor_ERROR, "%s (enter)\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s (enter)\n", __FUNCTION__);
 
     if ( pSensorCtx == NULL )
     {
@@ -1554,13 +1572,11 @@ static RESULT Sensor_IsiSetupSensorIss
         pSensorCtx->Configured = BOOL_TRUE;
     }
 
-    #if 1
     if(g_otp_info.flag_of_wb_calib == 0x01){
         apply_otp(pSensorCtx,&g_otp_info);
     }
-    #endif
 
-    TRACE( Sensor_ERROR, "%s: (exit)\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
 
     return ( result );
 }
@@ -1765,7 +1781,7 @@ static RESULT Sensor_IsiSensorSetStreamingIss
         result = Sensor_IsiRegWriteIss ( pSensorCtx, Sensor_MODE_SELECT, (RegValue & ~0x01U) );
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
 
-        TRACE(Sensor_ERROR," STREAM OFF ++++++++++++++");
+        TRACE(Sensor_ERROR," STREAM OFF");
     }
 
     if (result == RET_SUCCESS)
@@ -1878,13 +1894,12 @@ static RESULT Sensor_IsiCheckSensorConnectionIss
     {
         return ( RET_WRONG_HANDLE );
     }
-	return result;//zyl
+
     RevId = Sensor_CHIP_ID_HIGH_BYTE_DEFAULT;
     RevId = (RevId << 8U) | (Sensor_CHIP_ID_LOW_BYTE_DEFAULT);
 
     result = Sensor_IsiGetSensorRevisionIss( handle, &value );
 
-    TRACE( Sensor_ERROR, "%s RevId = 0x%08x, value = 0x%08x \n", __FUNCTION__, RevId, value );
     if ( (result != RET_SUCCESS) || (RevId != value) )
     {
         TRACE( Sensor_ERROR, "%s RevId = 0x%08x, value = 0x%08x \n", __FUNCTION__, RevId, value );
@@ -1975,7 +1990,7 @@ static RESULT Sensor_IsiRegReadIss
 {
     RESULT result = RET_SUCCESS;
 
-  //  TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
     if ( handle == NULL )
     {
@@ -1988,18 +2003,17 @@ static RESULT Sensor_IsiRegReadIss
     }
     else
     {
-        uint8_t NrOfBytes = IsiGetNrDatBytesIss( address, Sensor_g_1640x1232P30_fourlane_fpschg);
+        uint8_t NrOfBytes = IsiGetNrDatBytesIss( address, Sensor_g_1632x1224P30_fourlane_fpschg);
         if ( !NrOfBytes )
         {
             NrOfBytes = 1;
         }
- //       TRACE( Sensor_REG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x)\n", __FUNCTION__, NrOfBytes, address);
 
         *p_value = 0;
         result = IsiI2cReadSensorRegister( handle, address, (uint8_t *)p_value, NrOfBytes, BOOL_TRUE );
     }
 
-  //  TRACE( Sensor_ERROR, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, *p_value);
+    TRACE( Sensor_INFO, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, *p_value);
 
     return ( result );
 }
@@ -2032,23 +2046,22 @@ static RESULT Sensor_IsiRegWriteIss
 
     uint8_t NrOfBytes;
 
-  //  TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
     if ( handle == NULL )
     {
         return ( RET_WRONG_HANDLE );
     }
 
-    NrOfBytes = IsiGetNrDatBytesIss( address, Sensor_g_1640x1232P30_fourlane_fpschg);
+    NrOfBytes = IsiGetNrDatBytesIss( address, Sensor_g_1632x1224P30_fourlane_fpschg);
     if ( !NrOfBytes )
     {
         NrOfBytes = 1;
     }
-//    TRACE( Sensor_REG_DEBUG, "%s (IsiGetNrDatBytesIss %d 0x%08x 0x%08x)\n", __FUNCTION__, NrOfBytes, address, value);
 
     result = IsiI2cWriteSensorRegister( handle, address, (uint8_t *)(&value), NrOfBytes, BOOL_TRUE );
 
-//    TRACE( Sensor_ERROR, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, value);
+    TRACE( Sensor_INFO, "%s (exit: 0x%08x 0x%08x)\n", __FUNCTION__, address, value);
 
     return ( result );
 }
@@ -2135,7 +2148,7 @@ static RESULT Sensor_IsiGetIntegrationTimeLimitsIss
     RESULT result = RET_SUCCESS;
 
 
-    TRACE( Sensor_INFO, "%s: (------oyyf enter) \n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s:enter \n", __FUNCTION__);
 
     if ( pSensorCtx == NULL )
     {
@@ -2152,7 +2165,7 @@ static RESULT Sensor_IsiGetIntegrationTimeLimitsIss
     *pMinIntegrationTime = pSensorCtx->AecMinIntegrationTime;
     *pMaxIntegrationTime = pSensorCtx->AecMaxIntegrationTime;
 
-    TRACE( Sensor_INFO, "%s: (------oyyf exit) (\n", __FUNCTION__);
+    TRACE( Sensor_INFO, "%s:exit\n", __FUNCTION__);
 
     return ( result );
 }
@@ -2300,7 +2313,7 @@ RESULT Sensor_IsiSetGainIss
     if( NewGain < pSensorCtx->AecMinGain ) NewGain = pSensorCtx->AecMinGain;
     if( NewGain > pSensorCtx->AecMaxGain ) NewGain = pSensorCtx->AecMaxGain;
    
-    fGain = (512-512/NewGain);
+    fGain = (256.0 - 256.0/NewGain);
     usGain = (uint16_t)(fGain + 0.5);
     
     // write new gain into sensor registers, do not write if nothing has changed
@@ -2315,7 +2328,7 @@ RESULT Sensor_IsiSetGainIss
     }
 
     //calculate gain actually set
-    pSensorCtx->AecCurGain = (float)(512.0/(512.0-usGain));
+    pSensorCtx->AecCurGain = (float)(256.0/(256.0-usGain));
 
     //return current state
     *pSetGain = pSensorCtx->AecCurGain;
@@ -2498,7 +2511,7 @@ RESULT Sensor_IsiSetIntegrationTimeIss
     //=>
     //coarse_integration_time = (int)( integration_time * vt_pix_clk_freq  / line_length_pck + 0.5 )
 
-    ShutterWidthPck = NewIntegrationTime * ( (float)pSensorCtx->VtPixClkFreq );
+    ShutterWidthPck = NewIntegrationTime * ( (float)pSensorCtx->VtPixClkFreq ) - 488;
 
     // avoid division by zero
     if ( pSensorCtx->LineLengthPck == 0 )
@@ -2540,7 +2553,7 @@ RESULT Sensor_IsiSetIntegrationTimeIss
 
     //calculate integration time actually set
     //pSensorCtx->AecCurIntegrationTime = ( ((float)CoarseIntegrationTime) * ((float)pSensorCtx->LineLengthPck) + ((float)FineIntegrationTime) ) / pSensorCtx->VtPixClkFreq;
-    pSensorCtx->AecCurIntegrationTime = ((float)CoarseIntegrationTime) * ((float)pSensorCtx->LineLengthPck) / pSensorCtx->VtPixClkFreq;
+    pSensorCtx->AecCurIntegrationTime = (((float)CoarseIntegrationTime) * ((float)pSensorCtx->LineLengthPck) + 488) / pSensorCtx->VtPixClkFreq;
 
     //return current state
     *pSetIntegrationTime = pSensorCtx->AecCurIntegrationTime;
@@ -2893,27 +2906,27 @@ RESULT Sensor_IsiGetAfpsInfoIss(
 				#if 1
 				switch(Resolution)
 			    {
-			        case ISI_RES_1640_1232P30:
-			        case ISI_RES_1640_1232P25:
-			        case ISI_RES_1640_1232P20:
-	                case ISI_RES_1640_1232P15:
-					case ISI_RES_1640_1232P10:
-						AFPSCHECKANDADD( ISI_RES_1640_1232P30);
-						AFPSCHECKANDADD( ISI_RES_1640_1232P25);
-						AFPSCHECKANDADD( ISI_RES_1640_1232P20);
-						AFPSCHECKANDADD( ISI_RES_1640_1232P15);
-						AFPSCHECKANDADD( ISI_RES_1640_1232P10);
+			        case ISI_RES_1632_1224P30:
+			        case ISI_RES_1632_1224P25:
+			        case ISI_RES_1632_1224P20:
+	                case ISI_RES_1632_1224P15:
+					case ISI_RES_1632_1224P10:
+						AFPSCHECKANDADD( ISI_RES_1632_1224P30);
+						AFPSCHECKANDADD( ISI_RES_1632_1224P25);
+						AFPSCHECKANDADD( ISI_RES_1632_1224P20);
+						AFPSCHECKANDADD( ISI_RES_1632_1224P15);
+						AFPSCHECKANDADD( ISI_RES_1632_1224P10);
 						break;
-					case ISI_RES_3280_2464P30:
-					case ISI_RES_3280_2464P25:
-					case ISI_RES_3280_2464P20:
-					case ISI_RES_3280_2464P15:
-					case ISI_RES_3280_2464P7:
-						AFPSCHECKANDADD( ISI_RES_3280_2464P30);
-						AFPSCHECKANDADD( ISI_RES_3280_2464P25);
-						AFPSCHECKANDADD( ISI_RES_3280_2464P20);
-						AFPSCHECKANDADD( ISI_RES_3280_2464P15);
-						AFPSCHECKANDADD( ISI_RES_3280_2464P7);
+					case ISI_RES_3264_2448P30:
+					case ISI_RES_3264_2448P25:
+					case ISI_RES_3264_2448P20:
+					case ISI_RES_3264_2448P15:
+					case ISI_RES_3264_2448P7:
+						AFPSCHECKANDADD( ISI_RES_3264_2448P30);
+						AFPSCHECKANDADD( ISI_RES_3264_2448P25);
+						AFPSCHECKANDADD( ISI_RES_3264_2448P20);
+						AFPSCHECKANDADD( ISI_RES_3264_2448P15);
+						AFPSCHECKANDADD( ISI_RES_3264_2448P7);
 						break;
 					default:
 			            TRACE( Sensor_ERROR,  "%s: Resolution %08x not supported by AFPS\n",  __FUNCTION__, Resolution );
@@ -3503,6 +3516,7 @@ static RESULT Sensor_IsiGetLscMatrixTable
 }
 
 
+#ifdef IMX179_AF_ENABLE
 /*****************************************************************************/
 /**
  *          Sensor_IsiMdiInitMotoDriveMds
@@ -3581,9 +3595,23 @@ static RESULT Sensor_IsiMdiSetupMotoDrive
     {
         return ( RET_NULL_POINTER );
     }
-
+/*
+    if ((pSensorCtx->VcmInfo.StepMode & 0x0c) != 0) {
+    	vcm_movefull_t = 64* (1<<(pSensorCtx->VcmInfo.StepMode & 0x03)) *1024/((1 << (((pSensorCtx->VcmInfo.StepMode & 0x0c)>>2)-1))*1000);
+    }else{
+    	vcm_movefull_t =64*1023/1000;
+    }
+*/
+    if (pSensorCtx->VcmInfo.StepMode <= 7) {
+        vcm_movefull_t = 52*(1<<(pSensorCtx->VcmInfo.StepMode-1));
+    } else if ((pSensorCtx->VcmInfo.StepMode>=9) && (pSensorCtx->VcmInfo.StepMode<=15)) {
+        vcm_movefull_t = 2*(1<<(pSensorCtx->VcmInfo.StepMode-9));
+    } else {
+        TRACE( Sensor_INFO, "%s: pSensorCtx->VcmInfo.StepMode: %d is invalidate!\n",__FUNCTION__, pSensorCtx->VcmInfo.StepMode);
+        DCT_ASSERT(0);
+    }
 	//dw9718s
-	data = 0x00;
+	/*data = 0x00;
 	result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
                              pSensorCtx->IsiCtx.I2cAfBusNum,
                              pSensorCtx->IsiCtx.SlaveAfAddress,
@@ -3592,7 +3620,7 @@ static RESULT Sensor_IsiMdiSetupMotoDrive
                              &data,
                              1U );
     RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
-	
+
 	usleep(100);
 	
 	data = 0x39;
@@ -3618,8 +3646,10 @@ static RESULT Sensor_IsiMdiSetupMotoDrive
 	usleep(500);
 	
 	result = Sensor_IsiMdiFocusSet( handle, MAX_LOG);	
-	vcm_movefull_t = 50;
+    vcm_movefull_t = 50;
+    */
 	*pMaxStep = (MAX_LOG|(vcm_movefull_t<<16));
+    result = Sensor_IsiMdiFocusSet( handle, MAX_LOG);
 
     #endif
 
@@ -3684,15 +3714,17 @@ static RESULT Sensor_IsiMdiFocusSet
     if (nPosition > MAX_VCMDRV_REG)  
         nPosition = MAX_VCMDRV_REG;
     
-	data[0] = (uint8_t)(0x00U | (( nPosition & 0xF00U ) >> 8U));                 
-	data[1] = (uint8_t)( nPosition & 0xFFU );
+	//data[0] = (uint8_t)(0x00U | (( nPosition & 0xF00U ) >> 8U));                 
+	//data[1] = (uint8_t)( nPosition & 0xFFU );
+    data[0] = (uint8_t)(0x00U | (( nPosition & 0x3F0U ) >> 4U)); 
+    data[1] = (uint8_t)( ((nPosition & 0x0FU) << 4U) | MDI_SLEW_RATE_CTRL );  
 
     //TRACE( Sensor_ERROR, "%s:  dw9718s value = %d, 0x%02x 0x%02x af_addr(0x%x) bus(%d)\n", __FUNCTION__, nPosition, data[0], data[1],pSensorCtx->IsiCtx.SlaveAfAddress,pSensorCtx->IsiCtx.I2cAfBusNum );
 
     result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
                              pSensorCtx->IsiCtx.I2cAfBusNum,
                              pSensorCtx->IsiCtx.SlaveAfAddress,
-                             0x02,
+                             0x00,
                              pSensorCtx->IsiCtx.NrOfAfAddressBytes,
                              data,
                              2U );
@@ -3749,13 +3781,13 @@ static RESULT Sensor_IsiMdiFocusGet
 	result = HalReadI2CMem( pSensorCtx->IsiCtx.HalHandle,
 					 pSensorCtx->IsiCtx.I2cAfBusNum,
 					 pSensorCtx->IsiCtx.SlaveAfAddress,
-					 0x02,
+					 0x00,
 					 pSensorCtx->IsiCtx.NrOfAfAddressBytes,
-					 &data[0],
-					 1U );
+					 data,
+					 2U );
     RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
 
-
+/*
 	result = HalReadI2CMem( pSensorCtx->IsiCtx.HalHandle,
 						 pSensorCtx->IsiCtx.I2cAfBusNum,
 						 pSensorCtx->IsiCtx.SlaveAfAddress,
@@ -3766,7 +3798,9 @@ static RESULT Sensor_IsiMdiFocusGet
 	RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
 	
 	*pAbsStep = ( ((uint32_t)(data[0] & 0x0F)) << 8U ) | ( ((uint32_t)data[1]) & 0xff);
-	TRACE( Sensor_ERROR, "%s: dw9718s value = 0x%02x 0x%02x\n", __FUNCTION__, data[0], data[1]);
+*/
+    *pAbsStep = ( ((uint32_t)(data[0] & 0x3FU)) << 4U ) | ( ((uint32_t)data[1]) >> 4U );
+	TRACE( Sensor_ERROR, "%s: dw9714 value = 0x%02x 0x%02x\n", __FUNCTION__, data[0], data[1]);
 
 
     /* map 0 to 64 -> infinity */	 /* ddl@rock-chips.com: v0.3.0 */
@@ -3828,7 +3862,7 @@ static RESULT Sensor_IsiMdiFocusCalibrate
     return ( result );
 }
 
-
+#endif
 
 /*****************************************************************************/
 /**
@@ -4067,13 +4101,14 @@ RESULT Sensor_IsiGetSensorIss
         pIsiSensor->pIsiGetIlluProfile                  = Sensor_IsiGetIlluProfile;
         pIsiSensor->pIsiGetLscMatrixTable               = Sensor_IsiGetLscMatrixTable;
 
+#ifdef IMX179_AF_ENABLE
         /* AF functions */
         pIsiSensor->pIsiMdiInitMotoDriveMds             = Sensor_IsiMdiInitMotoDriveMds;
         pIsiSensor->pIsiMdiSetupMotoDrive               = Sensor_IsiMdiSetupMotoDrive;
         pIsiSensor->pIsiMdiFocusSet                     = Sensor_IsiMdiFocusSet;
         pIsiSensor->pIsiMdiFocusGet                     = Sensor_IsiMdiFocusGet;
         pIsiSensor->pIsiMdiFocusCalibrate               = Sensor_IsiMdiFocusCalibrate;
-
+#endif
         /* MIPI */
         pIsiSensor->pIsiGetSensorMipiInfoIss            = Sensor_IsiGetSensorMipiInfoIss;
 

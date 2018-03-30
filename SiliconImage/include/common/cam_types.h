@@ -1102,6 +1102,11 @@ typedef struct Cam6x1FloatMatrix
 	float fCoeff[6];
 } Cam6x1FloatMatrix_t;
 
+typedef struct CamAECGridWeight_s
+{
+	uint8_t   *pWeight;
+	uint16_t  ArraySize;
+}CamAECGridWeight_t;
 
 /*****************************************************************************/
 /**
@@ -1117,14 +1122,14 @@ typedef struct CamCalibAecGlobal_s
     float                   DampOverVideo;              /**< damping coefficient for video mode */
     float                   DampUnderVideo;             /**< damping coefficient for video mode */
     float                   AfpsMaxGain;
-    Cam5x5UCharMatrix_t     GridWeights;//cxf
+    CamAECGridWeight_t 		GridWeights;//cxf
     float					EcmDotEnable;
     Cam6x1FloatMatrix_t     EcmTimeDot;
     Cam6x1FloatMatrix_t     EcmGainDot;
     float                   MeasuringWinWidthScale;//cxf
     float                   MeasuringWinHeightScale;//cxf
 } CamCalibAecGlobal_t;
-#if 1
+
 /******************************************************************************/
 /**
  * @brief   Enumeration type for x scaling of the gamma curve 
@@ -1176,7 +1181,6 @@ typedef struct CamCalibGammaOut_s
 	CamEngineGammaOutCurve_t Curve;
 
 } CamCalibGammaOut_t;
-#endif
 
 
 /*****************************************************************************/

@@ -191,143 +191,6 @@ static float dctfloor( const float f )
     }
 }
 
-/* OTP START*/
-static int HM8040_read_i2c(    
-    IsiSensorHandle_t   handle,
-    const uint32_t      address
-){
-    uint32_t temp = 0;
-    if(HM8040_IsiRegReadIss(handle,address,&temp) != RET_SUCCESS){
-        TRACE( HM8040_ERROR, "%s read OTP register 0x%x erro!\n", __FUNCTION__,address);
-    }
-    return temp;
-}
-
-static RESULT HM8040_write_i2c(    
-    IsiSensorHandle_t   handle,
-    const uint32_t      address,
-    const uint32_t      value
-){
-    RESULT result = RET_SUCCESS;
-    if((result = HM8040_IsiRegWriteIss(handle,address,value)) != RET_SUCCESS){
-        TRACE( HM8040_ERROR, "%s write OTP register (0x%x,0x%x) erro!\n", __FUNCTION__,address,value);
-    }
-    return result;
-}
-
-struct otp_struct {
-    int flag; // bit[7]: info, bit[6]:wb, bit[5]:vcm, bit[4]:lenc
-    int module_integrator_id;
-    int lens_id;
-    int production_year;
-    int production_month;
-    int production_day;
-    int rg_ratio;
-    int bg_ratio;
-    int lenc[240];
-	int checksum;
-    int VCM_start;
-    int VCM_end;
-    int VCM_dir;
-};
-
-static struct otp_struct g_otp_info ={0};
-
-//for test,just for compile
-int  RG_Ratio_Typical=0x100;
-int  BG_Ratio_Typical=0x100;
-
-#define  RG_Ratio_Typical_RK3288 (0x144)
-#define  BG_Ratio_Typical_RK3288 (0x12f)
-
-static int check_read_otp_rk3288(
-    sensor_i2c_write_t*  sensor_i2c_write_p,
-    sensor_i2c_read_t*  sensor_i2c_read_p,
-    void* context,
-    int camsys_fd
-)
-{
-    struct otp_struct *otp_ptr = &g_otp_info;
-	int otp_flag=0x0, addr, temp, temp1, i;
-    int i2c_base_info[3];
-
-    i2c_base_info[0] = 0; //otp i2c addr
-    i2c_base_info[1] = 2; //otp i2c reg size
-    i2c_base_info[2] = 1; //otp i2c value size
-
-	TRACE( HM8040_ERROR,  "%s: not support right now.\n",  __FUNCTION__ );
-	
-	return RET_NOTSUPP;
-
-}
-
-static int check_read_otp(
-	sensor_i2c_write_t*  sensor_i2c_write_p,
-	sensor_i2c_read_t*	sensor_i2c_read_p,
-	void* context,
-	int camsys_fd
-)
-{
-	return	check_read_otp_rk3288(sensor_i2c_write_p, sensor_i2c_read_p, context, camsys_fd);
-}
-
-static int apply_otp_rk3288(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
-{
-	int rg, bg, R_gain, G_gain, B_gain, Base_gain, temp, i;
-	
-	// apply OTP WB Calibration
-	if ((*otp_ptr).flag & 0x40) {
-		rg = (*otp_ptr).rg_ratio;
-		bg = (*otp_ptr).bg_ratio;
-		//calculate G gain
-		R_gain = (RG_Ratio_Typical*1000) / rg;
-		B_gain = (BG_Ratio_Typical*1000) / bg;
-		G_gain = 1000;
-		if (R_gain < 1000 || B_gain < 1000)
-		{
-			if (R_gain < B_gain)
-			Base_gain = R_gain;
-			else
-			Base_gain = B_gain;
-		}
-		else
-		{
-			Base_gain = G_gain;
-		}
-		R_gain = 0x400 * R_gain / (Base_gain);
-		B_gain = 0x400 * B_gain / (Base_gain);
-		G_gain = 0x400 * G_gain / (Base_gain);
-		// update sensor WB gain
-		if (R_gain>0x400) {
-			HM8040_write_i2c(handle, 0x5032, R_gain>>8);
-			HM8040_write_i2c(handle, 0x5033, R_gain & 0x00ff);
-		}
-		if(G_gain>0x400) {
-			HM8040_write_i2c(handle, 0x5034, G_gain>>8);
-			HM8040_write_i2c(handle, 0x5035, G_gain & 0x00ff);
-		}
-		if(B_gain>0x400) {
-			HM8040_write_i2c(handle, 0x5036, B_gain>>8);
-			HM8040_write_i2c(handle, 0x5037, B_gain & 0x00ff);
-		}
-	}
-	// apply OTP Lenc Calibration
-	if ((*otp_ptr).flag & 0x10) {
-		temp = HM8040_read_i2c(handle, 0x5000);
-		temp = 0x80 | temp;
-		HM8040_write_i2c(handle, 0x5000, temp);
-		for(i=0;i<240;i++) {
-			HM8040_write_i2c(handle, 0x5800 + i, (*otp_ptr).lenc[i]);
-		}
-	}
-	TRACE( HM8040_NOTICE0,  "%s: success!!!\n",  __FUNCTION__ );
-	return (*otp_ptr).flag;
-}
-
-
-/* OTP END*/
-
-
 /*****************************************************************************/
 /**
  *          HM8040_IsiCreateSensorIss
@@ -1621,12 +1484,6 @@ static RESULT HM8040_IsiSetupSensorIss
     }
 	#endif
 	
-    #if 0
-    // output of pclk for measurement (only debugging)
-    result = HM8040_IsiRegWriteIss( pHM8040Ctx, 0x3009U, 0x10U );
-    RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
-    #endif
-
     /* 4.) setup output format (RAW10|RAW12) */
     result = HM8040_SetupOutputFormat( pHM8040Ctx, pConfig );
     if ( result != RET_SUCCESS )
@@ -1659,23 +1516,6 @@ static RESULT HM8040_IsiSetupSensorIss
     if (result == RET_SUCCESS)
     {
         pHM8040Ctx->Configured = BOOL_TRUE;
-    }
-
-    result = HM8040_IsiRegWriteIss( pHM8040Ctx, HM8040_MODE_SELECT, HM8040_MODE_SELECT_ON );
-    if ( result != RET_SUCCESS )
-    {
-        TRACE( HM8040_ERROR, "%s: Can't write HM8040 Image System Register (disable streaming failed)\n", __FUNCTION__ );
-        return ( result );
-    }
-
-    //set OTP
-    //result = apply_otp_rk3288(handle,&g_otp_info);
-    
-    result = HM8040_IsiRegWriteIss( pHM8040Ctx, HM8040_MODE_SELECT, HM8040_MODE_SELECT_OFF );
-    if ( result != RET_SUCCESS )
-    {
-        TRACE( HM8040_ERROR, "%s: Can't write HM8040 Image System Register (disable streaming failed)\n", __FUNCTION__ );
-        return ( result );
     }
 
     TRACE( HM8040_INFO, "%s: (exit)\n", __FUNCTION__);
@@ -1871,6 +1711,7 @@ static RESULT HM8040_IsiSensorSetStreamingIss
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
         result = HM8040_IsiRegWriteIss ( pHM8040Ctx, HM8040_MODE_SELECT, (RegValue | HM8040_MODE_SELECT_ON) );
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+        osSleep( 100 );
     }
     else
     {
@@ -1879,6 +1720,7 @@ static RESULT HM8040_IsiSensorSetStreamingIss
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
         result = HM8040_IsiRegWriteIss ( pHM8040Ctx, HM8040_MODE_SELECT, (RegValue & ~HM8040_MODE_SELECT_ON) );
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+        osSleep( 100 );
     }
 
     if (result == RET_SUCCESS)
@@ -4135,7 +3977,7 @@ RESULT HM8040_IsiGetSensorIss
         pIsiSensor->pIsiSensorCaps                      = &HM8040_g_IsiSensorDefaultConfig;
 		pIsiSensor->pIsiGetSensorIsiVer					= HM8040_IsiGetSensorIsiVersion;
 		pIsiSensor->pIsiGetSensorTuningXmlVersion		= HM8040_IsiGetSensorTuningXmlVersion;
-		pIsiSensor->pIsiCheckOTPInfo                    = check_read_otp;
+		pIsiSensor->pIsiCheckOTPInfo                    = NULL;
         pIsiSensor->pIsiCreateSensorIss                 = HM8040_IsiCreateSensorIss;
         pIsiSensor->pIsiReleaseSensorIss                = HM8040_IsiReleaseSensorIss;
         pIsiSensor->pIsiGetCapsIss                      = HM8040_IsiGetCapsIss;

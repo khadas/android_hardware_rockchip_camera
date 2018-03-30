@@ -565,7 +565,7 @@ RESULT AwbSetFlags
 RESULT AwbSetHistogram
 (
     AwbHandle_t         handle,
-    CamerIcHistBins_t   bins
+    CamerIcHistBins_t   *bins
 );
 
 

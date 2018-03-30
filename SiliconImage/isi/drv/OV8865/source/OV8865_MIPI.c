@@ -1,13 +1,3 @@
-/******************************************************************************
- *
- * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
- * No part of this work may be reproduced, modified, distributed, transmitted,
- * transcribed, or translated into any language or computer format, in any form
- * or by any means without written permission of:
- * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
- * Germany
- *
- *****************************************************************************/
 #include <ebase/types.h>
 #include <ebase/trace.h>
 #include <ebase/builtins.h>
@@ -230,7 +220,6 @@ static struct otp_struct g_otp_info ={0};
 int  RG_Ratio_Typical=0x10F;
 int  BG_Ratio_Typical=0x161;
 
-#if 1
 // return value:
 // bit[7]: 0 no otp info, 1 valid otp info
 // bit[6]: 0 no otp wb, 1 valib otp wb
@@ -239,7 +228,7 @@ int  BG_Ratio_Typical=0x161;
 static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
 {
     int rg, bg, R_gain, G_gain, B_gain, Base_gain, temp, i;
-	
+	char prop_value[PROPERTY_VALUE_MAX];
     // apply OTP WB Calibration
     if ((*otp_ptr).flag & 0x40) {
         if((*otp_ptr).light_rg == 0){
@@ -271,26 +260,32 @@ static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
         B_gain = 0x400 * B_gain / (Base_gain);
         G_gain = 0x400 * G_gain / (Base_gain);
     // update sensor WB gain
-        if (R_gain>0x400) {
-            Sensor_write_i2c( handle,0x5018, R_gain>>6);
-            Sensor_write_i2c( handle,0x5019, R_gain & 0x003f);
-        }
-        if (G_gain>0x400) {
-            Sensor_write_i2c( handle,0x501a, G_gain>>6);
-            Sensor_write_i2c( handle,0x501b, G_gain & 0x003f);
-        }
-        if (B_gain>0x400) {
-            Sensor_write_i2c( handle,0x501c, B_gain>>6);
-            Sensor_write_i2c( handle,0x501d, B_gain & 0x003f);
+	    property_get("sys_graphic.cam_otp_awb_enable", prop_value, "true");
+    	if (!strcmp(prop_value,"true")) {
+	        if (R_gain>0x400) {
+	            Sensor_write_i2c( handle,0x5018, R_gain>>6);
+	            Sensor_write_i2c( handle,0x5019, R_gain & 0x003f);
+	        }
+	        if (G_gain>0x400) {
+	            Sensor_write_i2c( handle,0x501a, G_gain>>6);
+	            Sensor_write_i2c( handle,0x501b, G_gain & 0x003f);
+	        }
+	        if (B_gain>0x400) {
+	            Sensor_write_i2c( handle,0x501c, B_gain>>6);
+	            Sensor_write_i2c( handle,0x501d, B_gain & 0x003f);
+	        }
         }
     }
     // apply OTP Lenc Calibration
     if ((*otp_ptr).flag & 0x10) {
-        temp = Sensor_read_i2c( handle,0x5000);
-        temp = 0x80 | temp;
-        Sensor_write_i2c( handle,0x5000, temp);
-        for(i=0;i<62;i++) {
-            Sensor_write_i2c( handle,0x5800 + i, (*otp_ptr).lenc[i]);
+	    property_get("sys_graphic.cam_otp_lsc_enable", prop_value, "true");
+    	if (!strcmp(prop_value,"true")) {
+	        temp = Sensor_read_i2c( handle,0x5000);
+	        temp = 0x80 | temp;
+	        Sensor_write_i2c( handle,0x5000, temp);
+	        for(i=0;i<62;i++) {
+	            Sensor_write_i2c( handle,0x5800 + i, (*otp_ptr).lenc[i]);
+	        }
         }
     }
     TRACE( SENSOR_NOTICE0,  "%s: success!!!\n",  __FUNCTION__ );
@@ -379,6 +374,8 @@ static int check_read_otp(
         (*otp_ptr).bg_ratio = (sensor_i2c_read_p(context,camsys_fd,addr + 1, i2c_base_info)<<2) + ((temp>>4) & 0x03);
         (*otp_ptr).light_rg = (sensor_i2c_read_p(context,camsys_fd,addr + 2, i2c_base_info)<<2) + ((temp>>2) & 0x03);
         (*otp_ptr).light_bg = (sensor_i2c_read_p(context,camsys_fd,addr + 3, i2c_base_info)<<2) + ((temp) & 0x03);
+        property_set("sys_graphic.cam_otp_awb", "true");
+        property_set("sys_graphic.cam_otp_awb_enable", "true");
         TRACE( SENSOR_ERROR, "%s awb info in OTP(rg,bg,light_rg,light_bg)=(0x%x,0x%x,0x%x,0x%x)!\n", __FUNCTION__,(*otp_ptr).rg_ratio,(*otp_ptr).bg_ratio,
                                 (*otp_ptr).light_rg,(*otp_ptr).light_bg);
 
@@ -434,6 +431,8 @@ static int check_read_otp(
             (* otp_ptr).lenc[i]=sensor_i2c_read_p(context,camsys_fd,addr + i, i2c_base_info);
             TRACE( SENSOR_INFO, "%s lsc 0x%x!\n", __FUNCTION__,(*otp_ptr).lenc[i]);
         }
+        property_set("sys_graphic.cam_otp_lsc", "true");
+        property_set("sys_graphic.cam_otp_lsc_enable", "true");
     }
     else {
         for(i=0;i<62;i++) {
@@ -454,7 +453,6 @@ static int check_read_otp(
     else
         return RET_NOTSUPP;
 }
-#endif
 
 /* OTP END*/
 

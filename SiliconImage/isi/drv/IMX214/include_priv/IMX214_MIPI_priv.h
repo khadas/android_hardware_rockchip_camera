@@ -1,35 +1,3 @@
-//IMX214_MIPI_priv.h
-/*****************************************************************************/
-/*!
- *  \file        IMX214_priv.h \n
- *  \version     1.0 \n
- *  \author      Meinicke \n
- *  \brief       Private header file for sensor specific code of the OV13850. \n
- *
- *  \revision    $Revision: 432 $ \n
- *               $Author: neugebaa $ \n
- *               $Date: 2009-06-30 11:48:59 +0200 (Di, 30 Jun 2009) $ \n
- *               $Id: OV13850_priv.h 432 2009-06-30 09:48:59Z neugebaa $ \n
- */
-/*  This is an unpublished work, the copyright in which vests in Silicon Image
- *  GmbH. The information contained herein is the property of Silicon Image GmbH
- *  and is supplied without liability for errors or omissions. No part may be
- *  reproduced or used expect as authorized by contract or other written
- *  permission. Copyright(c) Silicon Image GmbH, 2009, all rights reserved.
- */
-/*****************************************************************************/
-
-/*Modify by oyyf@rock-chips.com*/
-/*
-#ifndef _IMX214_PRIV_H
-#define _IMX214_PRIV_H
-
-#include "isi_priv.h"
-
-#if( IMX214_DRIVER_USAGE == USE_CAM_DRV_EN )
-*/
-
-
 #ifndef __IMX214_PRIV_H__
 #define __IMX214_PRIV_H__
 
@@ -66,9 +34,11 @@ extern "C"
 *   1).gain change to 16.
 *v0.b.0:
 *   1).change usFrameLengthLines.
+*v0.0xe.0 :
+*   1). change judgment condition of applying OTP data.
 */
 
-#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 0xb, 0x00)
+#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 0xe, 0x00)
 
 
 #define Sensor_CHIP_ID_HIGH_BYTE            (0x0016) // r -

@@ -1735,6 +1735,8 @@ int check_read_otp_wb(
 		return 1;
 	}
 	read_otp_wb(sensor_i2c_write_p, sensor_i2c_read_p, context, camsys_fd, otp_index, &g_otp_info);
+	property_set("sys_graphic.cam_otp_awb", "true");
+	property_set("sys_graphic.cam_otp_awb_enable", "true");
 
 	return 0;
 }
@@ -1792,8 +1794,9 @@ int check_read_otp_lenc(
 		return 1;
 	}
 	read_otp_lenc(sensor_i2c_write_p, sensor_i2c_read_p, context, camsys_fd, otp_index, &g_otp_info);
-	//update_lenc(&current_otp);
-	// success
+	property_set("sys_graphic.cam_otp_lsc", "true");
+	property_set("sys_graphic.cam_otp_lsc_enable", "true");
+
 	return 0;
 }
 
@@ -1849,8 +1852,17 @@ int update_blc_ratio()
 
 int apply_otp_data(IsiSensorHandle_t  handle)
 {
-	update_awb(handle, &g_otp_info);
-	update_lenc(handle, &g_otp_info);
+	char prop_value[PROPERTY_VALUE_MAX];
+
+	property_get("sys_graphic.cam_otp_awb_enable", prop_value, "true");
+	if (!strcmp(prop_value,"true")) {
+		update_awb(handle, &g_otp_info);
+	}
+	property_get("sys_graphic.cam_otp_lsc_enable", prop_value, "true");
+	if (!strcmp(prop_value,"true")) {
+		update_lenc(handle, &g_otp_info);
+	}
+
 	return 0;
 }
 

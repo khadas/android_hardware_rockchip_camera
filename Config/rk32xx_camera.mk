@@ -1,9 +1,19 @@
+ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 7.0)))
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3326)
+MY_ISP_LIB_NAME := lib_rkisp12_api
+else
+MY_ISP_LIB_NAME := lib_rkisp1_api
+endif
+else
+MY_ISP_LIB_NAME := libisp_silicomimageisp_api
+endif
+
 ifeq ($(filter box vr stbvr, $(strip $(TARGET_BOARD_PLATFORM_PRODUCT))), )
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3399)
 
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 
 PRODUCT_COPY_FILES += \
     hardware/rockchip/camera/SiliconImage/isi/drv/OV8820/calib/OV8820.xml:system/etc/OV8820.xml \
@@ -52,7 +62,7 @@ endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3366)
 
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 
 PRODUCT_COPY_FILES += \
     hardware/rockchip/camera/SiliconImage/isi/drv/OV8820/calib/OV8820.xml:system/etc/OV8820.xml \
@@ -102,7 +112,7 @@ endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3368)
 
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 
 PRODUCT_COPY_FILES += \
     hardware/rockchip/camera/SiliconImage/isi/drv/OV8820/calib/OV8820.xml:system/etc/OV8820.xml \
@@ -151,7 +161,7 @@ endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3288)
 
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 
 PRODUCT_COPY_FILES += \
     hardware/rockchip/camera/SiliconImage/isi/drv/OV8820/calib/OV8820.xml:system/etc/OV8820.xml \
@@ -198,22 +208,22 @@ PRODUCT_COPY_FILES += \
 endif
 else
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 endif
 
 ifneq ($(filter rk322x rk312x rk3126c rk3128 px3se, $(strip $(TARGET_BOARD_PLATFORM))), )
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 endif
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3328)
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 endif
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3036)
 PRODUCT_PACKAGES += \
-    libisp_silicomimageisp_api
+    $(MY_ISP_LIB_NAME)
 endif
 
 #force camera API 1

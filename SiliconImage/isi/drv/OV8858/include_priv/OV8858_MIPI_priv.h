@@ -1,6 +1,5 @@
-//OV8858_MIPI_priv.h
-#ifndef __OV8810_PRIV_H__
-#define __OV8810_PRIV_H__
+#ifndef __OV8858_PRIV_H__
+#define __OV8858_PRIV_H__
 
 #include <ebase/types.h>
 #include <common/return_codes.h>
@@ -70,15 +69,18 @@ extern "C"
 *v1.0xa.0
 *   1). remove {0x0100,0x01} from 2A setting.
 *   2). correct OTP end address of 2A chip.
+*v1.0xb.0
+*   1). change bOTP_switch to bDumpRaw_OTP_switch.
+*   2). change judgment condition of applying OTP data,when dump raw data,it's true.
 */
 
 
-#define CONFIG_SENSOR_DRV_VERSION  KERNEL_VERSION(1, 0xa, 0)
+#define CONFIG_SENSOR_DRV_VERSION  KERNEL_VERSION(1, 0xb, 0)
 
 /*****************************************************************************
  * System control registers
  *****************************************************************************/
-//hkw  
+
 #define OV8858_MODE_SELECT                  (0x0100) // rw - Bit[7:1]not used  Bit[0]Streaming set 0: software_standby  1: streaming       
 #define OV8858_MODE_SELECT_OFF              (0x00U)
 #define OV8858_MODE_SELECT_ON				(0x01U)

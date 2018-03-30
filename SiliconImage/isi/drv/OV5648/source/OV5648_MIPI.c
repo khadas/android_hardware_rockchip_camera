@@ -1430,7 +1430,7 @@ struct otp_struct {
 #define  BG_Ratio_Typical_Default (0x16f)
 static int  RG_Ratio_Typical = 0x0;
 static int  BG_Ratio_Typical = 0x0;
-static bool bOTP_switch = true;
+static bool bDumpRaw_OTP_switch = false;
 static struct otp_struct g_otp_info ={0};
 
 
@@ -1636,6 +1636,8 @@ static int check_read_otp(
     }else{
         err = RET_SUCCESS;
         TRACE( Sensor_INFO, "%s  wb OTP data in group %d !\n", __FUNCTION__,i);
+        property_set("sys_graphic.cam_otp_awb", "true");//awb info in OTP
+        property_set("sys_graphic.cam_otp_awb_enable", "true");
     }
     read_otp(sensor_i2c_write_p,sensor_i2c_read_p,context,camsys_fd,i);
     
@@ -1649,18 +1651,23 @@ static int check_read_otp(
 // return 0;
 static int update_awb_gain(IsiSensorHandle_t   handle,int R_gain, int G_gain, int B_gain)
 {
-    TRACE( Sensor_INFO, "%s update wb OTP data!\n", __FUNCTION__);
-    if (R_gain>0x400) {
-        OV5648_write_i2c(handle,0x5186, R_gain>>8);
-        OV5648_write_i2c(handle,0x5187, R_gain & 0x00ff);
-    }
-    if (G_gain>0x400) {
-        OV5648_write_i2c(handle,0x5188, G_gain>>8);
-        OV5648_write_i2c(handle,0x5189, G_gain & 0x00ff);
-    }
-    if (B_gain>0x400) {
-        OV5648_write_i2c(handle,0x518a, B_gain>>8);
-        OV5648_write_i2c(handle,0x518b, B_gain & 0x00ff);
+	char prop_value[PROPERTY_VALUE_MAX];
+
+	property_get("sys_graphic.cam_otp_awb_enable", prop_value, "true");
+	if (!strcmp(prop_value,"true")) {
+	    if (R_gain>0x400) {
+	        OV5648_write_i2c(handle,0x5186, R_gain>>8);
+	        OV5648_write_i2c(handle,0x5187, R_gain & 0x00ff);
+	    }
+	    if (G_gain>0x400) {
+	        OV5648_write_i2c(handle,0x5188, G_gain>>8);
+	        OV5648_write_i2c(handle,0x5189, G_gain & 0x00ff);
+	    }
+	    if (B_gain>0x400) {
+	        OV5648_write_i2c(handle,0x518a, B_gain>>8);
+	        OV5648_write_i2c(handle,0x518b, B_gain & 0x00ff);
+	    }
+	    TRACE( Sensor_INFO, "%s update wb OTP data!\n", __FUNCTION__);
     }
     return 0;
 }
@@ -1785,7 +1792,7 @@ static RESULT Sensor_IsiEnableOTP
         TRACE( Sensor_ERROR, "%s: Invalid sensor handle (NULL pointer detected)\n", __FUNCTION__ );
         return ( RET_WRONG_HANDLE );
     }
-	bOTP_switch = enable;
+	bDumpRaw_OTP_switch = enable;
 	return (result);
 }
 
@@ -1917,13 +1924,9 @@ static RESULT Sensor_IsiSetupSensorIss
         pSensorCtx->Configured = BOOL_TRUE;
     }
 	
-	char prop_value[PROPERTY_VALUE_MAX];
-	property_get("sys_graphic.cam_otp", prop_value, "true");
     if((g_otp_info.rg_ratio !=0) || (g_otp_info.bg_ratio != 0)){
-		if(bOTP_switch && !strcmp(prop_value,"true")){
-	        TRACE( Sensor_INFO, "%s:  rg,bg(0x%x,0x%x)\n", __FUNCTION__,g_otp_info.rg_ratio,g_otp_info.bg_ratio);
-	        update_otp(pSensorCtx);
-		}
+        TRACE( Sensor_INFO, "%s: rg,bg(0x%x,0x%x)\n", __FUNCTION__,g_otp_info.rg_ratio,g_otp_info.bg_ratio);
+        update_otp(pSensorCtx);
     }
 
     TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);

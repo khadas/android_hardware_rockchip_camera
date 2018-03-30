@@ -1,15 +1,3 @@
-//ov8825 the same with ov14825
-
-/******************************************************************************
- *
- * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
- * No part of this work may be reproduced, modified, distributed, transmitted,
- * transcribed, or translated into any language or computer format, in any form
- * or by any means without written permission of:
- * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
- * Germany
- *
- *****************************************************************************/
 /**
  * @file SP2518.c
  *
@@ -2943,7 +2931,7 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pszName */
         0,                      /**< IsiSensor_t.pRegisterTable */
         0,                      /**< IsiSensor_t.pIsiSensorCaps */
-        0,											/**< IsiSensor_t.pIsiGetSensorIsiVer_t>*/   //oyyf add
+        0,						/**< IsiSensor_t.pIsiGetSensorIsiVer_t>*/   //oyyf add
         0,                      /**< IsiSensor_t.pIsiGetSensorTuningXmlVersion_t>*/   //oyyf add 
         0,                      /**< IsiSensor_t.pIsiWhiteBalanceIlluminationChk>*/   //ddl@rock-chips.com 
         0,                      /**< IsiSensor_t.pIsiWhiteBalanceIlluminationSet>*/   //ddl@rock-chips.com

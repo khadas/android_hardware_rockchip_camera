@@ -1,7 +1,15 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
+ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 7.0)))
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3326)
+LOCAL_MODULE := lib_rkisp12_api
+else
+LOCAL_MODULE := lib_rkisp1_api
+endif
+else
 LOCAL_MODULE := libisp_silicomimageisp_api
+endif
 
 ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 7.0)))
 LOCAL_SRC_FILES_arm := $(LOCAL_MODULE)_7x_32bit.so

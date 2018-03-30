@@ -980,13 +980,13 @@ static RESULT Sensor_SetupOutputWindowInternal
 	}
 
 	// store frame timing for later use in AEC module
-	rVtPixClkFreq = Sensor_get_PCLK(pSensorCtx, xclk);    
+	rVtPixClkFreq = 45000000;//Sensor_get_PCLK(pSensorCtx, xclk);    
     pSensorCtx->VtPixClkFreq     = rVtPixClkFreq;
     pSensorCtx->LineLengthPck    = usLineLengthPck;
     pSensorCtx->FrameLengthLines = usFrameLengthLines;	
 	pSensorCtx->AecMaxIntegrationTime = ( ((float)(pSensorCtx->FrameLengthLines - 4)) * ((float)pSensorCtx->LineLengthPck) ) / pSensorCtx->VtPixClkFreq;
 	//have to reset mipi freq here,zyc
-    TRACE( Sensor_INFO, "%s AecMaxIntegrationTime:%f(****************exit): Resolution %dx%d@%dfps  MIPI %dlanes  res_no_chg: %d   rVtPixClkFreq: %f\n", __FUNCTION__,
+    TRACE( Sensor_INFO, "%s AecMaxIntegrationTime:%f Resolution %dx%d@%dfps  MIPI %dlanes  res_no_chg: %d   rVtPixClkFreq: %f\n", __FUNCTION__,
     					pSensorCtx->AecMaxIntegrationTime,
                         ISI_RES_W_GET(pConfig->Resolution),ISI_RES_H_GET(pConfig->Resolution),
                         ISI_FPS_GET(pConfig->Resolution),
@@ -1271,7 +1271,7 @@ struct otp_struct {
 #define  BG_Ratio_Typical_Default (0x16f)
 static int  RG_Ratio_Typical = 0x0;
 static int  BG_Ratio_Typical = 0x0;
-static bool bOTP_switch = true;
+static bool bDumpRaw_OTP_switch = false;
 static struct otp_struct g_otp_info ={0};
 
 
@@ -1316,8 +1316,8 @@ static int read_otp(
 		TRACE( Sensor_DEBUG, "%s awb info in module_integrator_id(0x%x) lens_id(0x%x)  !\n", 
 		__FUNCTION__,(*otp_ptr).module_integrator_id,(*otp_ptr).lens_id);
         TRACE( Sensor_DEBUG, "%s awb info in OTP(0x%x,0x%x)!\n", __FUNCTION__,(*otp_ptr).rg_ratio,(*otp_ptr).bg_ratio);		
-
-
+		property_set("sys_graphic.cam_otp_awb", "true");
+		property_set("sys_graphic.cam_otp_awb_enable", "true");
 	}
 	else {
 		(*otp_ptr).flag = 0x00; // not info and AWB in OTP
@@ -1400,7 +1400,8 @@ static int check_read_otp(
 static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
 {
 	int rg, bg, R_gain, G_gain, B_gain, Base_gain, temp, i;
-	
+	char prop_value[PROPERTY_VALUE_MAX];
+
 	// apply OTP WB Calibration
 	if ((*otp_ptr).flag & 0x80) {
 		rg = (*otp_ptr).rg_ratio;
@@ -1424,21 +1425,26 @@ static int apply_otp(IsiSensorHandle_t   handle,struct otp_struct *otp_ptr)
 		B_gain = 0x400 * B_gain / (Base_gain);
 		G_gain = 0x400 * G_gain / (Base_gain);
 		// update sensor WB gain
-		if (R_gain>0x400) {
-			Sensor_IsiRegWriteIss(handle, 0x5019, R_gain>>8);
-			Sensor_IsiRegWriteIss(handle, 0x501A, R_gain & 0x00ff);
-		}
-		if(G_gain>0x400) {
-			Sensor_IsiRegWriteIss(handle, 0x501B, G_gain>>8);
-			Sensor_IsiRegWriteIss(handle, 0x501C, G_gain & 0x00ff);
-		}
-		if(B_gain>0x400) {
-			Sensor_IsiRegWriteIss(handle, 0x501D, B_gain>>8);
-			Sensor_IsiRegWriteIss(handle, 0x501E, B_gain & 0x00ff);
+			
+		property_get("sys_graphic.cam_otp_awb", prop_value, "true");
+		if (!strcmp(prop_value,"true")) {
+			if (R_gain>0x400) {
+				Sensor_IsiRegWriteIss(handle, 0x5019, R_gain>>8);
+				Sensor_IsiRegWriteIss(handle, 0x501A, R_gain & 0x00ff);
+			}
+			if(G_gain>0x400) {
+				Sensor_IsiRegWriteIss(handle, 0x501B, G_gain>>8);
+				Sensor_IsiRegWriteIss(handle, 0x501C, G_gain & 0x00ff);
+			}
+			if(B_gain>0x400) {
+				Sensor_IsiRegWriteIss(handle, 0x501D, B_gain>>8);
+				Sensor_IsiRegWriteIss(handle, 0x501E, B_gain & 0x00ff);
+			}
+			TRACE( Sensor_DEBUG,  "%s: apply awb OTP data success!\n",	__FUNCTION__ );
 		}
 	}
 
-	TRACE( Sensor_DEBUG,  "%s: success!!!\n",  __FUNCTION__ );
+	TRACE( Sensor_DEBUG,  "%s: exit!!!\n",	__FUNCTION__ );
 	return (*otp_ptr).flag;
 }
 
@@ -1489,7 +1495,7 @@ static RESULT Sensor_IsiEnableOTP
         TRACE( Sensor_ERROR, "%s: Invalid sensor handle (NULL pointer detected)\n", __FUNCTION__ );
         return ( RET_WRONG_HANDLE );
     }
-	bOTP_switch = enable;
+	bDumpRaw_OTP_switch = enable;
 	return (result);
 }
 
@@ -1621,26 +1627,22 @@ static RESULT Sensor_IsiSetupSensorIss
         pSensorCtx->Configured = BOOL_TRUE;
     }
 
-	char prop_value[PROPERTY_VALUE_MAX];
-	property_get("sys_graphic.cam_otp", prop_value, "true");
     if(g_otp_info.flag != 0){
-		if(bOTP_switch && !strcmp(prop_value,"true")){
-			result = Sensor_IsiRegWriteIss( pSensorCtx, Sensor_MODE_SELECT, 0x01 );
-			if ( result != RET_SUCCESS )
-			{
-				TRACE( Sensor_ERROR, "%s: Can't write OV5695 Image System Register (disable streaming failed)\n", __FUNCTION__ );
-        		return ( result );
-			}
-        	TRACE( Sensor_DEBUG, "%s: apply OTP info !!\n", __FUNCTION__);
-        	apply_otp(handle,&g_otp_info);
-			result = Sensor_IsiRegWriteIss( pSensorCtx, Sensor_MODE_SELECT, 0x00 );
-			if ( result != RET_SUCCESS )
-			{
-        		TRACE( Sensor_ERROR, "%s: Can't write OV5695 Image System Register (disable streaming failed)\n", __FUNCTION__ );
-        		return ( result );
-			}
+		result = Sensor_IsiRegWriteIss( pSensorCtx, Sensor_MODE_SELECT, 0x01 );
+		if ( result != RET_SUCCESS )
+		{
+			TRACE( Sensor_ERROR, "%s: Can't write OV5695 Image System Register (disable streaming failed)\n", __FUNCTION__ );
+    		return ( result );
 		}
-    }
+    	TRACE( Sensor_DEBUG, "%s: apply OTP info !!\n", __FUNCTION__);
+    	apply_otp(handle,&g_otp_info);
+		result = Sensor_IsiRegWriteIss( pSensorCtx, Sensor_MODE_SELECT, 0x00 );
+		if ( result != RET_SUCCESS )
+		{
+    		TRACE( Sensor_ERROR, "%s: Can't write OV5695 Image System Register (disable streaming failed)\n", __FUNCTION__ );
+    		return ( result );
+		}
+	}
 
     TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
 

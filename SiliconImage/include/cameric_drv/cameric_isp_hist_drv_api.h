@@ -72,6 +72,26 @@ extern "C"
 #endif
 
 
+#if defined(RK_ISP_V12)
+
+/*****************************************************************************/
+/**
+ * @brief   This macro defines the number of used bins.
+ *
+ *****************************************************************************/
+#define CAMERIC_ISP_HIST_NUM_BINS           32  /**< number of bins */
+
+
+
+/*****************************************************************************/
+/**
+ * @brief   This macro defines the number of used grid items ofr weightening
+ *          measured pixels.
+ *
+ *****************************************************************************/
+#define CAMERIC_ISP_HIST_GRID_ITEMS         81  /**< number of grid sub windows */
+
+#else
 
 /*****************************************************************************/
 /**
@@ -90,15 +110,18 @@ extern "C"
  *****************************************************************************/
 #define CAMERIC_ISP_HIST_GRID_ITEMS         25  /**< number of grid sub windows */
 
-
-
+#endif
 /*****************************************************************************/
 /**
  * @brief   This typedef specifies an array type to configure the grid weights
  *          of CamerIC ISP historgam module.
  *
  *****************************************************************************/
-typedef uint8_t CamerIcHistWeights_t[CAMERIC_ISP_HIST_GRID_ITEMS];
+//typedef uint8_t CamerIcHistWeights_t[CAMERIC_ISP_HIST_GRID_ITEMS];
+typedef struct CamerIcHistWeights_s{
+	uint8_t *pWeight;
+	uint32_t gridNum;
+}CamerIcHistWeights_t;
 
 
 
@@ -108,7 +131,12 @@ typedef uint8_t CamerIcHistWeights_t[CAMERIC_ISP_HIST_GRID_ITEMS];
  *          CamerIC ISP histogram module.
  *
  *****************************************************************************/
-typedef uint32_t CamerIcHistBins_t[CAMERIC_ISP_HIST_NUM_BINS];
+//typedef uint32_t CamerIcHistBins_t[CAMERIC_ISP_HIST_NUM_BINS];
+typedef struct CamerIcHistBins_s{
+	uint32_t *pHistBins;
+	uint32_t binNum;
+}CamerIcHistBins_t;
+
 
 
 
@@ -308,7 +336,7 @@ extern RESULT CamerIcIspHistSetMeasuringWindow
 extern RESULT CamerIcIspHistSetGridWeights
 (
     CamerIcDrvHandle_t          handle,
-    const CamerIcHistWeights_t  weights
+    const CamerIcHistWeights_t  *pweights
 );
 
 
