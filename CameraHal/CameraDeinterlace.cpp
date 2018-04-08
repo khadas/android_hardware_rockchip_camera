@@ -30,10 +30,15 @@ bool CameraDeinterlace::is_interlace_resolution(void){
 int CameraDeinterlace::odd_even_field_merge(mmerge_interface_t* merge_para ) 
 {
 	int ret = 0;
-	mrga_interface_t* rga_para=(mrga_interface_t *)malloc(sizeof(mrga_interface_t));
+	mrga_interface_t* rga_para;
 	bool is_interlace_resolution = true;
 	is_interlace_resolution = CameraDeinterlace::is_interlace_resolution();
-	
+
+        rga_para=(mrga_interface_t *)malloc(sizeof(mrga_interface_t));
+        if(!rga_para){
+                LOGE("error,malloc failed!");
+                goto failed;
+        }
 	rga_para->src = merge_para->src;
 	//rga_para->offset_x = merge_para->offset_x;
 	rga_para->offset_y = 0;
@@ -52,7 +57,7 @@ int CameraDeinterlace::odd_even_field_merge(mmerge_interface_t* merge_para )
 	rga_para->isDstNV21 = merge_para->isDstNV21;
 	rga_para->is_viraddr_valid = merge_para->is_viraddr_valid;
 	
-	#if (CONFIG_EVEN_ODD_MERGE == 0x01) 
+#if (CONFIG_EVEN_ODD_MERGE == 0x01)
 	if(!is_interlace_resolution) {
 		rga_para->offset_x = 0;
 		rga_para->dst = merge_para->dst;
@@ -74,17 +79,19 @@ int CameraDeinterlace::odd_even_field_merge(mmerge_interface_t* merge_para )
 			#endif
 		}
 	}
-	#else
+#else
 	rga_para->offset_x = 0;
 	rga_para->dst = merge_para->dst;
 	rga_para->dst_height = merge_para->dst_height;
 	rga_para->dst_vir_width = merge_para->dst_width;
-	#endif
+#endif
+
 	rga_nv12_scale_crop(rga_para);
+        free(rga_para);
 
 	return ret;
-	failed:
-		return ret;
+failed:
+	return -1;
 }
 
 

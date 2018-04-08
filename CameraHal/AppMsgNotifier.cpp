@@ -1558,6 +1558,7 @@ int AppMsgNotifier::captureEncProcessPicture(FramInfo_s* frame){
         input_vir_addr = output_vir_addr;
         mRawBufferProvider->flushBuffer(0);
     }
+    free(merge_para);
 	/*if ((frame->frame_fmt != picfmt) || (frame->frame_width!= jpeg_w) || (frame->frame_height != jpeg_h) 
     	|| (frame->zoom_value != 100)) {
 
@@ -1832,6 +1833,7 @@ int AppMsgNotifier::processPreviewDataCb(FramInfo_s* frame){
 	          }
             }
         }
+        free(merge_para);
 #endif
 			//arm_yuyv_to_nv12(frame->frame_width, frame->frame_height,(char*)(frame->vir_addr), (char*)buf_vir);
 			
@@ -2037,7 +2039,8 @@ int AppMsgNotifier::processVideoCb(FramInfo_s* frame){
 		}
 
 	}
-	
+	free(merge_para);
+
     return ret;
 }
 

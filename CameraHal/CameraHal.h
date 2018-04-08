@@ -802,10 +802,14 @@ v1.0x51.0
 	  2) support even and odd field merge.
 	v1.0x59.0
 	  1) version format string is wrong in CameraHal_Module.cpp, correct it.
+v1.0x51.1
+    1) fix some memory leak because of The use of "malloc" and "free" are not paired.
+    2) we should set buffer state to "0" when enqueue display buffer failed ,otherwise the buffer
+       will be locked by camera disaplayAdaper,then the buffer producer can not unregister it.
 */
 
 
-#define CONFIG_CAMERAHAL_VERSION KERNEL_VERSION(1, 0x51, 0x0)
+#define CONFIG_CAMERAHAL_VERSION KERNEL_VERSION(1, 0x51, 0x1)
 
 
 /*  */

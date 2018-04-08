@@ -184,6 +184,9 @@ int DisplayAdapter::setPreviewWindow(struct preview_stream_ops* window)
     //mANativeWindow null?
     //window null ?
     LOG_FUNCTION_NAME
+    if(window == NULL){
+        LOGW("set preview window null,stop display?");
+    }
     if(window == mANativeWindow){
         LOGD("preview native window is the same,so ignore it.");
         return 0;
@@ -776,8 +779,6 @@ display_receive_cmd:
                                         mDisplayWidth, mDisplayHeight,
                                         false,frame->zoom_value);
                             }else{
-				#if defined(RK_DRM_GRALLOC)
-				int dst_stride = mDisplayBufInfo[queue_display_index].stride;
 				merge_para->src_width = frame->frame_width;
 				merge_para->src_height = frame->frame_height;
 				merge_para->dst_width = mDisplayWidth;
@@ -787,6 +788,7 @@ display_receive_cmd:
 				merge_para->isNeedCrop = true;
 				merge_para->isDstNV21 = false;
 				merge_para->is_even_field = frame->is_even_field;
+				#if defined(RK_DRM_GRALLOC)
 				if (frame->vir_addr_valid){
 					merge_para->src = (char*)(frame->vir_addr);
 					merge_para->dst = (short int *)(mDisplayBufInfo[queue_display_index].vir_addr);
@@ -840,7 +842,7 @@ display_receive_cmd:
 				}
 			}
 			#endif
-
+                        free(merge_para);
                 #endif
                 }
 
@@ -853,10 +855,11 @@ display_receive_cmd:
                         bounds.top = 0;
                         bounds.right = mDisplayWidth ;
                         bounds.bottom = mDisplayHeight;
+                        setBufferState(queue_display_index, 0);
                         mANativeWindow->lock_buffer(mANativeWindow, (buffer_handle_t*)mDisplayBufInfo[queue_display_index].buffer_hnd);
                         mapper.lock((buffer_handle_t)(mDisplayBufInfo[queue_display_index].priv_hnd), CAMHAL_GRALLOC_USAGE, bounds, y_uv);
 
-                        mDisplayRuning = STA_DISPLAY_PAUSE;
+                        //mDisplayRuning = STA_DISPLAY_PAUSE;
                         LOGE("%s(%d): enqueue buffer %d to mANativeWindow failed(%d),so display pause", __FUNCTION__,__LINE__,queue_display_index,err);
                     }                
 
