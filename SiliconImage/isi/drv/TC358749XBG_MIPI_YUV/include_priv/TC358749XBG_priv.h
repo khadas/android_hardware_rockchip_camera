@@ -11,6 +11,7 @@
 *v0.3.0x00 :
 *	1) add the state machine mechanism;
 *	2) add supported resolution: 1080P30, 1080I60, 576P/I50, 480P/I60;
+*v0.4.0x00 : Static variables are not thread-safe,fix them;
 */
 #define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 3, 0)
 
@@ -36,6 +37,14 @@ extern "C"
 * Further defines for driver management
 *****************************************************************************/
 #define TC358749XBG_DRIVER_INIT              (0x00000001)
+
+typedef enum
+{
+    STATUS_POWER_ON	= 0,
+    STATUS_STANDBY	= 1,
+    STATUS_READY	= 2,
+    STATUS_VIDEO_TX	= 3
+} TcStatus;
 
 /*****************************************************************************
  *context structure
@@ -75,6 +84,9 @@ typedef struct TC358749XBG_Context_s
     uint32_t            OldFineIntegrationTime;
 
     IsiSensorMipiInfo   IsiSensorMipiInfo;
+    bool bHdmiinExit;
+    osThread gHdmiinThreadId;
+    TcStatus gStatus;
 } TC358749XBG_Context_t;
 
 #ifdef __cplusplus

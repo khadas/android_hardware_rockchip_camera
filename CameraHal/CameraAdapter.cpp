@@ -24,6 +24,9 @@ CameraAdapter::CameraAdapter(int cameraId):mPreviewRunning(0),
     mCamDriverPreviewFmt = 0;
     mZoomVal = 100;
 	mLibstageLibHandle = NULL;
+    mCurFrameCount = 0;
+    mLastFrameCount = 0;
+    mLastFpsTime = 0;
 
     CameraHal_SupportFmt[0] = V4L2_PIX_FMT_NV12;
     CameraHal_SupportFmt[1] = V4L2_PIX_FMT_NV16;
@@ -608,18 +611,15 @@ int CameraAdapter::cameraAutoFocus(bool auto_trig_only)
 
 void CameraAdapter::debugShowFPS()
 {
-    static int mFrameCount = 0;
-    static int mLastFrameCount = 0;
-    static nsecs_t mLastFpsTime = 0;
-    static float mFps = 0;
-    mFrameCount++;
-    if (!(mFrameCount & 0x1F)) {
+    float mFps = 0;
+    mCurFrameCount++;
+    if (!(mCurFrameCount & 0x1F)) {
         nsecs_t now = systemTime();
         nsecs_t diff = now - mLastFpsTime;
-        mFps = ((mFrameCount - mLastFrameCount) * float(s2ns(1))) / diff;
+        mFps = ((mCurFrameCount - mLastFrameCount) * float(s2ns(1))) / diff;
         mLastFpsTime = now;
-        mLastFrameCount = mFrameCount;
-        LOGD("Camera %d Frames, %2.3f FPS", mFrameCount, mFps);
+        mLastFrameCount = mCurFrameCount;
+        LOGD("Camera %d Frames, %2.3f FPS", mCurFrameCount, mFps);
     }
     // XXX: mFPS has the value we want
 }

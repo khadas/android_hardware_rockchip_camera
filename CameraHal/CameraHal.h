@@ -1205,6 +1205,10 @@ protected:
     
     int mCamFd;
     int mCamId;
+
+    int mCurFrameCount;
+    int mLastFrameCount;
+    nsecs_t mLastFpsTime;
 };
 
 //soc camera adapter
