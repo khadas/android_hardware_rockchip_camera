@@ -55,6 +55,7 @@ PRODUCT_COPY_FILES += \
 	hardware/rockchip/camera/SiliconImage/isi/drv/GS8604/calib/GS8604_lens_40100A.xml:system/etc/GS8604_lens_40100A.xml \
     hardware/rockchip/camera/SiliconImage/isi/drv/OV2680/calib/OV2680.xml:system/etc/OV2680.xml \
     hardware/rockchip/camera/SiliconImage/isi/drv/HM5040/calib/HM5040.xml:system/etc/HM5040.xml \
+    hardware/rockchip/camera/SiliconImage/isi/drv/GC2355/calib/GC2355_lens_MTD2355-TVE1030G-V1.0.xml:system/etc/GC2355_lens_MTD2355-TVE1030G-V1.0.xml \
     hardware/rockchip/camera/Config/cam_board_rk3399.xml:system/etc/cam_board.xml
 	
 endif
