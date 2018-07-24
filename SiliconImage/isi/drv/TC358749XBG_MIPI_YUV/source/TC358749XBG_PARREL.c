@@ -521,8 +521,6 @@ static RESULT TC358749XBG_IsiReleaseSensorIss
 
     (void)HalDelRef( pTC358749XBGCtx->IsiCtx.HalHandle );
 
-    MEMSET( pTC358749XBGCtx, 0, sizeof( TC358749XBG_Context_t ) );
-    free ( pTC358749XBGCtx );
     pTC358749XBGCtx->bHdmiinExit = true;
 	if ( OSLAYER_OK != osThreadWait( &pTC358749XBGCtx->gHdmiinThreadId) )
 		TRACE( TC358749XBG_DEBUG, "%s wait hdmiiin listener thread exit\n", __FUNCTION__);
@@ -532,6 +530,8 @@ static RESULT TC358749XBG_IsiReleaseSensorIss
     pTC358749XBGCtx->gStatus = STATUS_POWER_ON;
     property_set("sys.hdmiin.resolution", "false");
 
+    MEMSET( pTC358749XBGCtx, 0, sizeof( TC358749XBG_Context_t ) );
+    free ( pTC358749XBGCtx );
     TRACE( TC358749XBG_INFO, "%s (exit)\n", __FUNCTION__);
 
     return ( result );
