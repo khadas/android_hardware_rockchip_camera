@@ -1,11 +1,17 @@
 /******************************************************************************
  *
- * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
- * No part of this work may be reproduced, modified, distributed, transmitted,
- * transcribed, or translated into any language or computer format, in any form
- * or by any means without written permission of:
- * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
- * Germany
+ * The copyright in this software is owned by Rockchip and/or its licensors.
+ * This software is made available subject to the conditions of the license 
+ * terms to be determined and negotiated by Rockchip and you.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
+ * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
+ * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
+ * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
+ * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Except as expressively authorized by Rockchip and/or its licensors, you may not 
+ * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
+ * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
+ * dissemble, or attempt to derive any source code from the software.
  *
  *****************************************************************************/
 /**
@@ -697,8 +703,8 @@ struct HalIrqCtx_s                                  // note: a forward declarati
 
     osInterrupt         OsIrq;                      /**< os layer abstraction for the interrupt */
     uint32_t            misValue;                   /**< value of the MIS-Register */
-    uint32_t            mFrameNumFS;                /**< 16 bit frame number from Frame Start (FS) short packet */
-    uint32_t            mFrameNumFE;                /**< 16 bit frame number from Frame End (FE) short packet */
+    uint32_t            mFrameNumFS;				/**< 16 bit frame number from Frame Start (FS) short packet */
+    uint32_t            mFrameNumFE;				/**< 16 bit frame number from Frame End (FE) short packet */
     CamerIcDriverID_t   id;
 #if defined ( HAL_ALTERA )
     fpga_irq_handle_t   AlteraIrqHandle;            /**< handle for multiple interrupt handler */

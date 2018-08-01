@@ -1,23 +1,20 @@
 //OV8820_MIPI_priv.h
-/*****************************************************************************/
-/*!
- *  \file        OV8810_priv.h \n
- *  \version     1.0 \n
- *  \author      Meinicke \n
- *  \brief       Private header file for sensor specific code of the OV8810. \n
+/******************************************************************************
  *
- *  \revision    $Revision: 432 $ \n
- *               $Author: neugebaa $ \n
- *               $Date: 2009-06-30 11:48:59 +0200 (Di, 30 Jun 2009) $ \n
- *               $Id: OV8810_priv.h 432 2009-06-30 09:48:59Z neugebaa $ \n
- */
-/*  This is an unpublished work, the copyright in which vests in Silicon Image
- *  GmbH. The information contained herein is the property of Silicon Image GmbH
- *  and is supplied without liability for errors or omissions. No part may be
- *  reproduced or used expect as authorized by contract or other written
- *  permission. Copyright(c) Silicon Image GmbH, 2009, all rights reserved.
- */
-/*****************************************************************************/
+ * The copyright in this software is owned by Rockchip and/or its licensors.
+ * This software is made available subject to the conditions of the license 
+ * terms to be determined and negotiated by Rockchip and you.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
+ * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
+ * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
+ * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
+ * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Except as expressively authorized by Rockchip and/or its licensors, you may not 
+ * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
+ * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
+ * dissemble, or attempt to derive any source code from the software.
+ *
+ *****************************************************************************/
 
 /*Modify by oyyf@rock-chips.com*/
 /*

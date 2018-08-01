@@ -1,11 +1,17 @@
 /******************************************************************************
  *
- * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
- * No part of this work may be reproduced, modified, distributed, transmitted,
- * transcribed, or translated into any language or computer format, in any form
- * or by any means without written permission of:
- * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
- * Germany
+ * The copyright in this software is owned by Rockchip and/or its licensors.
+ * This software is made available subject to the conditions of the license 
+ * terms to be determined and negotiated by Rockchip and you.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
+ * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
+ * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
+ * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
+ * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Except as expressively authorized by Rockchip and/or its licensors, you may not 
+ * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
+ * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
+ * dissemble, or attempt to derive any source code from the software.
  *
  *****************************************************************************/
 #ifndef __AWB_H__
@@ -83,8 +89,9 @@ typedef enum AwbRunMode_e
     AWB_MODE_INVALID                    = 0,        /**< initialization value */
     AWB_MODE_MANUAL                     = 1,        /**< run manual white balance */
     AWB_MODE_AUTO                       = 2,        /**< run auto white balance */
-    AWB_MODE_MANUAL_CT                  = 3,		/**< run manual white balance */
-    AWB_MODE_MAX
+	AWB_MODE_MANUAL_CT 					= 3,		/**< run manual white balance */
+	AWB_MODE_MAX
+    
 } AwbMode_t;
 
 
@@ -570,6 +577,7 @@ RESULT AwbSetHistogram
 
 
 
+
 /*****************************************************************************/
 /**
  * @brief   The function returns AWB processing flags
@@ -708,17 +716,17 @@ RESULT AwbGetIlluEstInfo
 void LineFitLeastSquares(float *data_x, float *data_y, int data_n,float *a,float *b);
 RESULT AwbFitTemperatureRgLine
 (
-	AwbHandle_t handle
+	AwbHandle_t handle	
 );
 RESULT AwbGetTemperature
 (
-	AwbHandle_t handle,
+	AwbHandle_t handle,	
 	float *ct
 );
 
 RESULT AwbCalcWBgainbyCT
 (
-	AwbHandle_t handle,
+	AwbHandle_t handle,	
 	float ct,
 	float * Rg,
 	float *Bg

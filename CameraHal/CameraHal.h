@@ -1,4 +1,13 @@
 /*
+ * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd.
+ * Modification based on code covered by the License (the "License").
+ * You may not use this software except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS 
+ * ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH RESPECT TO SUCH SOFTWARE, 
+ * WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, INCLUDING WITHOUT LIMITATION,
+ * ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY
+ * QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ *
  * Copyright (C) Texas Instruments - http://www.ti.com/
  *
  * This library is free software; you can redistribute it and/or

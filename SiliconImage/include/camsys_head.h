@@ -1,3 +1,19 @@
+/******************************************************************************
+ *
+ * The copyright in this software is owned by Rockchip and/or its licensors.
+ * This software is made available subject to the conditions of the license 
+ * terms to be determined and negotiated by Rockchip and you.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
+ * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
+ * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
+ * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
+ * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Except as expressively authorized by Rockchip and/or its licensors, you may not 
+ * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
+ * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
+ * dissemble, or attempt to derive any source code from the software.
+ *
+ *****************************************************************************/
 #ifndef __RKCAMSYS_HEAR_H__
 #define __RKCAMSYS_HEAR_H__
 
@@ -20,27 +36,26 @@
 *        1) add support mipi phy configuration;
 *        2) add support io domain and mclk driver strength configuration;
 *v0.7.0:
-         1) add flash_trigger_out control
+	1) add flash_trigger_out control
 *v0.8.0:
-         1) support isp iommu
+	1) support isp iommu
 *v0.9.0:
          1) add dev_name in struct camsys_devio_name_s;
 *v0.a.0:
          1) support external flash IC
 *v0.b.0:
-         1) add CamSys_SensorBit0_CifBit4 in enum camsys_cifio_e.
+	1) add CamSys_SensorBit0_CifBit4 in enum camsys_cifio_e.
 *v0.c.0:
-         1) support sensor powerup sequence configurable.
+	1) support sensor powerup sequence configurable.
 *v0.d.0:
-         1) powerup sequence type moved to common_head.h.
+	1) powerup sequence type moved to common_head.h.
 *v0.e.0:
-         1) add fs_id, fe_id and some reserved bytes in struct camsys_irqsta_s.
+	1) add fs_id, fe_id and some reserved bytes in struct camsys_irqsta_s.
 *v0.f.0:
-         1) add pid in struct camsys_irqsta_s.
+	1) add pid in struct camsys_irqsta_s.
 *v1.0.0:
-         1) add enum camsys_mipiphy_dir_e.
+	1) add enum camsys_mipiphy_dir_e.
 */
-
 #define CAMSYS_HEAD_VERSION           KERNEL_VERSION(1, 0x0, 0)
 
 #define CAMSYS_MARVIN_DEVNAME         "camsys_marvin"           
@@ -65,12 +80,12 @@
 #define CAMSYS_DEVCFG_SHUTTER         0x00000004
 
 typedef struct camsys_irqsta_s {
-	unsigned int ris;   //Raw interrupt status
-	unsigned int mis;   //Masked interrupt status
-	unsigned int fs_id; // frame number from Frame Start (FS) short packet
-	unsigned int fe_id; // frame number from Frame End (FE) short packet
-	int          pid;
-	unsigned int reserved[3];
+    unsigned int ris;                 //Raw interrupt status
+    unsigned int mis;                 //Masked interrupt status
+    unsigned int fs_id; // frame number from Frame Start (FS) short packet
+    unsigned int fe_id; // frame number from Frame End (FE) short packet
+             int pid;
+    unsigned int reserved[3];
 } camsys_irqsta_t;
 
 typedef struct camsys_irqcnnt_s {

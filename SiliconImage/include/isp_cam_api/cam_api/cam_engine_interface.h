@@ -1,11 +1,17 @@
 /******************************************************************************
  *
- * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
- * No part of this work may be reproduced, modified, distributed, transmitted,
- * transcribed, or translated into any language or computer format, in any form
- * or by any means without written permission of:
- * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
- * Germany
+ * The copyright in this software is owned by Rockchip and/or its licensors.
+ * This software is made available subject to the conditions of the license 
+ * terms to be determined and negotiated by Rockchip and you.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
+ * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
+ * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
+ * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
+ * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Except as expressively authorized by Rockchip and/or its licensors, you may not 
+ * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
+ * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
+ * dissemble, or attempt to derive any source code from the software.
  *
  *****************************************************************************/
 /**
@@ -318,11 +324,9 @@
     1) state judgement in AdpfReConfigure is not right, correct it.
 *v1.0x58.0:
     1) support 3840_2160P7\3840_2160P10\3840_2160P15\3840_2160P20\3840_2160P25\3840_2160P30.
-*v2.0.0:
-    1) compatible with android O.
 *v2.1.0:
     1)support 1920_540P60\720_480P60\720_576P50\720_240P60\720_288P50.
-    2)support even and odd field merge.
+    2)support even and odd field merge.    
 *v2.0x02.0:
     1) add awbExpprior outdoor swithoff para in IQ xml. Default: switch on;
 *2.0x3.0:
@@ -534,7 +538,7 @@ public:
     bool getFocusLimits( uint32_t &minFocus, uint32_t &maxFocus ) const;
     bool setFocus( uint32_t focus );
 
-    bool isEvenField( IsiSensorFrameInfo_t &SensorInfo, bool &isEvenField );
+	bool isEvenField( IsiSensorFrameInfo_t &SensorInfo, bool &isEvenField );
 
     bool getPathConfig( const CamEngineChainIdx_t idx, CamEnginePathType_t path, CamEnginePathConfig_t &pathConfig ) const;
     bool setPathConfig( const CamEngineChainIdx_t idx, const CamEnginePathConfig_t &mpConfig, const CamEnginePathConfig_t &spConfig );

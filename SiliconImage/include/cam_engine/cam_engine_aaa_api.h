@@ -1,11 +1,17 @@
 /******************************************************************************
  *
- * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
- * No part of this work may be reproduced, modified, distributed, transmitted,
- * transcribed, or translated into any language or computer format, in any form
- * or by any means without written permission of:
- * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
- * Germany
+ * The copyright in this software is owned by Rockchip and/or its licensors.
+ * This software is made available subject to the conditions of the license 
+ * terms to be determined and negotiated by Rockchip and you.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
+ * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
+ * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
+ * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
+ * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Except as expressively authorized by Rockchip and/or its licensors, you may not 
+ * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
+ * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
+ * dissemble, or attempt to derive any source code from the software.
  *
  *****************************************************************************/
 /**
@@ -49,8 +55,8 @@ typedef enum CamEngineAwbMode_e
     CAM_ENGINE_AWB_MODE_INVALID = 0,    /**< invalid mode (only for initialization) */
     CAM_ENGINE_AWB_MODE_MANUAL  = 1,    /**< manual mode */
     CAM_ENGINE_AWB_MODE_AUTO    = 2,    /**< run auto mode */
-    CAM_ENGINE_AWB_MODE_MANUAL_CT=3,
-    CAM_ENGINE_AWB_MODE_MAX
+	CAM_ENGINE_AWB_MODE_MANUAL_CT=3,
+	CAM_ENGINE_AWB_MODE_MAX
 } CamEngineAwbMode_t;
 
 
@@ -228,10 +234,10 @@ typedef enum CamEngine3aLock_e
 
 /*****************************************************************************/
 /**
- * @brief   This functions get the AWB temperature.
+ * @brief   This functions starts the Auto-White-Balance.
  *
  * @param   hCamEngine          Handle to the CamEngine instance.
- * @param   ct                  color temperature
+ * @param   ct              color temperature
  *
  * @return  Return the result of the function call.
  * @retval  RET_SUCCESS         function succeed
@@ -322,17 +328,17 @@ RESULT CamEngineAwbReset
  * @return                      Return the result of the function call.
  * @retval  RET_SUCCESS         Configuration successfully applied
  * @retval  RET_WRONG_HANDLE    handle is invalid
- * @retval  RET_OUTOFRANGE      At least one perameter of out range
+ * @retval  RET_OUTOFRANGE      At least one perameter of out range 
  *
  *****************************************************************************/
 
 RESULT CamEngineAwbSetMeasuringWindow
-(
-    CamEngineHandle_t        hCamEngine,
+(   
+    CamEngineHandle_t               hCamEngine,
     int16_t                  x,
     int16_t                  y,
-    uint16_t                 width,
-    uint16_t                 height
+    uint16_t                  width,
+    uint16_t                  height  
 );
 /******************************************************************************
  * CamEngineAwbGetMeasuringWindow()
@@ -341,6 +347,7 @@ RESULT CamEngineAwbGetMeasuringWindow
 (
     CamEngineHandle_t               hCamEngine,
     CamEngineWindow_t               *pWindow
+ 
 );
 
 
