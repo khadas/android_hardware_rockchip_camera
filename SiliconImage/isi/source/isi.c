@@ -13,7 +13,6 @@
  * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
  * dissemble, or attempt to derive any source code from the software.
  *
-
  *****************************************************************************/
 /**
  * @file isisup.c
@@ -39,6 +38,62 @@
 CREATE_TRACER( ISI_INFO , "ISI: ", INFO,    0);
 CREATE_TRACER( ISI_WARN , "ISI: ", WARNING, 1);
 CREATE_TRACER( ISI_ERROR, "ISI: ", ERROR,   1);
+
+static RESULT IsiCreateLock(IsiSensorHandle_t   handle)
+{
+    RESULT result = RET_SUCCESS;
+
+    IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
+
+    if ( OSLAYER_OK != osMutexInit( &pSensorCtx->mutex ) )
+     {
+        TRACE( ISI_ERROR, "%s: osMutexInit fail\n", __FUNCTION__);
+     }
+    return ( result );
+}
+
+static RESULT IsiDestroyLock(IsiSensorHandle_t   handle)
+{
+    RESULT result = RET_SUCCESS;
+
+    IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
+
+    if ( OSLAYER_OK != osMutexDestroy( &pSensorCtx->mutex ) )
+     {
+        TRACE( ISI_ERROR, "%s: osMutexDestroy fail\n", __FUNCTION__);
+     }
+    return ( result );
+}
+
+static RESULT IsiContexLock(IsiSensorHandle_t   handle)
+{
+    RESULT result = RET_SUCCESS;
+
+    IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
+
+    // lock context
+    if( osMutexLock( &pSensorCtx->mutex ) != OSLAYER_OK )
+    {
+        TRACE( ISI_ERROR, "Locking context failed.\n" );
+        return ( RET_FAILURE );
+    }
+    return ( result );
+}
+
+static RESULT IsiContexUnlock(IsiSensorHandle_t   handle)
+{
+    RESULT result = RET_SUCCESS;
+
+    IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
+
+    // unlock context
+    if( osMutexUnlock( &pSensorCtx->mutex ) != OSLAYER_OK )
+    {
+        TRACE( ISI_ERROR, "Unlocking context failed.\n" );
+        return ( RET_FAILURE );
+    }
+    return ( result );
+}
 
 /*****************************************************************************/
 /**
@@ -208,7 +263,7 @@ RESULT IsiReleaseSensorIss
     }
 
     result = pSensorCtx->pSensor->pIsiReleaseSensorIss( pSensorCtx );
-
+    IsiDestroyLock(handle);
     TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
 
     return ( result );
@@ -305,6 +360,7 @@ RESULT IsiSetupSensorIss
     }
 
     result = pSensorCtx->pSensor->pIsiSetupSensorIss( pSensorCtx, pConfig );
+    IsiCreateLock(handle);
 
     TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
 
@@ -721,9 +777,14 @@ RESULT IsiExposureControlIss
     {
         return ( RET_NOTSUPP );
     }
-
-    result = pSensorCtx->pSensor->pIsiExposureControlIss( pSensorCtx, NewGain, NewIntegrationTime, pNumberOfFramesToSkip, pSetGain, pSetIntegrationTime );
-
+    IsiContexLock(handle);
+    result = pSensorCtx->pSensor->pIsiExposureControlIss(pSensorCtx,
+                                                         NewGain,
+                                                         NewIntegrationTime,
+                                                         pNumberOfFramesToSkip,
+                                                         pSetGain,
+                                                         pSetIntegrationTime );
+    IsiContexUnlock(handle);
     TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
 
     return ( result );
@@ -986,7 +1047,8 @@ RESULT IsiSetGainIss
 )
 {
     IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
-
+    float newtime = 0.0f, settime = 0.0f;
+    uint8_t NumberOfFramesToSkip = 0;
     RESULT result = RET_SUCCESS;
 
     TRACE( ISI_INFO, "%s: (enter)\n", __FUNCTION__);
@@ -1005,9 +1067,13 @@ RESULT IsiSetGainIss
     {
         return ( RET_NOTSUPP );
     }
-
-    result = pSensorCtx->pSensor->pIsiSetGainIss( pSensorCtx, NewGain, pSetGain );
-
+    IsiGetIntegrationTimeIss(handle, &newtime);
+    result = IsiExposureControlIss(handle,
+                                   NewGain,
+                                   newtime,
+                                   &NumberOfFramesToSkip,
+                                   pSetGain,
+                                   &settime );
     TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
 
     return ( result );
@@ -1110,7 +1176,7 @@ RESULT IsiSetIntegrationTimeIss
 )
 {
     IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
-
+    float newgain = 0.0f, setgain = 0.0f;
     uint8_t NumberOfFramesToSkip = 0U;
 
     RESULT result = RET_SUCCESS;
@@ -1132,8 +1198,13 @@ RESULT IsiSetIntegrationTimeIss
         return ( RET_NOTSUPP );
     }
 
-    result = pSensorCtx->pSensor->pIsiSetIntegrationTimeIss( pSensorCtx, NewIntegrationTime, pSetIntegrationTime, &NumberOfFramesToSkip );
-
+    IsiGetGainIss(handle, &newgain);
+    result = IsiExposureControlIss(handle,
+                                   newgain,
+                                   NewIntegrationTime,
+                                   &NumberOfFramesToSkip,
+                                   &setgain,
+                                   pSetIntegrationTime );
     TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
 
     return ( result );
@@ -1887,7 +1958,7 @@ RESULT IsiIsEvenField
 	IsiSensorFrameInfo_t	*SensorInfo,
 	bool *isEvenField
 )
-{
+{	
 	IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
 
 	RESULT result = RET_SUCCESS;
@@ -2413,6 +2484,16 @@ RESULT IsiGetResolutionParam
         case ISI_RES_2104_1560P50:
         case ISI_RES_2104_1560P60:
 
+        case ISI_RES_2096_1560P7:
+        case ISI_RES_2096_1560P10:
+        case ISI_RES_2096_1560P15:
+        case ISI_RES_2096_1560P20:
+        case ISI_RES_2096_1560P25:
+        case ISI_RES_2096_1560P30:
+        case ISI_RES_2096_1560P40:
+        case ISI_RES_2096_1560P50:
+        case ISI_RES_2096_1560P60:
+		
         case ISI_RES_TV720P5:
         case ISI_RES_TV720P15:
         case ISI_RES_TV720P30:
@@ -2627,3 +2708,62 @@ RESULT IsiSensorFrameRateLimitSet
     return result;
 
 }
+
+RESULT IsiGetSensorMode
+(
+	IsiSensorHandle_t	handle,
+	CamSensorMode_t *mode
+)
+{
+	IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
+
+	RESULT result = RET_SUCCESS;
+
+	TRACE( ISI_INFO, "%s: (enter)\n", __FUNCTION__);
+
+	if ( pSensorCtx == NULL )
+	{
+		return ( RET_WRONG_HANDLE );
+	}
+
+	if ( pSensorCtx->pSensor->pIsiGetSensorModeIss == NULL )
+	{
+		return ( RET_NOTSUPP );
+	}
+
+	result = pSensorCtx->pSensor->pIsiGetSensorModeIss( pSensorCtx, mode );
+	TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
+
+	return ( result );
+
+}
+
+RESULT IsiGetSensorFiledStat
+(
+	IsiSensorHandle_t	handle,
+	CamSensorFiledStat_t *filedStat
+)
+{
+	IsiSensorContext_t *pSensorCtx = (IsiSensorContext_t *)handle;
+
+	RESULT result = RET_SUCCESS;
+
+	TRACE( ISI_INFO, "%s: (enter)\n", __FUNCTION__);
+
+	if ( pSensorCtx == NULL )
+	{
+		return ( RET_WRONG_HANDLE );
+	}
+
+	if ( pSensorCtx->pSensor->pIsiGetSensorModeIss == NULL )
+	{
+		return ( RET_NOTSUPP );
+	}
+
+	result = pSensorCtx->pSensor->pIsiGetSensorFiledStatIss( pSensorCtx, filedStat );
+	TRACE( ISI_INFO, "%s: (exit)\n", __FUNCTION__);
+
+	return ( result );
+
+}
+

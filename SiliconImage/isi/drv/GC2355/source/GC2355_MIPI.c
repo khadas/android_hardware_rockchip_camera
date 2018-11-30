@@ -3580,8 +3580,10 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiGC2355_t.pIsiGetSensorRevisionIss */
         0,                      /**< IsiGC2355_t.pIsiRegisterReadIss */
         0,                      /**< IsiGC2355_t.pIsiRegisterWriteIss */
-
         0,                      /**< IsiSensor_t.pIsiIsEvenFieldIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorModeIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorFiledStatIss */
+
         0,                      /**< IsiGC2355_t.pIsiExposureControlIss */
         0,                      /**< IsiGC2355_t.pIsiGetGainLimitsIss */
         0,                      /**< IsiGC2355_t.pIsiGetIntegrationTimeLimitsIss */
@@ -3614,8 +3616,8 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiGC2355_t.pIsiGetSensorMipiInfoIss */
 
         0,                      /**< IsiGC2355_t.pIsiActivateTestPattern */
-        0,
-        0,						/**< IsiGC2355_t.pIsiGetColorIss */
+        0,			/**< IsiSetSensorFrameRateLimitIss */
+        0,			/**< IsiGC2355_t.pIsiGetColorIss */
     },
     GC2355_IsiGetSensorI2cInfo,
 };

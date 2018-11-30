@@ -424,6 +424,24 @@ extern RESULT CamerIcCprocSetHue
     const uint8_t           hue
 );
 
+RESULT CamerIcCprocGetChromaOut
+(
+    CamerIcDrvHandle_t  handle,
+    uint8_t             *chromaOut
+);
+
+RESULT CamerIcCprocGetLumaOut
+(
+    CamerIcDrvHandle_t  handle,
+    uint8_t             *lumaOut
+);
+
+RESULT CamerIcCprocGetLumaIn
+(
+    CamerIcDrvHandle_t  handle,
+    uint8_t             *lumaIn
+);
+
 
 #ifdef __cplusplus
 }

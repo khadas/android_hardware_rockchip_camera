@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -57,7 +57,7 @@ int BufferProvider::getBufShareFd(int bufindex)
     mBufInfo[bufindex].lock->unlock();
     return share_fd;
 }
-int BufferProvider::createBuffer(int count,int perbufsize,buffer_type_enum buftype,bool is_cif_driver)
+int BufferProvider::createBuffer(int count,int perbufsize,buffer_type_enum buftype,bool is_cif_driver,buf_cache_t cache_flag)
 {
     int ret = 0,i;
     struct bufferinfo_s buf;
@@ -70,7 +70,7 @@ int BufferProvider::createBuffer(int count,int perbufsize,buffer_type_enum bufty
 
     mBufType = (buffer_type_enum)buftype;
     buf.mIsForceIommuBuf = true;
-
+    buf.mCacheFlag = cache_flag;
     switch(buftype){
         case PREVIEWBUFFER:
 			if(is_cif_driver){//should use cma buffer

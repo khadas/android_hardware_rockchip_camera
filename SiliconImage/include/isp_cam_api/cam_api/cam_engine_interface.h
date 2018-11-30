@@ -52,6 +52,7 @@
 #include <cam_engine/cam_engine_imgeffects_api.h>
 #include <cam_engine/cam_engine_cproc_api.h>
 #include <cam_engine/cam_engine_simp_api.h>
+#include <common/cam_info.h>
 
 #include <vector>
 
@@ -79,7 +80,7 @@
 *            this version sync v0.7.1 version;
 *            1). flash delay val 70000 -> 50000; 
 *v0.b.0:     1). optimize flash unit
-*v0.c.0:   1) fix i2c read error
+*v0.c.0:     1) fix i2c read error
 *
 *v0.d.0:  support ov8858 and ov13850 sensor dirver
 *v0.e.0:   1) add flash trig pol control
@@ -223,13 +224,13 @@
 *v1.0x18.0:
     1) wrong of operation of comparation 0.0 to  float in func getPreferedSensorRes,fix it.
 *v1.0x19.0:
-	1) correct ion heap for allocate ,replace ion_handle* with ion_user_handle_t
+    1) correct ion heap for allocate ,replace ion_handle* with ion_user_handle_t
 *v1.0x20.0:
     1) wrong of operation of comparation dev_mask in func HalFlashTrigCtrl,fix it.
 *v1.0x21.0:
     1) add to support 5040 afps.
 *v1.0x22.0:
-	1) support sensor otp i2c info
+    1) support sensor otp i2c info
 *v1.0x23.0:
     1)  compatible with ion no matter new or old version.
 *v1.0x24.0:
@@ -245,9 +246,9 @@
 *v1.0x29.0:
     1) support sensor powerup sequence configurable.
 *v1.0x30.0:
-	1) add enableSensorOTP and setupOTPInfo interfaces.
+    1) add enableSensorOTP and setupOTPInfo interfaces.
 *v1.0x31.0:
-	1) compatible with android 6.0
+    1) compatible with android 6.0
 *v1.0x32.0:
     1) compatible with android 6.0 64bit  
 *v1.0x33.0:
@@ -282,7 +283,7 @@
     3) AEC measuring window can config in IQ xml.
     4) Denosise/sharpen level can config under different gains in IQ xml.
     5) AEC exposure curve can config in IQ xml.
-	6) AWB measuring window can config in IQ xml.
+    6) AWB measuring window can config in IQ xml.
 *v1.0x43.0:
     1) fix ion handle compile error when compatible with android marshallow and nougat.
 *v1.0x44.0:
@@ -333,10 +334,80 @@
     1) v1.0x53.0 eixts bug, fix it.
 *2.0x4.0:
     1) support rkispv12,AE&HIST merged only.
+*2.0x5.0:
+    1) calibdb: donot return false when meet unknown tag.
+*2.0x6.0:
+    1) add rkispv12 rksharpen xml param.
+*2.0x7.0:
+    1) correct rksharpen register define.
+*2.ox8.0:
+    1) IE module implement rksharpen code.
+*2.0x9.0:
+    1) call rksharpen interfaces.
+*2.0xa.0:
+    1) add rkispv12 awdr xml param parse.
+*2.0xb.0:
+    1) add awdr implement code.
+*2.0xc.0:
+    1) add awdr interfaces in CamEngineItf.
+*2.0xd.0:
+    1) add rkispv12 filter lp xml param parse.
+*2.0xe.0:
+    1) filter lp implement code.
+*2.0xf.0:
+    1) call filter lp interfaces.
+*2.0x10.0:
+    1) intepolate 5x5 gridweigth numbers from 9x9.
+*2.0x11.0:
+    1) Add get exposure\focus statics informations and parameter values interface.
+*2.0x12.0:
+    1) correct gammaout curve value number in rkispv12.
+*2.0x13.0:
+    1) complete B/W sensor pipeline.
+*2.0x14.0:
+    1) When take raw picture,af will report err,fix the bug.
+*2.0x15.0:
+    1) Disable awb,when sensor is white/black sensor.
+*2.0x16.0:
+    1) hist: fix error of reading hist last register by oyyf.
+*2.0x17.0:
+    1) support IQ_Tool2(awb_v11 only).
+*2.0x18.0:
+    1) dual sensor run on the same time, AE and awb use the first one to master device.
+*2.0x19.0:
+    1) support color sensor output gray image.
+    2) isp yuv output full range only.
+*2.0x1a.0:
+    1) add resolution 2096x1560.
+*2.0x1b.0:
+    1) fix bugs in v2.0x17.0.
+*2.0x1c.0:
+    1) add the callback function which calls from mi to sensor.
+*2.0x1d.0:
+    1) select the isp path according to the sensor mode:
+        filed mode: sp.
+        frame mode: mp.
+    2) setup the subCtrl of camEngine according to isp path.
+*2.0x1e.0:
+    1) add the support that combine odd/even field into one frame in sp.
+    2) fix bug in v2.0x1d.0.
+*2.0x1f.0:
+    For RKIQTool2.0 AWB Version:
+    1) Support AWB v10 and v11.
+    2) Support UVC Command of AWB V11.
+*2.0x20.0:
+    1) fix bugs in v2.0x1f.0.
+*2.0x21.0:
+    1) Get android memory(GraphicBuffer) from ISP driver.
+    2) add selectResForDumpRaw interface.
+*3.0.0:
+    1) Upgrade version number.
+*3.1.0:
+    1) burst size calculation is wrong,correct it.
 */
 
 
-#define CONFIG_SILICONIMAGE_LIBISP_VERSION KERNEL_VERSION(2, 0x04, 0)
+#define CONFIG_SILICONIMAGE_LIBISP_VERSION KERNEL_VERSION(3, 0x1, 0)
 
 
 
@@ -349,8 +420,8 @@ typedef struct CamEngVer_s {
 } CamEngVer_t;
 
 typedef struct CtxCbResChange_s {
-	void *pIspAdapter;
-	uint32_t res;
+    void *pIspAdapter;
+    uint32_t res;
 }CtxCbResChange_t;
 
 class CamEngineVersionItf
@@ -404,6 +475,8 @@ public:
 private:
     CamEngineItf (const CamEngineItf& other);
     CamEngineItf& operator = (const CamEngineItf& other);
+    bool sensorModeCb(const CamEngineItf *user, CamSensorMode_t *mode);
+    bool sensorFiledStatCb(const CamEngineItf *user, CamSensorFiledStat_t *FiledStat);
 
 public:
     HalHandle_t   getHalHandle() const{return m_hHal;} // zyc add
@@ -417,30 +490,31 @@ public:
     uint32_t    camerIcMasterId() const;
     uint32_t    camerIcSlaveId() const;
     bool        isBitstream3D() const;
-	//zyl add
-	void getAwbGainInfo(float *f_RgProj, float *f_s, float *f_s_Max1, float *f_s_Max2, float *f_Bg1, float *f_Rg1, float *f_Bg2, float *f_Rg2);
-	void getIlluEstInfo(float *ExpPriorIn, float *ExpPriorOut, char (*name)[20], float likehood[], float wight[], int *curIdx, int *region, int *count);
-	bool getSensorXmlVersion(char (*pVersion)[64]);
-	bool getInitAePoint(float *point);
-	bool setAePoint(float point);
-	float getAecClmTolerance() const;
-	bool setAeClmTolerance(float clmtolerance);
-	bool setIspBufferInfo(unsigned int bufNum, unsigned int bufSize);
-	void enableSensorOTP(bool_t enable);
-	//oyyf add
-	void getIspVersion(unsigned int* version);
-	//oyyf add
-	bool getSensorIsiVersion(unsigned int* pVersion);
-	//oyyf add
-	bool getSensorTuningXmlVersion(char** pTuningXmlVersion);
-	//oyyf adds
-	bool getLibispIsiVersion(unsigned int* pVersion) ;
-	//oyyf add
-	bool checkVersion(rk_cam_total_info *pCamInfo);
+    //zyl add
+    void getAwbGainInfo(float *f_RgProj, float *f_s, float *f_s_Max1, float *f_s_Max2, float *f_Bg1, float *f_Rg1, float *f_Bg2, float *f_Rg2);
+    void getIlluEstInfo(float *ExpPriorIn, float *ExpPriorOut, char (*name)[20], float likehood[], float wight[], int *curIdx, int *region, int *count);
+    bool getSensorXmlVersion(char (*pVersion)[64]);
+    bool getInitAePoint(float *point);
+    bool setAePoint(float point);
+    float getAecClmTolerance() const;
+    bool setAeClmTolerance(float clmtolerance);
+    bool setIspBufferInfo(unsigned int bufNum, unsigned int bufSize);
+    void enableSensorOTP(bool_t enable);
+    //oyyf add
+    void getIspVersion(unsigned int* version);
+    //oyyf add
+    bool getSensorIsiVersion(unsigned int* pVersion);
+    //oyyf add
+    bool getSensorTuningXmlVersion(char** pTuningXmlVersion);
+    //oyyf adds
+    bool getLibispIsiVersion(unsigned int* pVersion) ;
+    //oyyf add
+    bool checkVersion(rk_cam_total_info *pCamInfo);
     //zyc add
     bool getPreferedSensorRes(CamEngineBestSensorResReq_t *req);
     bool previewSetup_ex(CamEngineWindow_t dcWin,int usr_w,int usr_h,CamerIcMiDataMode_t mode,CamerIcMiDataLayout_t layout,bool_t dcEnable);
-	bool pre2capparameter(bool is_capture,rk_cam_total_info *pCamInfo);
+    bool selectResForDumpRaw(CamEngineBestSensorResReq_t *req);
+    bool pre2capparameter(bool is_capture,rk_cam_total_info *pCamInfo);
 
 
     // open sensor driver
@@ -538,7 +612,13 @@ public:
     bool getFocusLimits( uint32_t &minFocus, uint32_t &maxFocus ) const;
     bool setFocus( uint32_t focus );
 
-	bool isEvenField( IsiSensorFrameInfo_t &SensorInfo, bool &isEvenField );
+    bool isEvenField( IsiSensorFrameInfo_t &SensorInfo, bool &isEvenField );
+    bool getDeviceInfo(const CamEngineItf *user, CamDeviceContext_t *DevInfo);
+    static bool getDeviceInfoCb(void *user, CamDeviceContext_t *DevInfo);
+
+    bool sensorModeCb(CamSensorMode_t *mode);
+    static bool getSensorMode(void *user, CamSensorMode_t *mode);
+    static bool getSensorFiledStat(void *user, CamSensorFiledStat_t *FiledStat);
 
     bool getPathConfig( const CamEngineChainIdx_t idx, CamEnginePathType_t path, CamEnginePathConfig_t &pathConfig ) const;
     bool setPathConfig( const CamEngineChainIdx_t idx, const CamEnginePathConfig_t &mpConfig, const CamEnginePathConfig_t &spConfig );
@@ -584,18 +664,44 @@ public:
     bool stopAwb();
     bool resetAwb();
     bool getAwbStatus( bool &enabled, CamEngineAwbMode_t &mode, uint32_t &idx, CamEngineAwbRgProj_t &RgProj, bool &damping );
-    bool chkAwbIllumination( CamIlluminationName_t   name );
-	bool isAwbStable();
-	bool SetAwbMeasuringWindow(int16_t x, int16_t y,uint16_t width,uint16_t height);
-	bool getAwbMeasureWindow(CamEngineWindow_t *measureWin);
-	bool getAwbTemperature(float *ct);
-    bool startAdpf();
-	bool getMfdGain(	char *mfd_enable,float mfd_gain[],float mfd_frames[]);	
-	bool getUvnrPara( char *uvnr_enable,float uvnr_gain[],float uvnr_ratio[],float uvnr_distances[]);
-    bool stopAdpf();
-    bool configureAdpf( const float gradient, const float offset, const float min, const float div, const uint8_t sigmaGreen, const uint8_t sigmaRedBlue );
-    bool getAdpfStatus( bool &enabled, float &gradient, float &offset, float &min, float &div, uint8_t &sigmaGreen, uint8_t &sigmaRedBlue );
+    bool setAwbForceIllumination(bool_t forceIlluFlag, char *illName);
+    bool setAwbForceWbGain(bool_t forceWbGainFlag, float fRGain, float fGrGain, float fGbGain, float fBGain);
+    bool getAwbForceIllumination(bool_t *forceIlluFlag, char *illName);
+    bool getAwbForceWbGain(bool_t *forceWbGainFlag, float *fRGain, float *fGrGain, float *fGbGain, float *fBGain);
+    bool getAwbWhitePoint(uint8_t *awb_mode, CamAwbWpGet_t *pAwbWpGet);
+    bool setAwbWhitePoint(int8_t measMode, CamCalibAwb_V11_Global_t *pAwbWpSet, CamAwbMeasResult_t *pAwbmeas);
+    bool getAwbCurve(CamAwbCurve_t *pAwbCurve);
+    bool setAwbCurve(CamAwbCurve_t *pAwbCurve);
+    bool setAwbRefWbGain(float fRGain, float fGrGain, float fGbGain, float fBGain, char *illName);
+    bool getAwbRefWbGain(float *fRGain, float *fGrGain, float *fGbGain, float *fBGain, char *illName);
 
+    bool setLscProfile(CamLscProfile_t *pLscProfile);
+    bool getLscInfo(int8_t *aCCDnName, int8_t *aCCUpName, CamLscMatrix_t *lscMatrix);
+    bool getLscProfile(CamLscProfile_t *pLscProfile);
+    bool getCcmInfo(int8_t *aCCDnName, int8_t *aCCUpName, Cam3x3FloatMatrix_t *ccMatrix, Cam1x3FloatMatrix_t *ccOffset);
+    bool setCcmInfo(int8_t *name, Cam3x3FloatMatrix_t *ccMatrix, Cam1x3FloatMatrix_t *ccOffset);
+
+    bool chkAwbIllumination( CamIlluminationName_t   name );
+    bool isAwbStable();
+    bool SetAwbMeasuringWindow(uint16_t x, uint16_t y,uint16_t width,uint16_t height);
+    bool getAwbMeasureWindow(uint16_t *x, uint16_t *y, uint16_t *width, uint16_t *height);
+    bool getAwbTemperature(float *ct);
+    bool startAdpf();
+    bool getMfdGain(    char *mfd_enable,float mfd_gain[],float mfd_frames[]);    
+    bool getUvnrPara( char *uvnr_enable,float uvnr_gain[],float uvnr_ratio[],float uvnr_distances[]);
+    bool stopAdpf();
+    bool isAdpfEnabled();
+    bool configureAdpf( const float gradient, const float offset, const float min, const float div, const uint8_t sigmaGreen, const uint8_t sigmaRedBlue, uint8_t segmentation,uint16_t *nllcoeff,float *nlgains );
+    bool getAdpfStatus( bool &enabled, float gradient, float offset, float min, float div, uint16_t sigmaGreen, uint16_t sigmaRedBlue, uint8_t segmentation,uint16_t *nllcoeff,float *nlgains);
+    bool setDpfProfile(CamDpfProfile_t *pDpfProfile);
+    bool getDpfProfile(CamDpfProfile_t *pDpfProfile);
+    bool setFltParams(CamFltLevelRegConf_t *fltLevelRegConf);
+    #if defined(RK_ISP_V12)
+    bool startAwdr();
+    bool stopAwdr();
+    bool configureAwdr( const uint8_t maxGain );
+    bool getAwdrStatus(bool &Running, bool &wdrEnabled, bool &MaxGainEnabled,uint8_t Wdrmode, uint8_t &maxGain);
+    #endif
     bool startAdpcc();
     bool stopAdpcc();
     bool getAdpccStatus( bool &enabled );
@@ -642,6 +748,18 @@ public:
     // black level substraction module
     void blsGet(uint16_t *Red, uint16_t *GreenR, uint16_t *GreenB, uint16_t *Blue);
     void blsSet(const uint16_t Red, const uint16_t GreenR, const uint16_t GreenB, const uint16_t Blue);
+    void blsEnable();
+    void blsDisable();
+    void blsIsEnabled(bool_t *pIsEnabled);
+    void blsSetSubstractionMode(const uint16_t submode);
+    void blsGetSubstractionMode(uint16_t *submode);
+    void blsSetMeasuringWindow(const uint16_t WdwId, const uint16_t x, const uint16_t y, const uint16_t width, const uint16_t height);
+    void blsGetMeasuringWindow(const uint16_t WdwId, uint16_t *x, uint16_t *y, uint16_t *width, uint16_t *height);
+    void blsEnableMeasuringWindow(const uint16_t WdwId);
+    void blsDisableMeasuringWindow(const uint16_t WdwId);
+    bool_t blsMeasuringWindowIsEnabled(const uint16_t WdwId);
+    void blsSetSamples(const uint8_t samples);
+    void blsGetSamples(uint8_t *samples);
 
     // white balance module
     void wbGainGet(float *Red, float *GreenR, float *GreenB, float *Blue);
@@ -662,6 +780,7 @@ public:
     void lscStatus( bool& running, CamEngineLscConfig_t& config );
     void lscEnable();
     void lscDisable();
+    void isLscEnabled(bool &enable);
 
     // chromatic abberation correction module
     void cacStatus( bool& running, CamEngineCacConfig_t& config );
@@ -674,14 +793,16 @@ public:
     void wdrSetCurve( CamEngineWdrCurve_t WdrCurve );
 
     // gamma out correction module
-    void gamCorrectStatus( bool& running );
+    void gamCorrectStatus( bool& running, CamEngineGammaOutCurve_t *gammaCurve );
     void gamCorrectEnable();
     void gamCorrectDisable();
     void gamCorrectSetCurve();
+    void gamSetCurveForTool(CamGoc_t *pCurv);
+    void gamGetCurveForTool(bool& running, CamGoc_t *pCurv);
 
-	
-	void ColorConversionSetRange(CamerIcColorConversionRange_t YConvRange,CamerIcColorConversionRange_t CrConvRange);
-	void ColorConversionSetCoefficients(CamerIc3x3Matrix_t	*pCConvCoefficients);
+
+    void ColorConversionSetRange(CamerIcColorConversionRange_t YConvRange,CamerIcColorConversionRange_t CrConvRange);
+    void ColorConversionSetCoefficients(CamerIc3x3Matrix_t    *pCConvCoefficients);
 
     // isp ilter
     void demosaicGet( bool& bypass, uint8_t& threshold ) const;
@@ -733,7 +854,7 @@ private:
     bool setupCamerIC();
     void doneCamerIC();
     bool restartMipiDrv(); //zyc add
-	void setupOTPInfo();
+    void setupOTPInfo();
 
 public:
     class SensorHolder;
@@ -741,7 +862,10 @@ public:
 private:
     HalHandle_t         m_hHal;
     AfpsResChangeCb_t   *m_pcbItfAfpsResChange;
+    CamSensorCb_t        m_sensorCb;
+
     void                *m_ctxCbResChange;
+    CamSensorCb2_t       m_sensorCb2;
 
     SensorHolder        *m_pSensor;
 

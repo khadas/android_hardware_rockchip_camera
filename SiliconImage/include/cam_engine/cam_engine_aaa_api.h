@@ -55,8 +55,8 @@ typedef enum CamEngineAwbMode_e
     CAM_ENGINE_AWB_MODE_INVALID = 0,    /**< invalid mode (only for initialization) */
     CAM_ENGINE_AWB_MODE_MANUAL  = 1,    /**< manual mode */
     CAM_ENGINE_AWB_MODE_AUTO    = 2,    /**< run auto mode */
-	CAM_ENGINE_AWB_MODE_MANUAL_CT=3,
-	CAM_ENGINE_AWB_MODE_MAX
+    CAM_ENGINE_AWB_MODE_MANUAL_CT=3,
+    CAM_ENGINE_AWB_MODE_MAX
 } CamEngineAwbMode_t;
 
 
@@ -121,8 +121,8 @@ typedef enum CamEngineAecDampingMode_e
 #endif
 typedef struct CamEngineAecHistBins_s
 {
-	uint32_t *pHistBins;
-	uint32_t binNum;
+    uint32_t *pHistBins;
+    uint32_t binNum;
 }CamEngineAecHistBins_t;
 
 
@@ -139,8 +139,8 @@ typedef struct CamEngineAecHistBins_s
 #endif
 typedef struct CamEngineAecMeanLuma_s
 {
-	uint8_t * pMeanLuma;
-	uint32_t  size;
+    uint8_t * pMeanLuma;
+    uint32_t  size;
 }CamEngineAecMeanLuma_t;
 
 #if defined(RK_ISP_V12)
@@ -203,12 +203,12 @@ typedef struct CamEngineAfFinshEvt_s
 
 typedef struct CamEngineAfEvt_s 
 {
-    CamEngineAfEvtId_t              evnt_id;
+    CamEngineAfEvtId_t               evnt_id;
     union {
         CamEngineAfMoveEvt_t         mveEvt;
         CamEngineAfFinshEvt_t        fshEvt;
     } info;
-    void                   *pEvntCtx;   
+    void                             *pEvntCtx;   
 } CamEngineAfEvt_t;
 
 
@@ -220,16 +220,16 @@ typedef struct CamEngineAfEvtQue_s
 
 typedef enum CamEngineAecHistMeasureMode_e
 {
-    AverageMetering = 0,
+    AverageMetering      = 0,
     CentreWeightMetering = 1,
-    AfWeightMetering = 2
+    AfWeightMetering     = 2
 } CamEngineAecHistMeasureMode_t;
 
 typedef enum CamEngine3aLock_e
 {
     Lock_awb = 1,
     Lock_aec = 2,
-    Lock_af = 4
+    Lock_af  = 4
 } CamEngine3aLock_t;
 
 /*****************************************************************************/
@@ -334,9 +334,9 @@ RESULT CamEngineAwbReset
 
 RESULT CamEngineAwbSetMeasuringWindow
 (   
-    CamEngineHandle_t               hCamEngine,
-    int16_t                  x,
-    int16_t                  y,
+    CamEngineHandle_t         hCamEngine,
+    int16_t                   x,
+    int16_t                   y,
     uint16_t                  width,
     uint16_t                  height  
 );
@@ -395,9 +395,126 @@ RESULT CamEngineIsAwbStable
 (
     CamEngineHandle_t       hCamEngine,
     bool_t                  *pIsStable,
-    uint32_t				*pDNoWhitePixel
+    uint32_t                *pDNoWhitePixel
 );
 
+RESULT CamEngineAwbGetCcmInfo
+(
+    CamEngineHandle_t   hCamEngine,
+    int8_t              *aCCDnName,
+    int8_t              *aCCUpName,
+    Cam3x3FloatMatrix_t *ccMatrix,
+    Cam1x3FloatMatrix_t *ccOffset
+);
+
+RESULT CamEngineAwbSetCcmInfo
+(
+    CamEngineHandle_t   hCamEngine,
+    int8_t              *name,
+    Cam3x3FloatMatrix_t *ccMatrix,
+    Cam1x3FloatMatrix_t *ccOffset
+);
+
+RESULT CamEngineAwbSetLscProfile
+(
+    CamEngineHandle_t           hCamEngine,
+    CamLscProfile_t             *pLscProfile
+);
+
+RESULT CamEngineAwbGetLscProfile
+(
+    CamEngineHandle_t           hCamEngine,
+    CamLscProfile_t             *pLscProfile
+);
+
+RESULT CamEngineAwbGetLscInfo
+(
+    CamEngineHandle_t hCamEngine,
+    int8_t            *aCCDnName,
+    int8_t            *aCCUpName,
+    CamLscMatrix_t    *lscMatrix
+);
+
+RESULT CamEngineAwbSetForceWbGain
+(
+    CamEngineHandle_t hCamEngine,
+    bool_t            forceWbGainFlag,
+    float             fRGain,
+    float             fGrGain,
+    float             fGbGain,
+    float             fBGain
+);
+
+RESULT CamEngineAwbSetForceIllumination
+(
+    CamEngineHandle_t hCamEngine,
+    bool_t            forceIlluFlag,
+    char              *illName
+);
+
+RESULT CamEngineAwbGetForceIllumination
+(
+    CamEngineHandle_t hCamEngine,
+    bool_t            *forceIlluFlag,
+    char              *illName
+);
+
+RESULT CamEngineAwbGetForceWbGain
+(
+    CamEngineHandle_t hCamEngine,
+    bool_t            *forceWbGainFlag,
+    float             *fRGain,
+    float             *fGrGain,
+    float             *fGbGain,
+    float             *fBGain
+);
+
+RESULT CamEngineAwbGetWhitePoint
+(
+    CamEngineHandle_t hCamEngine,
+    uint8_t           *awb_mode,
+    CamAwbWpGet_t     *pAwbWpGet
+);
+
+RESULT CamEngineAwbSetWhitePoint
+(
+    CamEngineHandle_t  hCamEngine,
+    int8_t             measMode,
+    CamCalibAwb_V11_Global_t *pAwbWpSet,
+    CamAwbMeasResult_t *pAwbmeas
+);
+
+RESULT CamEngineAwbSetCurve
+(
+    CamEngineHandle_t hCamEngine,
+    CamAwbCurve_t     *pAwbCurve
+);
+
+RESULT CamEngineAwbGetCurve
+(
+    CamEngineHandle_t hCamEngine,
+    CamAwbCurve_t      *pAwbCurve
+);
+
+RESULT CamEngineAwbSetRefWbGain
+(
+    CamEngineHandle_t hCamEngine,
+    float             fRGain,
+    float             fGrGain,
+    float             fGbGain,
+    float             fBGain,
+    char              *illName
+);
+
+RESULT CamEngineAwbGetRefWbGain
+(
+    CamEngineHandle_t hCamEngine,
+    float             *fRGain,
+    float             *fGrGain,
+    float             *fGbGain,
+    float             *fBGain,
+    char              *illName
+);
 
 /*****************************************************************************/
 /**
@@ -782,9 +899,9 @@ RESULT CamEngineAdpfStop
 RESULT CamEnginegetMfdgain
 (
     CamEngineHandle_t           hCamEngine,
-	char						*mfd_enable,
-	float						mfd_gain[],
-	float						mfd_frames[]
+    char                        *mfd_enable,
+    float                        mfd_gain[],
+    float                        mfd_frames[]
 
 );
 
@@ -803,13 +920,30 @@ RESULT CamEnginegetMfdgain
 RESULT CamEnginegetUvnrpara
 (
     CamEngineHandle_t           hCamEngine,
-	char						*uvnr_enable,
-	float						uvnr_gain[],
-	float						uvnr_ratio[],
-	float						uvnr_distances[]
+    char                        *uvnr_enable,
+    float                        uvnr_gain[],
+    float                        uvnr_ratio[],
+    float                        uvnr_distances[]
 
 );
 
+RESULT CamEngineSetDpfProfile
+(
+    CamEngineHandle_t handle,
+    CamDpfProfile_t   *pDpfProfile
+);
+
+RESULT CamEngineGetDpfProfile
+(
+    CamEngineHandle_t handle,
+    CamDpfProfile_t   *pDpfProfile
+);
+
+RESULT CamEngineSetFltParams
+(
+    CamEngineHandle_t     handle,
+    CamFltLevelRegConf_t  *fltLevelRegConf
+);
 
 /*****************************************************************************/
 /**
@@ -830,7 +964,10 @@ RESULT CamEngineAdpfConfigure
     const float                 min,             /**< upper bound */
     const float                 div,             /**< division factor */
     const uint8_t               sigmaGreen,      /**< sigma green */
-    const uint8_t               sigmaRedBlue     /**< sigma red/blue */
+    const uint8_t               sigmaRedBlue,     /**< sigma red/blue */
+    uint8_t                     segmentation,
+    uint16_t                    *nllcoeff,
+    float                       *nlgains
 );
 
 
@@ -855,11 +992,40 @@ RESULT CamEngineAdpfStatus
     float               *pOffset,          /**< offset */
     float               *pMin,             /**< upper bound */
     float               *pDiv,             /**< division factor */
-    uint8_t             *pSigmaGreen,      /**< sigma green */
-    uint8_t             *pSigmaRedBlue     /**< sigma red/blue */
-
+    uint16_t            *pSigmaGreen,      /**< sigma green */
+    uint16_t            *pSigmaRedBlue,     /**< sigma red/blue */
+    uint8_t             *segmentation,
+    uint16_t            *nllcoeff,
+    float               *nlgains
 );
 
+#if defined(RK_ISP_V12)
+RESULT CamEngineAwdrStart
+(
+    CamEngineHandle_t hCamEngine
+);
+
+RESULT CamEngineAwdrStop
+(
+    CamEngineHandle_t hCamEngine
+);
+
+RESULT CamEngineAwdrConfigure
+(
+    CamEngineHandle_t hCamEngine,
+    uint8_t MaxGain
+);
+
+RESULT CamEngineAwdrStatus
+(
+    CamEngineHandle_t hCamEngine,
+    bool_t *pRunning,
+    bool_t *pWdrEnable,
+    bool_t *pMaxGainEnable,
+    uint8_t *pWdrMode,
+    uint8_t *pMaxGainValue
+);
+#endif
 
 /*****************************************************************************/
 /**
@@ -1064,34 +1230,34 @@ RESULT CamEngineAecGetClmTolerance
 
 RESULT CamEngineSetAecClmTolerance
 (
-	CamEngineHandle_t		 hCamEngine,
-	float	clmTolerance
+    CamEngineHandle_t hCamEngine,
+    float clmTolerance
 );
 
 RESULT CamEngineAwbGetinfo
 (
-	CamEngineHandle_t hCamEngine,
-	float *f_RgProj, 
-	float *f_s, 
-	float *f_s_Max1, 
-	float *f_s_Max2, 
-	float *f_Bg1, 
-	float *f_Rg1, 
-	float *f_Bg2, 
-	float *f_Rg2
+    CamEngineHandle_t hCamEngine,
+    float *f_RgProj, 
+    float *f_s, 
+    float *f_s_Max1, 
+    float *f_s_Max2, 
+    float *f_Bg1, 
+    float *f_Rg1, 
+    float *f_Bg2, 
+    float *f_Rg2
 );
 
 RESULT CamEngineAwbGetIlluEstInfo
 (
-	CamEngineHandle_t hCamEngine,
-	float *ExpPriorIn,
-	float *ExpPriorOut,
-	char (*name)[20],
-	float likehood[],
-	float wight[],
-	int *curIdx,
-	int *region,
-	int *count
+    CamEngineHandle_t hCamEngine,
+    float *ExpPriorIn,
+    float *ExpPriorOut,
+    char (*name)[20],
+    float likehood[],
+    float wight[],
+    int *curIdx,
+    int *region,
+    int *count
 );
 
 

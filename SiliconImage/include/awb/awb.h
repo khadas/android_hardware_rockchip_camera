@@ -47,313 +47,14 @@
 #include <cameric_drv/cameric_isp_hist_drv_api.h>
 
 #include <cam_calibdb/cam_calibdb_api.h>
+#include "awb_common.h"
+
 #define ABS_DIFF( a, b )     ( (a > b) ? (a-b) : (b-a) )
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-
-
-/*****************************************************************************/
-/**
- * @brief
- */
-/*****************************************************************************/
-typedef struct AwbContext_s *AwbHandle_t;           /**< handle to AWB context */
-
-
-
-/*****************************************************************************/
-/**
- * @brief
- */
-/*****************************************************************************/
-typedef enum AwbWorkingFlags_e
-{
-    AWB_WORKING_FLAG_USE_DAMPING        = 0x01,
-    AWB_WORKING_FLAG_USE_CC_OFFSET      = 0x02
-} AwbWorkingFlags_t;
-
-
-
-/*****************************************************************************/
-/**
- * @brief
- *
- */
-/*****************************************************************************/
-typedef enum AwbRunMode_e
-{
-    AWB_MODE_INVALID                    = 0,        /**< initialization value */
-    AWB_MODE_MANUAL                     = 1,        /**< run manual white balance */
-    AWB_MODE_AUTO                       = 2,        /**< run auto white balance */
-	AWB_MODE_MANUAL_CT 					= 3,		/**< run manual white balance */
-	AWB_MODE_MAX
-    
-} AwbMode_t;
-
-
-
-/*****************************************************************************/
-/**
- * @brief   type for evaluatiing number of white pixel
- */
-/*****************************************************************************/
-typedef enum AwbNumWhitePixelEval_e
-{
-    AWB_NUM_WHITE_PIXEL_INVALID         = 0,        /**< initialization value */
-    AWB_NUM_WHITE_PIXEL_LTMIN           = 1,        /**< less than configured minimum */
-    AWB_NUM_WHITE_PIXEL_GTMAX           = 2,        /**< greater than defined maximum */
-    AWB_NUM_WHITE_PIXEL_TARGET_RANGE    = 3,        /**< in min max range */
-    AWB_NUM_WHITE_PIXEL_MAX
-} AwbNumWhitePixelEval_t;
-
-
-
-/*****************************************************************************/
-/**
- * @brief
- *
- */
-/*****************************************************************************/
-typedef struct AwbComponent_s
-{
-    float   fRed;
-    float   fGreen;
-    float   fBlue;
-} AwbComponent_t;
-
-
-
-/*****************************************************************************/
-/**
- * @brief   A structure/tupple to represent gain values for four (R,Gr,Gb,B)
- *          channels.
- *
- * @note    The gain values are represented as float numbers.
- */
-/*****************************************************************************/
-typedef struct AwbGains_s
-{
-    float fRed;         /**< gain value for the red channel */
-    float fGreenR;      /**< gain value for the green channel in red lines */
-    float fGreenB;      /**< gain value for the green channel in blue lines */
-    float fBlue;        /**< gain value for the blue channel */
-} AwbGains_t;
-
-
-
-/*****************************************************************************/
-/**
- * @brief   A structure/tupple to represent gain values for four (R,Gr,Gb,B)
- *          channels.
- *
- * @note    The gain values are represented as signed numbers.
- */
-/*****************************************************************************/
-typedef struct AwbXTalkOffset_s
-{
-    float fRed;         /**< value for the red channel */
-    float fGreen;       /**< value for the green channel in red lines */
-    float fBlue;        /**< value for the blue channel */
-} AwbXTalkOffset_t;
-
-
-
-/*****************************************************************************/
-/**
- *          AwbInstanceConfig_t
- *
- * @brief   AWB Module instance configuration structure
- *
- *****************************************************************************/
-typedef struct AwbInstanceConfig_s
-{
-    AwbHandle_t                     hAwb;               /**< handle returns by AwbInit() */
-} AwbInstanceConfig_t;
-
-
-
-/*****************************************************************************/
-/**
- *          AwbConfig_t
- *
- * @brief   AWB Module configuration structure
- *
- *****************************************************************************/
-typedef struct AwbConfig_s
-{
-    AwbMode_t                       Mode;               /**< White Balance working mode (MANUAL | AUTO) */
-    
-    CamerIcDrvHandle_t              hCamerIc;           /**< cameric driver handle */
-    CamerIcDrvHandle_t              hSubCamerIc;        /**< cameric driver handle */
-
-    uint16_t                        width;              /**< picture width */
-    uint16_t                        height;             /**< picture height */
-    float                           framerate;          /**< frame rate */
-
-    uint32_t                        Flags;              /**< working flags (@see AwbWorkingFlags_e) */
-
-    CamCalibDbHandle_t              hCamCalibDb;        /**< calibration database handle */
-
-    CamerIcIspAwbMeasuringMode_t    MeasMode;           /**< specifies the means measuring mode (YCbCr or RGB) */
-    CamerIcAwbMeasuringConfig_t     MeasConfig;         /**< measuring config */
-
-    float                           fStableDeviation;   /**< min deviation in percent to enter stable state */
-    float                           fRestartDeviation;  /**< max tolerated deviation in precent for staying in stable state */
-} AwbConfig_t;
-
-
-
-/*****************************************************************************/
-/**
- *          AwbRgProj_t
- *
- * @brief   AWB Projection Borders in R/G Layer
- *
- *****************************************************************************/
-typedef struct AwbRgProj_s
-{
-    float                           fRgProjIndoorMin;
-    float                           fRgProjOutdoorMin;
-    float                           fRgProjMax;
-    float                           fRgProjMaxSky;
-
-	float 							fRgProjALimit;    //oyyf
-	float							fRgProjAWeight;		//oyyf
-	float 							fRgProjYellowLimit;		//oyyf
-	float							fRgProjIllToCwf;		//oyyf
-	float							fRgProjIllToCwfWeight;	//oyyf
-} AwbRgProj_t;
-
-
-
-/*****************************************************************************/
-/**
- * @brief   This function converts float based gains into CamerIC 2.8 fixpoint
- *          format.
- *
- * @param   pAwbGains           gains in float based format
- * @param   pCamerIcGains       gains in fix point format (2.8)
- *
- * @return                      Returns the result of the function call.
- * @retval  RET_SUCCESS         gains sucessfully converted
- * @retval  RET_NULL_POINTER    null pointer parameter
- *
- *****************************************************************************/
-RESULT AwbGains2CamerIcGains
-(
-    AwbGains_t      *pAwbGains,
-    CamerIcGains_t  *pCamerIcGains
-);
-
-
-
-/*****************************************************************************/
-/**
- * @brief   This function converts CamerIC 2.8 fixpoint format into float
- *          based gains.
- *
- * @param   pCamerIcGains       gains in fix point format (2.8)
- * @param   pAwbGains           gains in float based format
- *
- * @return                      Returns the result of the function call.
- * @retval  RET_SUCCESS         gains sucessfully converted
- * @retval  RET_NULL_POINTER    null pointer parameter
- *
- *****************************************************************************/
-RESULT CamerIcGains2AwbGains
-(
-    CamerIcGains_t  *pCamerIcGains,
-    AwbGains_t      *pAwbGains
-);
-
-
-
-/*****************************************************************************/
-/**
- * @brief       This function converts float based Color correction matrix
- *              values into CamerIC 4.7 fixpoint format.
- *
- * @param[in]   pAwbXTalkOffset     offset as float values
- * @param[out]  pCamerIcXTalkOffset offsets as 2's complement integer
- *
- * @return                          Returns the result of the function call.
- * @retval      RET_SUCCESS         offsets sucessfully converted
- * @retval      RET_NULL_POINTER    null pointer parameter
- *
- *****************************************************************************/
-RESULT AwbXtalk2CamerIcXtalk
-(
-    Cam3x3FloatMatrix_t *pAwbXTalkMatrix,
-    CamerIc3x3Matrix_t  *pXTalkMatrix
-);
-
-
-
-/*****************************************************************************/
-/**
- * @brief       This function converts CamerIC 4.7 fixpoint format based Color
- *              correction matrix into float based values.
- *
- * @param[in]   pCamerIcXTalkOffset offsets as 2's complement integer
- * @param[out]  pAwbXTalkOffset     offset as float values
- *
- * @return                          Returns the result of the function call.
- * @retval      RET_SUCCESS         offsets sucessfully converted
- * @retval      RET_NULL_POINTER    null pointer parameter
- *
- *****************************************************************************/
-RESULT CamerIcXtalk2AwbXtalk
-(
-    CamerIc3x3Matrix_t  *pXTalkMatrix,
-    Cam3x3FloatMatrix_t *pAwbXTalkMatrix
-);
-
-
-
-/*****************************************************************************/
-/**
- * @brief   This function converts float based offset values into CamerIC 12.0
- *          fix point format based offset values.
- *
- * @param   pAwbXTalkOffset     offset as float values
- * @param   pCamerIcXTalkOffset offsets as 2's complement integer
- *
- * @return                      Returns the result of the function call.
- * @retval  RET_SUCCESS         offsets sucessfully converted
- * @retval  RET_NULL_POINTER    null pointer parameter
- *
- *****************************************************************************/
-RESULT AwbXTalkOffset2CamerIcXTalkOffset
-(
-    Cam1x3FloatMatrix_t     *pAwbXTalkOffset,
-    CamerIcXTalkOffset_t    *pCamerIcXTalkOffset
-);
-
-
-
-/*****************************************************************************/
-/**
- * @brief   This function converts CamerIC 12.0 fix point format based offset
- *          values into float based offset value.
- *
- * @param   pCamerIcXTalkOffset offsets as 2's complement integer
- * @param   pAwbXTalkOffset     offset as float values
- *
- * @return                      Returns the result of the function call.
- * @retval  RET_SUCCESS         offsets sucessfully converted
- * @retval  RET_NULL_POINTER    null pointer parameter
- *
- *****************************************************************************/
-RESULT CamerIcXTalkOffset2AwbXTalkOffset
-(
-    CamerIcXTalkOffset_t    *pCamerIcXTalkOffset,
-    AwbXTalkOffset_t        *pAwbXTalkOffset
-);
-
 
 
 /*****************************************************************************/
@@ -371,10 +72,8 @@ RESULT CamerIcXTalkOffset2AwbXTalkOffset
  *****************************************************************************/
 RESULT AwbInit
 (
-    AwbInstanceConfig_t *pInstConfig
+    AwbInstanceConfig_t* pInstConfig
 );
-
-
 
 /*****************************************************************************/
 /**
@@ -629,7 +328,7 @@ RESULT AwbSettled
 (
     AwbHandle_t handle,
     bool_t      *pSettled,
-    uint32_t 	*pDNoWhitePixel
+    uint32_t     *pDNoWhitePixel
 );
 
 /*****************************************************************************/
@@ -690,48 +389,173 @@ RESULT AwbUnLock
 
 RESULT AwbGetGainParam
 (
-	AwbHandle_t handle,
-	float *f_RgProj, 
-	float *f_s, 
-	float *f_s_Max1, 
-	float *f_s_Max2, 
-	float *f_Bg1, 
-	float *f_Rg1, 
-	float *f_Bg2, 
-	float *f_Rg2
+    AwbHandle_t handle,
+    float *f_RgProj, 
+    float *f_s, 
+    float *f_s_Max1, 
+    float *f_s_Max2, 
+    float *f_Bg1, 
+    float *f_Rg1, 
+    float *f_Bg2, 
+    float *f_Rg2
 );
 
 RESULT AwbGetIlluEstInfo
 (
-	AwbHandle_t handle,
-	float *ExpPriorIn,
-	float *ExpPriorOut,
-	char (*name)[20],
-	float likehood[],
-	float wight[],
-	int *curIdx,
-	int *region,
-	int *count
+    AwbHandle_t handle,
+    float *ExpPriorIn,
+    float *ExpPriorOut,
+    char (*name)[20],
+    float likehood[],
+    float wight[],
+    int *curIdx,
+    int *region,
+    int *count
 );
 void LineFitLeastSquares(float *data_x, float *data_y, int data_n,float *a,float *b);
 RESULT AwbFitTemperatureRgLine
 (
-	AwbHandle_t handle	
+    AwbHandle_t handle    
 );
 RESULT AwbGetTemperature
 (
-	AwbHandle_t handle,	
-	float *ct
+    AwbHandle_t handle,    
+    float *ct
 );
 
 RESULT AwbCalcWBgainbyCT
 (
-	AwbHandle_t handle,	
-	float ct,
-	float * Rg,
-	float *Bg
+    AwbHandle_t handle,    
+    float ct,
+    float * Rg,
+    float *Bg
 );
 
+RESULT AwbSetLscProfile
+(
+    AwbHandle_t handle,
+    CamLscProfile_t *pLscProfile
+);
+RESULT AwbGetLscProfile
+(
+    AwbHandle_t handle,
+    CamLscProfile_t *pLscProfile
+);
+
+RESULT AwbGetLscInfo
+(
+    AwbHandle_t handle,
+    int8_t *aCCDnName,
+    int8_t *aCCUpName,
+    CamLscMatrix_t *lscMatrix
+);
+
+RESULT AwbGetCcmInfo
+(
+    AwbHandle_t handle,
+    int8_t *aCCDnName,
+    int8_t *aCCUpName,
+    Cam3x3FloatMatrix_t *ccMatrix,
+    Cam1x3FloatMatrix_t *ccOffset
+);
+
+RESULT AwbSetCcmInfo
+(
+    AwbHandle_t handle,
+    int8_t *name,
+    Cam3x3FloatMatrix_t *ccMatrix,
+    Cam1x3FloatMatrix_t *ccOffset
+);
+
+RESULT AwbSetForceIllumination
+(
+    AwbHandle_t handle,
+    bool_t forceIlluFlag,
+    char *illName
+);
+
+RESULT AwbSetForceWbGain
+(
+    AwbHandle_t handle,
+    bool_t forceWbGainFlag,
+    float fRGain,
+    float fGrGain,
+    float fGbGain,
+    float fBGain
+);
+
+RESULT AwbGetForceWbGain
+(
+    AwbHandle_t handle,
+    bool_t* forceWbGainFlag,
+    float* fRGain,
+    float* fGrGain,
+    float* fGbGain,
+    float* fBGain
+);
+
+RESULT AwbGetForceIllumination
+(
+    AwbHandle_t handle,
+    bool_t* forceIlluFlag,
+    char* illName
+);
+
+RESULT AwbGetWhitePoint
+(
+    AwbHandle_t handle,
+    uint8_t *awb_mode,
+    CamAwbWpGet_t *pAwbWpGet
+);
+
+/*
+RESULT AwbSetWhitePoint_V10
+(
+    AwbHandle_t handle,
+    int8_t measMode,
+    CamCalibAwb_V10_Global_t *pAwbWpSet,
+    CamAwbMeasResult_t *pAwbmeas
+);*/
+
+RESULT AwbSetWhitePoint
+(
+    AwbHandle_t handle,
+    int8_t measMode,
+    void *pAwbWpSet,
+    CamAwbMeasResult_t *pAwbmeas
+);
+
+RESULT AwbSetCurve
+(
+    AwbHandle_t   handle,
+    CamAwbCurve_t *pAwbCurve
+);
+
+RESULT AwbGetCurve
+(
+    AwbHandle_t   handle,
+    CamAwbCurve_t *pAwbCurve
+);
+
+RESULT AwbSetRefWbGain
+(
+    AwbHandle_t handle,
+    float fRGain,
+    float fGrGain,
+    float fGbGain,
+    float fBGain,
+    char *illName
+);
+
+RESULT AwbGetRefWbGain
+(
+    AwbHandle_t handle,
+    float* fRGain,
+    float* fGrGain,
+    float* fGbGain,
+    float* fBGain,
+    char* illName
+);
 
 #ifdef __cplusplus
 }

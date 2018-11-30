@@ -47,6 +47,8 @@
  */
 #include <ebase/types.h>
 #include <common/return_codes.h>
+#include <common/cam_info.h>
+#include <common/cam_cb.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -458,6 +460,40 @@ extern RESULT CamerIcMiSetFramesToSkip
 (
     CamerIcDrvHandle_t              handle,
     uint32_t                        numFramesToSkip
+);
+
+RESULT CamerIcMiRegisterGetDeviceInfoCb
+(
+    CamerIcDrvHandle_t      handle,
+    const CamerIcMiPath_t    path,
+    const CamSensorCb_t    *func
+);
+
+/*****************************************************************************/
+/**
+ * @brief   This functions registers an sensor-Callback at CamerIC Memory
+ *          Interface Module. An event callback is called if the driver
+ *          needs to know the information about the sensor.
+ *
+ * @param   handle              CamerIc driver handle
+ * @param   path                Path index of CamerIC (@ref CamerIcMiPath_e)
+ * @param   func                Callback function
+ *
+ * @return                      Return the result of the function call.
+ * @retval  RET_SUCCESS         operation succeded
+ * @retval  RET_FAILURE         common error occured
+ * @retval  RET_BUSY            already a callback registered
+ * @retval  RET_WRONG_HANDLE    given handle is invalid
+ * @retval  RET_INVALID_PARM    given parameter is invalid
+ * @retval  RET_WRONG_STATE     driver is in wrong state to register a
+ *                              event callback
+ *
+ *****************************************************************************/
+RESULT CamerIcMiRegisterSensorCb
+(
+    CamerIcDrvHandle_t      handle,
+    const CamerIcMiPath_t   path,
+    CamSensorCb2_t          *func
 );
 
 #ifdef __cplusplus

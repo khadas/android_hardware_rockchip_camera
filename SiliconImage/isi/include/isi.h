@@ -13,7 +13,6 @@
  * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
  * dissemble, or attempt to derive any source code from the software.
  *
-
  *****************************************************************************/
 /**
  * @file isi.h
@@ -40,6 +39,7 @@
 
 #include <isi/isi_common.h>
 #include <linux/version.h>
+#include <common/cam_cb.h>
 
 
 /*
@@ -69,9 +69,11 @@
 *	 1) add IsiSetupSensorOTPInfoIss and IsiEnableSensorOTPIss api.
 *v0.0xd.0
 *    1) add IsiSensorFrameRateLimitSet interface.
+*v0.0xe.0
+*    1) add IsiGetSensorMode and IsiGetSensorFiledStat interface.
 */
 
-#define CONFIG_ISI_VERSION KERNEL_VERSION(0, 0x0d, 0x00) 
+#define CONFIG_ISI_VERSION KERNEL_VERSION(0, 0x0e, 0x00)
 
 
 #ifdef __cplusplus
@@ -1180,7 +1182,7 @@ RESULT IsiIsEvenField
 (
 	IsiSensorHandle_t	handle,
 	IsiSensorFrameInfo_t	*SensorInfo,
-	bool *isEvenField
+	bool *isEvenField	
 );
 
 
@@ -1404,6 +1406,19 @@ RESULT IsiSensorFrameRateLimitSet
     IsiSensorHandle_t   handle,
     uint32_t            framerate
 );
+
+RESULT IsiGetSensorMode
+(
+	IsiSensorHandle_t	handle,
+	CamSensorMode_t *mode
+);
+
+RESULT IsiGetSensorFiledStat
+(
+	IsiSensorHandle_t	handle,
+	CamSensorFiledStat_t *filedStat
+);
+
 #ifdef __cplusplus
 }
 #endif

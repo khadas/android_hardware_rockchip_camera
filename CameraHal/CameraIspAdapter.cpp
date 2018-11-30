@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -33,6 +33,206 @@ namespace android{
 #define ISP_OUT_FORMAT  ISP_OUT_YUV420SP //ISP_OUT_YUV422_INTERLEAVED
 
 #define USE_RGA_TODO_ZOOM   (1)
+unsigned long long getCurrentTime(void)
+{
+	struct timeval now;
+	unsigned long long current_time = 0;
+
+	gettimeofday( &now, NULL );
+	current_time = (now.tv_sec*(unsigned long long)1000000) + now.tv_usec;
+	return current_time;
+}
+
+void CameraIspAdapter::paraReConfig(void)
+{
+	if(curFlashStatus.unflash.newtime != 0.0f && curFlashStatus.unflash.newgain != 0.0f){
+		m_camDevice->getGainLimits(curFlashStatus.unflash.mingain,curFlashStatus.unflash.maxgain,curFlashStatus.unflash.gainstep);
+		m_camDevice->getIntegrationTimeLimits(curFlashStatus.unflash.mintime,curFlashStatus.unflash.maxtime,curFlashStatus.unflash.timestep);
+
+		if(curFlashStatus.unflash.newtime >= curFlashStatus.unflash.maxtime) {
+			curFlashStatus.unflash.newtime = curFlashStatus.unflash.newtime*curFlashStatus.unflash.newgain/curFlashStatus.unflash.maxtime;
+			m_camDevice->setIntegrationTime(curFlashStatus.unflash.maxtime, curFlashStatus.unflash.settime);
+			m_camDevice->setGain(curFlashStatus.unflash.newtime, curFlashStatus.unflash.setgain);
+		} else {
+			m_camDevice->setIntegrationTime(curFlashStatus.unflash.newtime, curFlashStatus.unflash.settime);
+			m_camDevice->setGain(curFlashStatus.unflash.newgain, curFlashStatus.unflash.setgain);
+		}
+		curFlashStatus.unflash.newtime = 0.0;
+		curFlashStatus.unflash.newgain = 0.0;
+	}
+}
+
+void CameraIspAdapter::flashSettle(CamEngineFlashMode_t mode)
+{
+	rk_cam_total_info *pCamInfo = gCamInfos[mCamId].pcam_total_info;
+	CamEngineFlashCfg_t flash_cfg;
+
+	flash_cfg.active_pol = (pCamInfo->mHardInfo.mFlashInfo.mFlashTrigger.active>0) ? CAM_ENGINE_FLASH_HIGH_ACTIVE:CAM_ENGINE_FLASH_LOW_ACTIVE;
+	flash_cfg.flashtype = pCamInfo->mHardInfo.mFlashInfo.mFlashMode;
+	if((strcmp(pCamInfo->mHardInfo.mFlashInfo.mFlashName,"Internal")==0))
+		flash_cfg.dev_mask = pCamInfo->mHardInfo.mSensorInfo.mHostDevid;
+	else
+		flash_cfg.dev_mask = pCamInfo->mHardInfo.mSensorInfo.mCamDevid;
+
+	if(mode == CAM_ENGINE_FLASH_OFF) {
+		m_camDevice->stopFlash(true);
+	} else {
+		flash_cfg.mode = mode;
+		m_camDevice->configureFlash(&flash_cfg);
+		m_camDevice->startFlash(true);
+	}
+}
+
+void CameraIspAdapter::flashProcess(void)
+{
+	unsigned long long current_time = 0;
+	float cur_exp;
+	float cur_gain;
+	bool lock3a_enable = false;
+	bool enable_flash  = false;
+	bool isneed_capture = false;
+
+	switch(curFlashStatus.current_state)
+	{
+		case FLASH_STATE_IDLE_STATUS:
+			switch(curFlashStatus.old_state)
+			{
+				case FLASH_STATE_IDLE_STATUS:
+				{
+					enable_flash = isNeedToEnableFlash();
+					isneed_capture = mRefEventNotifier->isNeedSendToPicture();
+					curFlashStatus.capture_ready = true;
+					if(enable_flash && isneed_capture) {
+						curFlashStatus.capture_ready = false;
+						picture_info_s &picinfo = mRefEventNotifier->getPictureInfoRef();
+						picinfo.flash = 1;
+						//save intergration time and gain value
+						m_camDevice->getGain(cur_gain);
+						m_camDevice->getIntegrationTime(cur_exp);
+						curFlashStatus.unflash.newgain = cur_gain;
+						curFlashStatus.unflash.newtime = cur_exp;
+						//some flash driver limit flash time is not enough long
+						flashSettle(CAM_ENGINE_FLASH_TORCH);
+						curFlashStatus.flash_time = getCurrentTime();
+						lock3a_enable = false;
+						curFlashStatus.skip_frames = 0;
+						curFlashStatus.old_state = curFlashStatus.current_state;
+						curFlashStatus.current_state = FLASH_STATE_WAIT_3ALOCK;
+					}else if(mTorchStatus) {
+						//torch on
+						flashSettle(CAM_ENGINE_FLASH_TORCH);
+						curFlashStatus.current_state = FLASH_STATE_FLASH_TORCH;
+					}
+					break;
+				}
+
+				case FLASH_STATE_WAIT_3ALOCK:
+				{
+					m_camDevice->unlock3a(Lock_aec);
+					paraReConfig();
+					picture_info_s &picinfo = mRefEventNotifier->getPictureInfoRef();
+					picinfo.flash = 0;
+					curFlashStatus.old_state = curFlashStatus.current_state;
+					break;
+				}
+
+				case FLASH_STATE_LOCK_TIMEOUT:
+				{
+					m_camDevice->startAec();
+					paraReConfig();
+					picture_info_s &picinfo = mRefEventNotifier->getPictureInfoRef();
+					picinfo.flash = 0;
+					curFlashStatus.old_state = curFlashStatus.current_state;
+					break;
+				}
+
+				default:
+					curFlashStatus.old_state = FLASH_STATE_IDLE_STATUS;
+					break;
+			}
+			break;
+
+		case FLASH_STATE_WAIT_3ALOCK:
+			switch(curFlashStatus.old_state)
+			{
+				case FLASH_STATE_IDLE_STATUS:
+					current_time = getCurrentTime();
+					// to ensure the 3a parameters has taken effect
+					if(curFlashStatus.skip_frames < AECCNT)
+					{
+						curFlashStatus.skip_frames = curFlashStatus.skip_frames + 1;
+					} else {
+						lock3a_enable = true;
+					}
+					if(lock3a_enable == true) {
+						if(m_camDevice->lock3a(Lock_aec)) {
+							curFlashStatus.capture_ready = true;
+							curFlashStatus.old_state = curFlashStatus.current_state;
+						} else {
+							if(current_time > (curFlashStatus.flash_time + LOCK3A_TIMEOUT_US)) {
+								curFlashStatus.capture_ready = true;
+								curFlashStatus.old_state = curFlashStatus.current_state;
+								curFlashStatus.current_state = FLASH_STATE_LOCK_TIMEOUT;
+							}
+						}
+					}
+					break;
+
+				case FLASH_STATE_WAIT_3ALOCK:
+					if(!curFlashStatus.capture_ready) {
+						flashSettle(CAM_ENGINE_FLASH_OFF);
+						curFlashStatus.capture_ready = true;
+						curFlashStatus.current_state = FLASH_STATE_IDLE_STATUS;
+					}
+					break;
+			}
+			break;
+
+		case FLASH_STATE_LOCK_TIMEOUT:
+			switch(curFlashStatus.old_state)
+			{
+				case FLASH_STATE_WAIT_3ALOCK:
+					// can't lock,so stop aec try to keep the exposure time is the same.
+					m_camDevice->stopAec();
+					curFlashStatus.old_state = curFlashStatus.current_state;
+					break;
+
+				case FLASH_STATE_LOCK_TIMEOUT:
+					if(!curFlashStatus.capture_ready) {
+						flashSettle(CAM_ENGINE_FLASH_OFF);
+						curFlashStatus.capture_ready = true;
+						curFlashStatus.current_state = FLASH_STATE_IDLE_STATUS;
+					}
+					break;
+			}
+			break;
+
+		case FLASH_STATE_FLASH_TORCH:
+			curFlashStatus.old_state = curFlashStatus.current_state;
+			if(!mTorchStatus) {
+			//torch off
+			flashSettle(CAM_ENGINE_FLASH_OFF);
+			curFlashStatus.current_state = FLASH_STATE_IDLE_STATUS;
+			}
+			break;
+
+		default:
+			flashSettle(CAM_ENGINE_FLASH_OFF);
+			if(m_camDevice->unlock3a(Lock_aec))
+			{
+				LOGD("3a unlock success! ");
+			}
+			curFlashStatus.capture_ready = true;
+			curFlashStatus.old_state = FLASH_STATE_IDLE_STATUS;
+			curFlashStatus.current_state = FLASH_STATE_IDLE_STATUS;
+		break;
+
+	}
+
+}
+
+void* mLibUvcApp;
+uvc_cam_ops_t uvc_cam_ops;
 
 /******************************************************************************
  * MainWindow_AfpsResChangeCb
@@ -82,6 +282,7 @@ CameraIspAdapter::CameraIspAdapter(int cameraId)
     mZoomMin = 100;
     mZoomMax = 240;
     mFlashStatus = false;
+	mTorchStatus = false;
     mISPOutputFmt = ISP_OUT_YUV420SP;
     mISPTunningRun = false;
     mIsSendToTunningTh = false;
@@ -92,67 +293,116 @@ CameraIspAdapter::CameraIspAdapter(int cameraId)
 	mCtxCbResChange.res = 0;
 	mCtxCbResChange.pIspAdapter =NULL;
 
-	mISO = 2;
-	mCameraGL = NULL;
-	m_buffers_capture = NULL;
-	m_buffers_capture = new cv_fimc_buffer();
-        memset(m_buffers_capture,0x0,sizeof(cv_fimc_buffer));
-	mCameraGL = new CameraGL();
-    mGPUCommandThread = new GPUCommandThread(this);
-    mGPUCommandThreadState = STA_GPUCMD_IDLE;
-    mGPUCommandThread->run("GPUCommandThread",ANDROID_PRIORITY_DISPLAY);
+	mUVNRAdapter = new UVNRAdapter();
+	mUVNRAvailable = mUVNRAdapter->initEnv();
 
-	mfdISO = 2;
-	mMutliFrameDenoise = NULL;
-	mfd_buffers_capture = NULL;
-    mfd_buffers_capture = new cv_fimc_buffer();
-    memset(mfd_buffers_capture,0x0,sizeof(cv_fimc_buffer));
+    mMFNRAdapter = new MFNRAdapter();
+    mMFNRAvailable = mMFNRAdapter->initEnv();
+
+    memset(&uvnr,0x0,sizeof(uvnrprocess));
     memset(&mfd,0x0,sizeof(mfdprocess));
-    mMutliFrameDenoise = new MutliFrameDenoise();
-    mMFDCommandThread = new MFDCommandThread(this);
-    mMFDCommandThreadState = STA_GPUCMD_IDLE;
-    mMFDCommandThread->run("MFDCommandThread",ANDROID_PRIORITY_DISPLAY);
 
-	LOG_FUNCTION_NAME_EXIT
-	if(mCameraGL == NULL){
-        LOGE("ERROR in CameraIspAdapter: can not new mCameraGL!");
-	}
-	if(mMutliFrameDenoise == NULL){
-        LOGE("ERROR in CameraIspAdapter: can not new MutliFrameDenoise!");
+    mIsSendToUvcTh = false;
+    mUvcThreaRunning = false;
+    mISPUvcProcessThread = NULL;
+    mISPUvcThread = NULL;
+    mLibUvcApp = NULL;
+    mLibUvcApp = dlopen("libuvcapp.so", RTLD_NOW);
+    memset(&uvc_cam_ops,0, sizeof(uvc_cam_ops));
+    if (mLibUvcApp == NULL) {
+        LOGE("%s(%d):open libuvcapp.so fail,%s",__FUNCTION__,__LINE__,dlerror());
+    } else{
+		uvc_cam_ops.encode_init = (vpu_encode_jpeg_init)dlsym(mLibUvcApp, "vpu_nv12_encode_jpeg_init_ext");
+		if(uvc_cam_ops.encode_init == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+		uvc_cam_ops.encode_process = (vpu_encode_jpeg_doing)dlsym(mLibUvcApp, "vpu_nv12_encode_jpeg_doing");
+		if(uvc_cam_ops.encode_process == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+
+		uvc_cam_ops.encode_deinit = (vpu_encode_jpeg_done)dlsym(mLibUvcApp, "vpu_nv12_encode_jpeg_done");
+		if(uvc_cam_ops.encode_deinit == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+		uvc_cam_ops.encode_set_buf = (vpu_encode_jpeg_set_encbuf)dlsym(mLibUvcApp, "vpu_nv12_encode_jpeg_set_encbuf");
+		if(uvc_cam_ops.encode_set_buf == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+		uvc_cam_ops.encode_get_buf = (vpu_encode_jpeg_get_encbuf)dlsym(mLibUvcApp, "vpu_nv12_encode_jpeg_get_encbuf");
+		if(uvc_cam_ops.encode_get_buf == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+
+		uvc_cam_ops.set_state = (uvc_set_run_state)dlsym(mLibUvcApp, "uvc_set_user_run_state");
+		if(uvc_cam_ops.set_state == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+
+		uvc_cam_ops.get_state = (uvc_get_run_state)dlsym(mLibUvcApp, "uvc_get_user_run_state");
+		if(uvc_cam_ops.get_state == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+
+		uvc_cam_ops.get_fcc = (uvc_get_fcc)dlsym(mLibUvcApp, "uvc_get_user_fcc");
+		if(uvc_cam_ops.get_fcc == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+
+		uvc_cam_ops.get_res = (uvc_get_resolution)dlsym(mLibUvcApp, "uvc_get_user_resolution");
+		if(uvc_cam_ops.get_res == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+
+		uvc_cam_ops.transfer_data = (uvc_buffer_write)dlsym(mLibUvcApp, "uvc_buffer_write");
+		if(uvc_cam_ops.transfer_data == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+		uvc_cam_ops.set_device = (uvc_setDevice)dlsym(mLibUvcApp, "uvc_setCamDevice");
+		if(uvc_cam_ops.set_device == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+		uvc_cam_ops.transfer_data_enable = (uvc_buffer_write_enable)dlsym(mLibUvcApp, "uvc_buffer_write_enable");
+		if(uvc_cam_ops.transfer_data_enable == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+		uvc_cam_ops.uvc_thread_func = (uvc_gadget_main)dlsym(mLibUvcApp, "uvc_gadget_main");
+		if(uvc_cam_ops.uvc_thread_func == NULL){
+			LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
+		}
+
+	    mISPUvcThread = new CamISPUvcThread(this);
+	    mISPUvcThread->run("UVCCommandThread",ANDROID_PRIORITY_DISPLAY);
     }
+    capOption.enable = false;
 }
 CameraIspAdapter::~CameraIspAdapter()
 {
-    if (mCameraGL != NULL){
-        if (mGPUCommandThread != NULL) {
-	        sendBlockedMsg(CMD_GPU_PROCESS_DEINIT);
-            mGPUCommandThread->requestExitAndWait();
-            mGPUCommandThread.clear();
-            mGPUCommandThread = NULL;
-        }
-	    delete mCameraGL;
-        mCameraGL = NULL;
+	if (mUVNRAdapter != NULL) {
+		delete mUVNRAdapter;
+		mUVNRAdapter = NULL;
+	}
+
+	if (mMFNRAdapter != NULL) {
+		delete mMFNRAdapter;
+		mMFNRAdapter = NULL;
+	}
+
+    if (mISPUvcThread != NULL) {
+		Message_cam msg;
+		memset(&msg,0,sizeof(msg));
+		msg.command = ISP_UVC_CMD_EXIT;
+		mISPUvcQ.put(&msg);
+
+		mISPUvcThread->requestExitAndWait();
+		mISPUvcThread.clear();
+		mISPUvcThread = NULL;
+    }
+    if(mLibUvcApp != NULL){
+	    dlclose(mLibUvcApp);
+	    mLibUvcApp = NULL;
     }
 
-    if (m_buffers_capture != NULL){
-        delete m_buffers_capture;
-        m_buffers_capture = NULL;
-    }
-    if (mMutliFrameDenoise != NULL){
-        if (mMFDCommandThread != NULL) {
-	    	mfdsendBlockedMsg(CMD_GPU_PROCESS_DEINIT);
-            mMFDCommandThread->requestExitAndWait();
-            mMFDCommandThread.clear();
-            mMFDCommandThread = NULL;
-        }
-	delete mMutliFrameDenoise;
-	mMutliFrameDenoise = NULL;
-    }
-
-    if (mfd_buffers_capture != NULL){
-        delete mfd_buffers_capture;
-        mfd_buffers_capture = NULL;
-    }
     cameraDestroy();
     if(mDispFrameLeak != 0){
         LOGE("\n\n\n\nmay have disp frame mem leak,count is %d\n\n\n\n",mDispFrameLeak);
@@ -222,6 +472,8 @@ int CameraIspAdapter::cameraCreate(int cameraId)
 	isp_halpara.vcmpwrdn_delay = pCamInfo->mHardInfo.mVcmInfo.mVcmpwrdn_delay;	
     m_halHolder = new HalHolder(dev_filename,&isp_halpara);
     m_camDevice = new CamDevice( m_halHolder->handle(), CameraIspAdapter_AfpsResChangeCb, (void*)&mCtxCbResChange ,NULL, mipiLaneNum);
+    mUVNRAdapter->setCameraDevice(m_camDevice);
+    mMFNRAdapter->setCameraDevice(m_camDevice);
 
 	//load sensor
     loadSensor( cameraId);
@@ -376,7 +628,8 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
     bool is_video = false;
     rk_cam_total_info *pCamInfo = gCamInfos[mCamId].pcam_total_info;
     char res_prop[PROPERTY_VALUE_MAX];
-    
+    CamSensorMode_t sensorMode = CAMERIC_SENSOR_MODE_INVALID;
+
     property_set("sys.hdmiin.display", "0");//just used by hdmi-in
     memset(res_prop,0,sizeof(res_prop));
     property_get("sys.hdmiin.resolution",res_prop, "false");
@@ -400,10 +653,9 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
     if (is_capture) {
         enable_flash = isNeedToEnableFlash();
 
-        m_camDevice->lock3a((CamEngine3aLock_t)(Lock_awb|Lock_aec)); 
+        m_camDevice->lock3a(Lock_awb);
     }
     low_illumin = isLowIllumin(15);
-	m_camDevice->pre2capparameter(is_capture,pCamInfo);
 
     //need to change resolution ?
     if((preview_w != mCamPreviewW) ||(preview_h != mCamPreviewH)
@@ -414,18 +666,19 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
         int width_sensor = 0,height_sensor = 0;
         uint32_t resMask;
         CamEnginePathConfig_t mainPathConfig ,selfPathConfig;
-		CamEngineBestSensorResReq_t resReq;
+	CamEngineBestSensorResReq_t resReq;
         float curGain,curExp; /* ddl@rock-chips.com: v1.0x15.0 */
 
         memset(&resReq, 0x00, sizeof(CamEngineBestSensorResReq_t));
-	if(!mCameraDeinterlace->is_interlace_resolution()) {
-		resReq.request_w = preview_w;
-		resReq.request_h = preview_h;
-	} else {
-		resReq.request_w = preview_w;
-		resReq.request_h = preview_h/2;
-	}
-        
+        m_camDevice->sensorModeCb(&sensorMode);
+        if(sensorMode != CAM_SENSOR_MODE_FILED) {
+          resReq.request_w = preview_w;
+          resReq.request_h = preview_h;
+        } else {
+          resReq.request_w = preview_w;
+          resReq.request_h = preview_h/2;
+        }
+       
         if ((m_camDevice->getIntegrationTime(curExp) == false)) {
             curExp = 0.0;
         }
@@ -434,16 +687,16 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
             curGain = 0.0;
         }
         
-        if (is_video) {
-            resReq.request_fps = 20;
-        } else if (is_capture) {
-            resReq.request_fps = 0;
+        if (is_capture) {
+	    resReq.request_fps = 0;
             resReq.request_exp_t = curExp*curGain;
+        } else if (is_video) {
+            resReq.request_fps = 20;
         } else {
-        	if(pCamInfo->mSoftInfo.mFrameRate > 0)
-				resReq.request_fps = pCamInfo->mSoftInfo.mFrameRate;
-			else
-            	resReq.request_fps = 10; 
+            if(pCamInfo->mSoftInfo.mFrameRate > 0)
+                resReq.request_fps = pCamInfo->mSoftInfo.mFrameRate;
+            else
+                resReq.request_fps = 10; 
             resReq.request_exp_t = curExp;
         }
         
@@ -458,9 +711,11 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
 		
         //stop streaming
         if(-1 == stop())
-			goto startPreview_end;
+            goto startPreview_end;
         /* ddl@rock-chips.com: v1.0x16.0 */
-        if ( is_video ) {
+	if ( is_capture ) {
+            enableAfps(true);
+	} else if ( is_video ) {
             enableAfps(false);
         } else {
             enableAfps(true);
@@ -526,7 +781,7 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
                     LOGE("getFocusLimits failed!");
                 }
             }
-            enable_flash = false;
+
         }else if(low_illumin){
             unsigned int maxFocus, minFocus;
             m_camDevice->stopAf();
@@ -558,10 +813,15 @@ status_t CameraIspAdapter::startPreview(int preview_w,int preview_h,int w, int h
         m_camDevice->unlock3a((CamEngine3aLock_t)(Lock_awb|Lock_aec));
         
     } 
-    flashControl(enable_flash);
+
 
     mPreviewRunning = 1;
-
+	if(!mUvcThreaRunning && mLibUvcApp != NULL){
+		Message_cam msg;
+		memset(&msg,0,sizeof(msg));
+		msg.command = ISP_UVC_CMD_START;
+		mISPUvcQ.put(&msg);
+	}
     LOG_FUNCTION_NAME_EXIT
     return 0;
 startPreview_end:
@@ -595,16 +855,18 @@ status_t CameraIspAdapter::startPreviewEx(int preview_w,int preview_h,int w, int
 		int width_sensor = 0,height_sensor = 0;
 		CamEnginePathConfig_t mainPathConfig ,selfPathConfig;
 
-		m_camDevice->getPreferedSensorRes(&resReq);
+		m_camDevice->selectResForDumpRaw(&resReq);
 		width_sensor = ISI_RES_W_GET(resReq.resolution);
 		height_sensor = ISI_RES_H_GET(resReq.resolution);
-
+		
 		//stop streaming
 		if(-1 == stop())
 			goto startPreview_end;
 
 		m_camDevice->changeResolution(resReq.resolution,false);
 
+        	setupPreview(width_sensor,height_sensor,width_sensor,height_sensor,mZoomVal);
+	
 		m_camDevice->getPathConfig(CHAIN_MASTER,CAM_ENGINE_PATH_MAIN,mainPathConfig);
 		m_camDevice->getPathConfig(CHAIN_MASTER,CAM_ENGINE_PATH_SELF,selfPathConfig);
 		m_camDevice->setPathConfig( CHAIN_MASTER, mainPathConfig, selfPathConfig  );
@@ -642,7 +904,10 @@ status_t CameraIspAdapter::stopPreview()
     if (strcmp(mParameters.get(CameraParameters::KEY_FOCUS_MODE),CameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE)==0) {
         m_camDevice->stopAf();
     }
-    
+	curFlashStatus.current_state = FLASH_STATE_IDLE_STATUS;
+	curFlashStatus.old_state = FLASH_STATE_IDLE_STATUS;
+	flashSettle(CAM_ENGINE_FLASH_OFF);
+
     if(mPreviewRunning) {
         if(-1 == stop())
 			return -1;
@@ -905,27 +1170,17 @@ int CameraIspAdapter::setParameters(const CameraParameters &params_set,bool &isR
                         || ((strcmp(params_set.get(CameraParameters::KEY_FLASH_MODE),CameraParameters::FLASH_MODE_AUTO)==0))){
                         //check flash mode last time
                         if(strcmp(mParameters.get(CameraParameters::KEY_FLASH_MODE),CameraParameters::FLASH_MODE_TORCH)==0){
-                            flash_cfg.mode = CAM_ENGINE_FLASH_TORCH;
-                            m_camDevice->configureFlash(&flash_cfg);
-                            m_camDevice->stopFlash(true);
+                            mTorchStatus = false;
                         }
-                        flash_cfg.mode = CAM_ENGINE_FLASH_ON;
-                        m_camDevice->configureFlash(&flash_cfg);
             			LOG1("Set flash on success!");
                     }else if (strcmp(params_set.get(CameraParameters::KEY_FLASH_MODE),CameraParameters::FLASH_MODE_OFF)==0) {
                         //check flash mode last time
                         if(strcmp(mParameters.get(CameraParameters::KEY_FLASH_MODE),CameraParameters::FLASH_MODE_TORCH)==0){
-                            flash_cfg.mode = CAM_ENGINE_FLASH_TORCH;
-                            m_camDevice->configureFlash(&flash_cfg);
-                            m_camDevice->stopFlash(true);
+                            mTorchStatus = false;
                         }
-                        flash_cfg.mode = CAM_ENGINE_FLASH_OFF;
-                        m_camDevice->configureFlash(&flash_cfg);
             			LOG1("Set flash off success!");
                     }else if (strcmp(params_set.get(CameraParameters::KEY_FLASH_MODE),CameraParameters::FLASH_MODE_TORCH)==0) {
-                        flash_cfg.mode = CAM_ENGINE_FLASH_TORCH;
-                        m_camDevice->configureFlash(&flash_cfg);
-                        m_camDevice->startFlash(true);
+                        mTorchStatus = true;
             			LOG1("Set flash torch success!");
                     }
                 }
@@ -1344,6 +1599,13 @@ void CameraIspAdapter::initDefaultParameters(int camFd)
                 parameterString.append(CameraParameters::WHITE_BALANCE_TWILIGHT);
             }
     	}
+		
+	if(pCamInfo->mSoftInfo.mAwbConfig.mAwbSupport&(0x1<<AWB_FLASH_BITPOS)) {
+            if (m_camDevice->chkAwbIllumination((char*)"FLASH") == true) {
+                parameterString.append(",");
+                parameterString.append("flash");
+            }
+        }
     
         params.set(CameraParameters::KEY_SUPPORTED_WHITE_BALANCE, parameterString.string());
     	params.set(CameraParameters::KEY_WHITE_BALANCE, "auto");
@@ -1477,7 +1739,12 @@ int CameraIspAdapter::cameraConfig(const CameraParameters &tmpparams,bool isInit
 {
 	int err = 0, i = 0;
 	CameraParameters params = tmpparams;
-	
+	bool enabled;
+	CamEngineAwbMode_t mode;
+	uint32_t idx;
+	CamEngineAwbRgProj_t RgProj;
+	bool  damping;
+
     /*white balance setting*/
     const char *white_balance = params.get(CameraParameters::KEY_WHITE_BALANCE);
 	const char *mwhite_balance = mParameters.get(CameraParameters::KEY_WHITE_BALANCE);
@@ -1488,47 +1755,13 @@ int CameraIspAdapter::cameraConfig(const CameraParameters &tmpparams,bool isInit
 				uint32_t illu_index = 1; 
 				if(!strcmp(white_balance, "auto")) {
                     if (m_camDevice->isSOCSensor() == false) {
+    					m_camDevice->getAwbStatus(enabled, mode, idx, RgProj, damping);
     					m_camDevice->stopAwb();
     					m_camDevice->resetAwb();
-    					m_camDevice->startAwb(CAM_ENGINE_AWB_MODE_AUTO, 0, (bool_t)true);
+    					m_camDevice->startAwb(CAM_ENGINE_AWB_MODE_AUTO, idx, (bool_t)true);
                     }
 				} else {
 					setMwb(white_balance);
-				#if 0
-				    if (m_camDevice->isSOCSensor() == false) {
-    					if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_INCANDESCENT)) {
-    						strcpy(prfName, "A");
-    					} else if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_DAYLIGHT)) {
-    						strcpy(prfName, "D65");			
-    					} else if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_FLUORESCENT)) {
-    						strcpy(prfName, "F2_CWF");
-    					} else if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_SHADE)) {
-    						strcpy(prfName, "D75");
-    					} else if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_TWILIGHT)) {
-    						strcpy(prfName, "Horizon");
-    					} else if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_CLOUDY_DAYLIGHT)) {
-    						strcpy(prfName, "D50");
-    					} else if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_WARM_FLUORESCENT)) {
-    						strcpy(prfName, "U30");
-    					}
-
-    					std::vector<CamIlluProfile_t *> profiles;
-    					m_camDevice->getIlluminationProfiles( profiles );
-    					int i,size;
-    					size = profiles.size();
-    					for(i=0; i<size; i++)
-    					{
-    						if(strstr(profiles[i]->name, prfName))
-    						{
-    							illu_index = i;
-								break;
-							}
-    					}
-    					
-		                m_camDevice->stopAwb();
-    					m_camDevice->startAwb(CAM_ENGINE_AWB_MODE_MANUAL, illu_index, (bool_t)true);
-				    }
-					#endif
 				}
 			}
 		}
@@ -1640,40 +1873,6 @@ int CameraIspAdapter::cameraConfig(const CameraParameters &tmpparams,bool isInit
                     LOG1("     3 : %f\n",manExpConfig.plus_level_3);
     			}else{
 				    setMe(exposure);
-				#if 0
-    				int iexp;
-    				iexp = atoi(exposure);
-    				switch(iexp)
-    				{
-    					case -3:
-    						m_camDevice->setAeClmTolerance(manExpConfig.clmtolerance*0.6);
-    						m_camDevice->setAePoint(manExpConfig.minus_level_3);
-    						break;
-    					case -2:
-    						m_camDevice->setAeClmTolerance(manExpConfig.clmtolerance*0.8);
-    						m_camDevice->setAePoint(manExpConfig.minus_level_2);
-    						break;
-    					case -1:
-    						m_camDevice->setAePoint(manExpConfig.minus_level_1);
-    						break;
-    					case 0:
-    						m_camDevice->setAePoint(manExpConfig.level_0);
-    						break;
-    					case 1:
-    						m_camDevice->setAePoint(manExpConfig.plus_level_1);
-    						break;
-    					case 2:
-    						m_camDevice->setAeClmTolerance(manExpConfig.clmtolerance*0.8);
-    						m_camDevice->setAePoint(manExpConfig.plus_level_2);
-    						break;
-    					case 3:
-    						m_camDevice->setAeClmTolerance(manExpConfig.clmtolerance*0.6);
-    						m_camDevice->setAePoint(manExpConfig.plus_level_3);
-    						break;
-    					default:
-    						break;
-    				}
-				#endif
     			}
             }
 	    }
@@ -1892,14 +2091,13 @@ void CameraIspAdapter::loadSensor( const int cameraId)
 
         rk_cam_total_info *pCamInfo = gCamInfos[cameraId].pcam_total_info;
         if(mIsCtsTest)
-			pCamInfo->mSoftInfo.mFrameRate = 30;
-
+	    pCamInfo->mSoftInfo.mFrameRate = 30;
         if ( true == m_camDevice->openSensor( pCamInfo, mSensorItfCur ) )
         {
         	bool res = m_camDevice->checkVersion(pCamInfo);
 			if(res!=true)
 			    return;
-#if 1
+
             // connect
             uint32_t resMask;
             CamEngineWindow_t dcWin;
@@ -1919,8 +2117,7 @@ void CameraIspAdapter::loadSensor( const int cameraId)
             connectCamera();
             mCamPreviewH = DEFAULTPREVIEWHEIGHT;
             mCamPreviewW = DEFAULTPREVIEWWIDTH;
-            //mSensorDriverFile[mSensorItfCur] = fileName;
-#endif
+
         }
         else
         {
@@ -1947,39 +2144,18 @@ void CameraIspAdapter::loadCalibData(const char* fileName )
 }
 
 bool CameraIspAdapter::connectCamera(){
+    rk_cam_total_info *pCamInfo = gCamInfos[mCamId].pcam_total_info;
     bool result = false;
+
     result = m_camDevice->connectCamera( true, this );
     if ( true != result)
     {
         LOGE("connectCamera failed!");
     }
 
-    {
-    	rk_cam_total_info *pCamInfo = gCamInfos[mCamId].pcam_total_info;
-
-        CamEngineCprocConfig_t cproc_config = {
-            CAM_ENGINE_CPROC_CHROM_RANGE_OUT_BT601,//CAM_ENGINE_CPROC_CHROM_RANGE_OUT_FULL_RANGE,
-            CAM_ENGINE_CPROC_LUM_RANGE_OUT_FULL_RANGE,//CAM_ENGINE_CPROC_LUM_RANGE_OUT_BT601,//,
-            CAM_ENGINE_CPROC_LUM_RANGE_IN_FULL_RANGE,//CAM_ENGINE_CPROC_LUM_RANGE_IN_BT601,//,
-            1.1,  //contrast 0-1.992
-            0,      //brightness -128 - 127
-            1.0,      //saturation 0-1.992
-            0,      //hue   -90 - 87.188
-        };
-        if(pCamInfo->mSoftInfo.mPreCprocConfig.mSupported == true){
-            cproc_config.contrast = pCamInfo->mSoftInfo.mPreCprocConfig.mContrast;
-            cproc_config.saturation= pCamInfo->mSoftInfo.mPreCprocConfig.mSaturation;
-            cproc_config.hue= pCamInfo->mSoftInfo.mPreCprocConfig.mHue;
-            cproc_config.brightness= pCamInfo->mSoftInfo.mPreCprocConfig.mBrightness;
-            m_camDevice->cProcEnable( &cproc_config);
-        }
-    }
-
-	rk_cam_total_info *pCamInfo = gCamInfos[mCamId].pcam_total_info;
-
     if(pCamInfo->mSoftInfo.mGammaOutConfig.mSupported == true){
-        m_camDevice->gamCorrectEnable();
         m_camDevice->gamCorrectSetCurve();
+        m_camDevice->gamCorrectEnable();
     }
 
     return result;
@@ -2001,17 +2177,6 @@ void CameraIspAdapter::disconnectCamera()
         }
     }
 
-	rk_cam_total_info *pCamInfo = gCamInfos[mCamId].pcam_total_info;
-    if((pCamInfo->mSoftInfo.mPreCprocConfig.mSupported == true) || (pCamInfo->mSoftInfo.mCapCprocConfig.mSupported == true)){
-        bool running = false;
-        CamEngineCprocConfig_t cproc_config;
-        if((m_camDevice->state() == CamEngineItf::Running) ||
-            (m_camDevice->state() == CamEngineItf::Idle))
-            m_camDevice->cProcStatus( running, cproc_config );
-        if(running)
-            m_camDevice->cProcDisable();
-    }
-    
     m_camDevice->disconnectCamera();
 }
 
@@ -2168,247 +2333,6 @@ int CameraIspAdapter::getCurPreviewState(int *drv_w,int *drv_h)
     return mPreviewRunning;
 }
 
-void CameraIspAdapter::gpuCommandThread()
-{
-    Message_cam msg;
-	float uvnr_set_ratio;
-	float uvnr_set_distances;
-	char  uvnr_set_enable;
-	float uvnr_ISO[3];
-	float uvnr_ratio[3];
-	float uvnr_distances[3];
-
-    while (mGPUCommandThreadState != STA_GPUCMD_STOP) {
-    gpu_receive_cmd:
-        if (gpuCmdThreadCommandQ.isEmpty() == false ) {
-            gpuCmdThreadCommandQ.get(&msg);
-
-            //ALOGD("isp-msg,command thread receive message: %d", msg.command);
-            switch (msg.command)
-            {
-                case CMD_GPU_PROCESS_INIT:
-                {
-                    //ALOGD("check init, w-h: %d-%d, tid: %d", width, height, gettid());
-                    if (!mCameraGL->initialized) {
-                        mCameraGL->init(NULL, mGpuFBOWidth, mGpuFBOHeight);
-                    }
-                    mGPUCommandThreadState = STA_GPUCMD_RUNNING;
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-                    break;
-                }
-                case CMD_GPU_PROCESS_UPDATE:
-                {
-                    if (mCameraGL->initialized) {
-                        mCameraGL->update(m_buffers_capture);
-                    }
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-
-                    break;
-                }
-                case CMD_GPU_PROCESS_RENDER:
-                {
-                    if (mCameraGL->initialized) {
-						m_camDevice->getUvnrPara(&uvnr_set_enable, uvnr_ISO, uvnr_ratio,uvnr_distances);
-                        m_camDevice->getGain(mISO);
-
-						if(uvnr_set_enable == true) {
-							if(mISO > uvnr_ISO[2]) {
-								uvnr_set_ratio = uvnr_ratio[2];
-								uvnr_set_distances = uvnr_distances[2];
-							}
-							else if(mISO > uvnr_ISO[1]){
-								uvnr_set_ratio = uvnr_ratio[1];
-								uvnr_set_distances = uvnr_distances[1];
-							}
-							else {
-								uvnr_set_ratio = uvnr_ratio[0];
-								uvnr_set_distances = uvnr_distances[0];
-							}
-						} else {
-							uvnr_set_ratio = 15;
-							uvnr_set_distances = 5;
-						}
-
-                        mCameraGL->process(NULL,OUTPUT_NONE,uvnr_set_ratio,uvnr_set_distances);
-                    }
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-
-                    break;
-                }
-                case CMD_GPU_PROCESS_GETRESULT:
-                {
-                    break;
-                }
-                case CMD_GPU_PROCESS_DEINIT:
-                {
-                    if (mCameraGL->initialized) {
-                        mCameraGL->destroy();
-                    }
-
-                    mGPUCommandThreadState = STA_GPUCMD_STOP;
-
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-
-                    continue;
-                }
-            }
-        }
-
-        mGpuOPLock.lock();
-        if (gpuCmdThreadCommandQ.isEmpty() == false ) {
-            mGpuOPLock.unlock();
-            goto gpu_receive_cmd;
-        }
-
-        mGpuOPCond.wait(mGpuOPLock);
-        mGpuOPLock.unlock();
-
-        goto gpu_receive_cmd;
-    }
-}
-void CameraIspAdapter::sendBlockedMsg(int message) {
-    //ALOGD("isp-msg, receive message: %d", message);
-    Message_cam msg;
-    Semaphore sem;
-
-    mGpuOPLock.lock();
-
-    msg.command = message;
-    sem.Create();
-    msg.arg1 = (void*)(&sem);
-    gpuCmdThreadCommandQ.put(&msg);
-    mGpuOPCond.signal();
-    mGpuOPLock.unlock();
-    if(msg.arg1){
-        sem.Wait();
-    }
-
-}
-
-void CameraIspAdapter::mfdCommandThread()
-{
-    Message_cam msg;
-	float mfdsetISO;
-	char mfd_set_enable;
-	float get_mfdISO[3];
-	float mfdFrames[3];
-    while (mMFDCommandThreadState != STA_GPUCMD_STOP) {
-    gpu_receive_cmd:
-        if (mfdCmdThreadCommandQ.isEmpty() == false ) {
-            mfdCmdThreadCommandQ.get(&msg);
-
-            //ALOGD("isp-msg,command thread receive message: %d", msg.command);
-            switch (msg.command)
-            {
-                case CMD_GPU_PROCESS_INIT:
-                {
-                    //ALOGD("check init, w-h: %d-%d, tid: %d", width, height, gettid());
-                    if (!mMutliFrameDenoise->initialized) {
-                        mMutliFrameDenoise->initOpenGLES(NULL, mMfdFBOWidth, mMfdFBOHeight);
-                    }
-                    mMFDCommandThreadState = STA_GPUCMD_RUNNING;
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-                    break;
-                }
-                case CMD_GPU_PROCESS_UPDATE:
-                {
-                    if (mMutliFrameDenoise->initialized) {
-                        //ALOGD("fill buffer capture, start: %.8x, dat0: %d, fd: %d, length: %d", mfd_buffers_capture->start, (void*)(mfd_buffers_capture->start),             mfd_buffers_capture->share_fd, mfd_buffers_capture->length);
-					// m_camDevice->getGain(mfdISO);
-                        mMutliFrameDenoise->updateImageData(mfd_buffers_capture);
-                    }
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-
-                    break;
-                }
-                case CMD_GPU_PROCESS_RENDER:
-                {
-                    if (mMutliFrameDenoise->initialized) {
-                        m_camDevice->getGain(mfdISO);
-                        mMutliFrameDenoise->processing(NULL,mfdISO);
-                        LOGD("CameraIspAdapter::mfdCommandThread mfdISO = %f",mfdISO);
-                    }
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-
-                    break;
-                }
-                case CMD_GPU_PROCESS_SETFRAMES:
-                {
-					m_camDevice->getGain(mfdISO);
-
-					m_camDevice->getMfdGain(&mfd_set_enable, get_mfdISO, mfdFrames);
-					if(mfd_set_enable == 1) {
-						if(mfdISO > get_mfdISO[2]) {
-							mfd.process_frames = mfdFrames[2];
-						}
-						else if(mfdsetISO > get_mfdISO[1]){
-							mfd.process_frames = mfdFrames[1];
-						}
-						else {
-							mfd.process_frames = mfdFrames[0];
-						}
-					} else {
-						mfd.process_frames = 2;
-					}
-					mMutliFrameDenoise->setFrames(mfd.process_frames);
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-                    break;
-                }
-                case CMD_GPU_PROCESS_DEINIT:
-                {
-                    if (mMutliFrameDenoise->initialized) {
-                        mMutliFrameDenoise->destroy();
-                    }
-
-                    mMFDCommandThreadState = STA_GPUCMD_STOP;
-
-                    if(msg.arg1)
-                        ((Semaphore*)msg.arg1)->Signal();
-
-                    continue;
-                }
-            }
-        }
-
-        mMfdOPLock.lock();
-        if (mfdCmdThreadCommandQ.isEmpty() == false ) {
-            mMfdOPLock.unlock();
-            goto gpu_receive_cmd;
-        }
-
-        mMfdOPCond.wait(mMfdOPLock);
-        mMfdOPLock.unlock();
-
-        goto gpu_receive_cmd;
-    }
-}
-void CameraIspAdapter::mfdsendBlockedMsg(int message) {
-    //ALOGD("isp-msg, receive message: %d", message);
-    Message_cam msg;
-    Semaphore sem;
-
-    mMfdOPLock.lock();
-
-    msg.command = message;
-    sem.Create();
-    msg.arg1 = (void*)(&sem);
-    mfdCmdThreadCommandQ.put(&msg);
-    mMfdOPCond.signal();
-    mMfdOPLock.unlock();
-    if(msg.arg1){
-        sem.Wait();
-    }
-
-}
-
 int CameraIspAdapter::selectPreferedDrvSize(int *width,int * height,bool is_capture)
 {
 
@@ -2425,20 +2349,16 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
     int fmt = 0;
 	int tem_val;
 	ulong_t phy_addr=0;
+    void* graphic_buffer = NULL;
 
-	bool is_even_field = true;
-	IsiSensorFrameInfo_t SensorFrameInfo;
 	Mutex::Autolock lock(mLock);
     // get & check buffer meta data
     PicBufMetaData_t *pPicBufMetaData = (PicBufMetaData_t *)(pMediaBuffer->pMetaData);
     HalHandle_t  tmpHandle = m_camDevice->getHalHandle();
 
     debugShowFPS();
-
-	SensorFrameInfo.pFrameNumFE = pMediaBuffer->pFrameNumFE;
-	SensorFrameInfo.pFrameNumFS = pMediaBuffer->pFrameNumFS;
-	m_camDevice->isEvenField(SensorFrameInfo,is_even_field);
-
+    
+    //
     if(pPicBufMetaData->Type == PIC_BUF_TYPE_YCbCr420 || pPicBufMetaData->Type == PIC_BUF_TYPE_YCbCr422){        
         if(pPicBufMetaData->Type == PIC_BUF_TYPE_YCbCr420){
             fmt = V4L2_PIX_FMT_NV12;
@@ -2456,7 +2376,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
             HalMapMemory( tmpHandle, y_addr, 100, HAL_MAPMEM_READWRITE, &y_addr_vir );
             HalMapMemory( tmpHandle, uv_addr, 100, HAL_MAPMEM_READWRITE, &uv_addr_vir );
 
-			
+            HalGetANDROIDMemory(tmpHandle, y_addr, &graphic_buffer);
 #if defined(RK_DRM_GRALLOC) // should use fd
 			HalGetMemoryMapFd(tmpHandle, y_addr,(int*)&phy_addr);
 #else
@@ -2477,6 +2397,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
             width = pPicBufMetaData->Data.YCbCr.combined.PicWidthPixel>>1;
             height = pPicBufMetaData->Data.YCbCr.combined.PicHeightPixel;
             HalMapMemory( tmpHandle, y_addr, 100, HAL_MAPMEM_READWRITE, &y_addr_vir );
+            HalGetANDROIDMemory(tmpHandle, y_addr, &graphic_buffer);
 #if defined(RK_DRM_GRALLOC) // should use fd
 			HalGetMemoryMapFd(tmpHandle, y_addr,(int*)&phy_addr);
 #else
@@ -2494,6 +2415,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
         height = pPicBufMetaData->Data.raw.PicHeightPixel;
         fmt = V4L2_PIX_FMT_SBGGR10;
         HalMapMemory( tmpHandle, y_addr, 100, HAL_MAPMEM_READWRITE, &y_addr_vir );
+        HalGetANDROIDMemory(tmpHandle, y_addr, &graphic_buffer);
 #if defined(RK_DRM_GRALLOC) // should use fd
 		HalGetMemoryMapFd(tmpHandle, y_addr,(int*)&phy_addr);
 #else
@@ -2512,13 +2434,14 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
         MediaBufLockBuffer( (MediaBuffer_t*)pMediaBuffer->pNext );
     }
 	
-#if 1
 	if( !mIsCtsTest && (preview_frame_inval > 0) ){
 	  	preview_frame_inval--;
 		LOG1("frame_inval:%d\n",preview_frame_inval);
+
         if(m_camDevice->isSOCSensor() == false){
 			bool awb_ret = m_camDevice->isAwbStable();
 			LOG1("awb test fps(%d) awb stable(%d)\n", preview_frame_inval, awb_ret);
+			
 			if( awb_ret!=true){
 				LOG1("awb test fps(%d) awb stable(%d)\n", preview_frame_inval, awb_ret);
 				goto end;
@@ -2527,7 +2450,6 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
 			goto end;
 		}
     }
-#endif
 
 
     if(mIsSendToTunningTh){
@@ -2559,6 +2481,31 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
         mISPTunningQ->put(&msg);
 
     }else{
+        if (mIsSendToUvcTh){
+        	MediaBufLockBuffer( pMediaBuffer );
+        	FramInfo_s *tmpFrame=(FramInfo_s *)malloc(sizeof(FramInfo_s));
+			if(!tmpFrame){
+				MediaBufUnlockBuffer( pMediaBuffer );
+				return;
+			}
+			memset(tmpFrame, 0x0, sizeof(*tmpFrame));
+			tmpFrame->frame_index = (ulong_t)tmpFrame; 
+			tmpFrame->phy_addr = (ulong_t)phy_addr;
+			tmpFrame->frame_width = width;
+			tmpFrame->frame_height= height;
+			tmpFrame->vir_addr = (ulong_t)y_addr_vir;
+			tmpFrame->frame_fmt = fmt;		
+			tmpFrame->used_flag = 6;
+			{
+				Mutex::Autolock lock(mFrameArrayLock);
+				mFrameInfoArray.add((void*)tmpFrame,(void*)pMediaBuffer);
+			}
+			Message_cam msg;
+			msg.command = ISP_UVC_CMD_PROCESS_FRAME;
+			msg.arg2 = (void*)(tmpFrame);
+			mISPUvcQ.put(&msg);
+
+        }
         //need to send face detection ?
     	if(mRefEventNotifier->isNeedSendToFaceDetect()){  
     	    MediaBufLockBuffer( pMediaBuffer );
@@ -2590,7 +2537,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
         }
     	//need to display ?
     	if(mRefDisplayAdapter->isNeedSendToDisplay()){  
-	    	property_set("sys.hdmiin.display", "1");//just used by hdmi-in
+	    property_set("sys.hdmiin.display", "1");//just used by hdmi-in
     	    MediaBufLockBuffer( pMediaBuffer );
     		//new frames
     		FramInfo_s *tmpFrame=(FramInfo_s *)malloc(sizeof(FramInfo_s));
@@ -2607,7 +2554,6 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
           tmpFrame->vir_addr = (ulong_t)y_addr_vir;
           tmpFrame->frame_fmt = fmt;
     	  
-          tmpFrame->is_even_field = is_even_field;
           tmpFrame->used_flag = 0;
 
           #if (USE_RGA_TODO_ZOOM == 1)  
@@ -2646,7 +2592,6 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
             tmpFrame->frame_height= height;
             tmpFrame->vir_addr = (ulong_t)y_addr_vir;
             tmpFrame->frame_fmt = fmt;
-            tmpFrame->is_even_field = is_even_field;
             tmpFrame->used_flag = 1;
 #if (USE_RGA_TODO_ZOOM == 1)  
             tmpFrame->zoom_value = mZoomVal;
@@ -2665,9 +2610,10 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
             }
             mRefEventNotifier->notifyNewVideoFrame(tmpFrame);		
     	}
+	flashProcess();
         
     	//picture ?
-    	if(mRefEventNotifier->isNeedSendToPicture()){
+    	if((curFlashStatus.capture_ready )&& (mRefEventNotifier->isNeedSendToPicture()) ) {
             bool send_to_pic = true;
 			MediaBufLockBuffer( pMediaBuffer );
             //new frames
@@ -2677,35 +2623,29 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
 				return;
             }
 			memset(tmpFrame, 0x0, sizeof(*tmpFrame));
-			{
-				if (mfd.enable) {
-					mfd_buffers_capture->start = y_addr_vir;
-					mfd_buffers_capture->share_fd = phy_addr;
-					mfd_buffers_capture->length = width * height * 3 / 2;
-					mfd_buffers_capture->handle = NULL;
-					if (!mMutliFrameDenoise->initialized) {
-						mMfdFBOWidth = width;
-						mMfdFBOHeight = height;
-						mfdsendBlockedMsg(CMD_GPU_PROCESS_INIT);
-					}
-					if((mfd.frame_cnt == 0) && (mMutliFrameDenoise->initialized)) {
-						LOGE("mMutliFrameDenoise->initialized:%d,mfd.frame_cnt:%d	hcc101802!",mMutliFrameDenoise->initialized,mfd.frame_cnt);
-						mfdsendBlockedMsg(CMD_GPU_PROCESS_SETFRAMES);
-						LOGE("CMD_GPU_PROCESS_SETFRAMES finish!");
-					}
-					if(mfd.frame_cnt < mfd.process_frames) {
-						mfdsendBlockedMsg(CMD_GPU_PROCESS_UPDATE);
-						mfd.buffer_full = false;
-						mfd.frame_cnt++ ;
-					} else {
-						mfd.frame_cnt = 0;
-						mfd.buffer_full = true;
-					}
-				} else {
-				mfd.frame_cnt = 0;
-				mfd.buffer_full = true;
-				}
-			}
+
+            if (mfd.enable && mMFNRAvailable) {
+                mMFNRAdapter->setDimension(width, height);
+                mMFNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_INIT);
+                mMFNRAdapter->wrapData(graphic_buffer, y_addr_vir, phy_addr, width*height*3/2, NULL);
+
+                if((mfd.frame_cnt == 0) && (mMFNRAdapter->mCheckInitialized)) {
+                	mMFNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_SETFRAMES);
+                    mfd.process_frames = mMFNRAdapter->getFrameCount();
+                }
+
+            	if(mfd.frame_cnt < mfd.process_frames) {
+            		mMFNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_UPDATE);
+            		mfd.buffer_full = false;
+            		mfd.frame_cnt++ ;
+            	} else {
+            		mfd.frame_cnt = 0;
+            		mfd.buffer_full = true;
+            	}
+            } else {
+            	mfd.frame_cnt = 0;
+            	mfd.buffer_full = true;
+            }
 
 			if(mfd.buffer_full == true) {
 				#if 0
@@ -2718,31 +2658,26 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
 				if (send_to_pic) {
 					float flash_luminance = 0;
 					tmpFrame->vir_addr = (ulong_t)y_addr_vir;
-	                if ((mMutliFrameDenoise->initialized) && (mfd.enable)) {
-						mfdsendBlockedMsg(CMD_GPU_PROCESS_RENDER);
-	                    mMutliFrameDenoise->getResult(tmpFrame->vir_addr);
-	                }
+                    if ((mfd.enable) && (mMFNRAdapter->mCheckInitialized)) {
+                    	mMFNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_RENDER);
+                        mMFNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_GETRESULT);
+                        //mMutliFrameDenoise->getResult(tmpFrame->vir_addr);
+                    }
 
-					if( tmpFrame->vir_addr == NULL) {
+					if( tmpFrame->vir_addr == 0) {
 						LOGE("mfd tmpFrame->vir_addr is NULL!");
 					}
 
-					if (uvnr.enable) {
-						if (!mCameraGL->initialized) {
-							mGpuFBOWidth = width;
-							mGpuFBOHeight = height;
-							sendBlockedMsg(CMD_GPU_PROCESS_INIT);
-						}
-
-						m_buffers_capture->start = (void *)tmpFrame->vir_addr;
-						m_buffers_capture->share_fd = phy_addr;
-						m_buffers_capture->length = width * height * 3 / 2;
-						m_buffers_capture->handle = NULL;
-
-						sendBlockedMsg(CMD_GPU_PROCESS_UPDATE);
-						sendBlockedMsg(CMD_GPU_PROCESS_RENDER);
-						mCameraGL->getResult(tmpFrame->vir_addr);
-					}
+                    if (uvnr.enable && mUVNRAvailable) {
+                        if (!mUVNRAdapter->mCheckInitialized) {
+                            mUVNRAdapter->setDimension(width, height);
+                            mUVNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_INIT);
+                        }
+                        mUVNRAdapter->wrapData(graphic_buffer, y_addr_vir, phy_addr, width*height*3/2, NULL);
+                        mUVNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_UPDATE);
+                        mUVNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_RENDER);
+                        mUVNRAdapter->sendBlockedMsg(CMD_GPU_PROCESS_GETRESULT);
+                    }
 					if( tmpFrame->vir_addr == NULL) {
 						LOGE("uvnr tmpFrame->vir_addr is NULL!");
 					}
@@ -2753,7 +2688,6 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
 	                tmpFrame->frame_height= height;
 	                //tmpFrame->vir_addr = (ulong_t)y_addr_vir;
 	                tmpFrame->frame_fmt = fmt;
-	                tmpFrame->is_even_field = is_even_field;
 	                tmpFrame->used_flag = 2;
 	                tmpFrame->res = &mImgAllFovReq;
 #if (USE_RGA_TODO_ZOOM == 1)  
@@ -2773,6 +2707,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
 	                picture_info_s &picinfo = mRefEventNotifier->getPictureInfoRef();
 	                getCameraParamInfo(picinfo.cameraparam);
 	                mRefEventNotifier->notifyNewPicFrame(tmpFrame);
+			curFlashStatus.capture_ready = false;
 	            }
             }
     	}
@@ -2795,6 +2730,7 @@ void CameraIspAdapter::bufferCb( MediaBuffer_t* pMediaBuffer )
             tmpFrame->vir_addr = (ulong_t)y_addr_vir;
             tmpFrame->frame_fmt = fmt;
             tmpFrame->used_flag = 3;
+            tmpFrame->isp_info = pMediaBuffer->ispinfo;
 #if (USE_RGA_TODO_ZOOM == 1)  
             tmpFrame->zoom_value = mZoomVal;
 #else
@@ -2855,6 +2791,63 @@ void CameraIspAdapter::dump(int cameraId)
             TRACE_E("-----------start isp tunning failed--------------");
         }
     }
+}
+
+bool CameraIspAdapter::tuningThreadIsRunning()
+{
+	return mISPTunningRun;
+}
+
+void CameraIspAdapter::captureFrame()
+{
+	Message_cam msg;
+
+    TRACE_D(0, "-----------captureFrame in--------------");
+    mISPTunningQ = new MessageQueue("ISPTunningQ");
+    mISPTunningThread = new CamISPTunningThread(this);
+
+    mIspTunningTask = new CameraIspTunning();
+    mIspTunningTask->mCurTuneTask = (ispTuneTaskInfo_s*)malloc(sizeof(ispTuneTaskInfo_s));
+    memset(mIspTunningTask->mCurTuneTask,0x0, sizeof(ispTuneTaskInfo_s));
+	mIspTunningTask->mCurTuneTask->mTuneWidth = capOption.width;
+	mIspTunningTask->mCurTuneTask->mTuneHeight = capOption.height;
+	if (capOption.format == 0x2b || capOption.format == 0x2c)
+		mIspTunningTask->mCurTuneTask->mTuneFmt = CAMERIC_MI_DATAMODE_RAW12;
+	else
+		mIspTunningTask->mCurTuneTask->mTuneFmt = CAMERIC_MI_DATAMODE_YUV422;
+	mIspTunningTask->mCurTuneTask->mTunePicNum = capOption.number;
+
+	mIspTunningTask->mCurTuneTask->mExpose.integrationTime = capOption.integrationTime;
+	mIspTunningTask->mCurTuneTask->mExpose.gain = capOption.gain;
+	if (capOption.ae_mode == 0)
+		mIspTunningTask->mCurTuneTask->mExpose.exposuseMode = EXPOSUSE_MODE_MANUAL;
+	else
+		mIspTunningTask->mCurTuneTask->mExpose.exposuseMode = EXPOSUSE_MODE_AUTO;
+	capOption.enable = true;
+	mIspTunningTask->mCurTuneTask->mExpose.aeRound = false;
+	mIspTunningTask->mCurTuneTask->mWhiteBalance.whiteBalanceMode = WHITEBALANCE_MODE_INVALID;
+	mIspTunningTask->mCurTunIndex = 0;
+	mIspTunningTask->mTuneTaskcount = 1;
+
+    mISPTunningThread->run("CamISPTunningThread",ANDROID_PRIORITY_NORMAL);
+    msg.command = ISP_TUNNING_CMD_START;
+    mISPTunningQ->put(&msg);
+    mISPTunningRun = true;
+    while(mISPTunningRun)
+    {
+    	sleep(2);
+    }
+    TRACE_D(0, "-----------stop captureFrame--------------");
+    msg.command = ISP_TUNNING_CMD_EXIT;
+    mISPTunningQ->put(&msg);
+	mISPTunningThread->requestExitAndWait();
+	mISPTunningThread.clear();
+    delete mISPTunningQ;
+    mISPTunningQ = NULL;
+    free(mIspTunningTask->mCurTuneTask);
+    delete mIspTunningTask;
+    mIspTunningTask = NULL;
+
 }
 
 int CameraIspAdapter::afListenerThread(void)
@@ -2951,56 +2944,6 @@ bool CameraIspAdapter::isLowIllumin(const float lumaThreshold)
         return false;
 }
 
-void CameraIspAdapter::flashControl(bool on)
-{
-    if(mFlashStatus && !on){
-        m_camDevice->stopFlash(false);
-        //restore awb
-        m_camDevice->startAec();
-        m_camDevice->lscEnable();
-  //      m_camDevice->startAdpf();
-  //      m_camDevice->startAdpcc();
-  //      m_camDevice->startAvs();
-        if(curAwbStatus.manual_mode){
-            curAwbStatus.manual_mode = false;
-            m_camDevice->stopAwb();
-            m_camDevice->startAwb(curAwbStatus.mode, curAwbStatus.idx, (bool_t)curAwbStatus.damping);
-        }
-        mFlashStatus = false;
-    }else if(!mFlashStatus && on){
-        float mingain,maxgain,step,time,mintime,maxtime,meanluma = 0 ;
-        if(isLowIllumin(45)){
-            //get awb status
-            m_camDevice->getAwbStatus(curAwbStatus.enabled, curAwbStatus.mode, curAwbStatus.idx, curAwbStatus.RgProj, curAwbStatus.damping);
-            //stop awb
-           // m_camDevice->stopAwb();
-            //set D65 manual awb
-           // m_camDevice->startAwb(CAM_ENGINE_AWB_MODE_MANUAL, 1, (bool_t)false);
-            curAwbStatus.manual_mode = false;
-            m_camDevice->stopAec();
-            m_camDevice->getGainLimits(mingain,maxgain,step);
-            m_camDevice->setGain(maxgain, maxgain);
-            m_camDevice->getIntegrationTimeLimits(mintime,maxtime,step);
-            m_camDevice->setIntegrationTime(maxtime, maxtime);
-
-            m_camDevice->lscDisable(); /*ddl@rock-chips.com: v1.0x25.0*/
-        }
-//     m_camDevice->stopAvs();
-//     m_camDevice->stopAdpcc();
-//     m_camDevice->stopAdpf();
-       
-//     m_camDevice->stopAwb();
-//       //set D65 manual awb
-//     m_camDevice->startAwb(CAM_ENGINE_AWB_MODE_MANUAL, 1, (bool_t)false);
-        m_camDevice->startFlash(true);
-        mFlashStatus = true;
-        LOG1("flash set to status %d",mFlashStatus);
-
-    }else{
-        LOG1("flash is already in status %d",mFlashStatus);
-    }
-}
-
 void CameraIspAdapter::getCameraParamInfo(cameraparam_info_s &paraminfo)
 {
 	
@@ -3070,6 +3013,8 @@ void CameraIspAdapter::setMwb(const char *white_balance)
 				strcpy(prfName, "D50");
 			} else if(!strcmp(white_balance, CameraParameters::WHITE_BALANCE_WARM_FLUORESCENT)) {
 				strcpy(prfName, "U30");
+			} else if(!strcmp(white_balance, "flash")) {
+				strcpy(prfName, "FLASH");				
 			}
 			
 			m_camDevice->getIlluminationProfiles( profiles );			
@@ -3091,7 +3036,6 @@ void CameraIspAdapter::setMwb(const char *white_balance)
 
 void CameraIspAdapter::setMe(const char *exposure)
 {
-    #if 1
     if (m_camDevice->isSOCSensor() == true)   /* ddl@rock-chips.com : v0.0x39.0 */ 
         return;
     
@@ -3110,7 +3054,158 @@ void CameraIspAdapter::setMe(const char *exposure)
 		m_camDevice->setAeClmTolerance(manExpConfig.clmtolerance*0.8);
 		m_camDevice->setAePoint(manExpConfig.plus_level_2);
 	}
-    #endif
+}
+
+int CameraIspAdapter::ispUvcThread(void)
+{
+	bool bExit = false,prvBufFlag =  false, encBufFlag = false;
+	Message_cam msg;
+	unsigned int fcc;
+	int cur_width,cur_height,width,height,jpeg_quant=5;
+	int ret = 0;
+	unsigned char *enc_out_data;
+	unsigned int enc_out_len;
+
+    while (bExit == false)
+    {
+        memset(&msg,0,sizeof(msg));
+        mISPUvcQ.get(&msg);
+        switch(msg.command)
+        {
+        	case ISP_UVC_CMD_START:
+                char prop_uvc[PROPERTY_VALUE_MAX];
+                char prop_adb[PROPERTY_VALUE_MAX];
+                property_get("sys.camera.uvc", prop_uvc, "0");
+                property_get("sys.usb.config", prop_adb, "adb");
+                if((strcmp(prop_uvc, "1") == 0) && strcmp(prop_adb, "uvc,adb")){
+                    property_set("sys.usb.config", "uvc,adb");
+                    usleep(5000000);
+                }
+
+	        	mISPUvcProcessThread = new CamISPUvcProcessThread(this);
+				mISPUvcProcessThread->run("UVCProcessThread",ANDROID_PRIORITY_DISPLAY);
+				mIsSendToUvcTh = true;
+				mUvcThreaRunning = true;
+				uvc_cam_ops.set_device(this, m_camDevice);
+				//encode init
+				if (uvc_cam_ops.encode_init(DEFAULTPREVIEWWIDTH, DEFAULTPREVIEWHEIGHT, jpeg_quant)) {
+					LOGE("%s(%d): encode_init failed!",__FUNCTION__,__LINE__);
+					return false;
+				}
+				cur_width = DEFAULTPREVIEWWIDTH;
+				cur_height = DEFAULTPREVIEWHEIGHT;
+        	break;
+        	case ISP_UVC_CMD_EXIT:
+	        	if (mISPUvcProcessThread != NULL) {
+	        		mIsSendToUvcTh = false;
+	        		mUvcThreaRunning = false;
+		        	uvc_cam_ops.set_state(false);//??
+					mISPUvcProcessThread->requestExitAndWait();
+					mISPUvcProcessThread.clear();
+					mISPUvcProcessThread = NULL;
+					uvc_cam_ops.encode_deinit();
+				}			
+	        	bExit = true;
+        	break;
+        	case ISP_UVC_CMD_REBOOT:
+        	    bool res;
+        	    CalibDb *pcalidb;
+        	    stopPreview();
+                cameraDestroy();
+                pcalidb = &(gCamInfos[mCamId].pcam_total_info->mLoadSensorInfo.calidb);
+                pcalidb->ReleaseCaliDb();
+                res = pcalidb->CreateCalibDb(gCamInfos[mCamId].pcam_total_info->mLoadSensorInfo.mSensorXmlFile);
+                if (res) {
+                    LOGD("%s(%d): create calidb success",__FUNCTION__,__LINE__);
+                }else {
+                    LOGD("%s(%d): create calidb fail",__FUNCTION__,__LINE__);
+                }
+                cameraCreate(mCamId);
+                startPreview(mCamPreviewW, mCamPreviewH, mCamDrvWidth, mCamDrvHeight, 0, false);
+        	break;
+        	case ISP_UVC_CMD_CAPTURE:
+        		mIsSendToUvcTh = false;
+        		captureFrame();
+        		mIsSendToUvcTh = true;
+        	break;
+        	case ISP_UVC_CMD_PROCESS_FRAME:
+        	{
+        	
+				FramInfo_s *frame = (FramInfo_s*)msg.arg2;
+				if (!uvc_cam_ops.get_state() || !uvc_cam_ops.transfer_data_enable()) {
+				
+					adapterReturnFrame(frame->frame_index, frame->used_flag);
+					break;
+				}
+				fcc = uvc_cam_ops.get_fcc();
+				uvc_cam_ops.get_res(&width, &height);
+                if (!prvBufFlag) {
+                    prvBufFlag = true;
+                	if (fcc == V4L2_PIX_FMT_YUYV)
+				        mPreviewBufProvider->createBuffer(1,width*height*2,RAWBUFFER,0,BUF_WITH_CACHE);
+				    else
+				        mPreviewBufProvider->createBuffer(1,width*height*3/2,RAWBUFFER,0,BUF_NO_CACHE);
+                }
+
+                #if defined(RK_DRM_GRALLOC)
+    				if (frame->vir_addr_valid){
+    		            rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
+    		                                (char*)(frame->vir_addr), (short int *)mPreviewBufProvider->getBufVirAddr(0),
+    		                                width,height,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
+    	            } else{
+    					rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
+    										(char*)(frame->phy_addr), (short int *)(long)mPreviewBufProvider->getBufShareFd(0),
+    										width,height,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
+    	            }
+                #else
+    	            rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
+    	                                (char*)(frame->vir_addr), (short int *)mPreviewBufProvider->getBufVirAddr(0),
+    	                                width,height,frame->zoom_value,false,true,false);
+                #endif
+                adapterReturnFrame(frame->frame_index, frame->used_flag);
+
+				switch (fcc) {
+	    			case V4L2_PIX_FMT_YUYV:
+					{
+						uvc_cam_ops.transfer_data(NULL, 0, (void *)mPreviewBufProvider->getBufVirAddr(0), width * height * 2, fcc);
+					}
+					break;
+					case V4L2_PIX_FMT_MJPEG:
+					{
+					     if (cur_width != width || cur_height != height) {
+	                         uvc_cam_ops.encode_deinit();
+	                         jpeg_quant = (height >= 720) ? 5 : 7;
+	                         if (uvc_cam_ops.encode_init(width, height, jpeg_quant)) {
+	                             LOGE("encode_init failed!\n");
+	                             return false;
+	                         }
+	                         cur_width = width;
+	                         cur_height = height;
+                         }
+
+                        if (!encBufFlag) {
+                            encBufFlag = true;
+						    mEncBufProvider->createBuffer(1,width*height,JPEGBUFFER,0,BUF_NO_CACHE);
+							uvc_cam_ops.encode_set_buf(mEncBufProvider->getBufShareFd(0),(void *)mEncBufProvider->getBufVirAddr(0),
+							                           mEncBufProvider->getBufPhyAddr(0),width*height);
+						}
+						ret = uvc_cam_ops.encode_process((void *)mPreviewBufProvider->getBufVirAddr(0), mPreviewBufProvider->getBufShareFd(0), width * height * 3 / 2);
+						if (!ret) {
+							uvc_cam_ops.encode_get_buf(&enc_out_data, &enc_out_len);
+							uvc_cam_ops.transfer_data(NULL, 0, enc_out_data, enc_out_len, fcc);
+                        }
+					}
+					break;
+				}
+			}
+        	break;
+        	default:
+        	break;
+		}
+	}
+	mPreviewBufProvider->freeBuffer();
+	mEncBufProvider->freeBuffer();
+	return 0;
 }
 
 int CameraIspAdapter::ispTunningThread(void)
@@ -3118,7 +3213,7 @@ int CameraIspAdapter::ispTunningThread(void)
     bool bExit = false;
     Message_cam msg;
     int curFmt = 0,curPreW = 0,curPreH =0;
-    float gain,setgain,mingain,maxgain,gainstep,time,settime,mintime,maxtime,timestep;
+    float gain=0.0,setgain,mingain,maxgain,gainstep,time=0.0,settime,mintime,maxtime,timestep;
     ispTuneTaskInfo_s* curTuneTask = NULL;
     char szBaseFileName[100];
     static int skip_frames = 0;
@@ -3133,8 +3228,11 @@ PROCESS_CMD:
                 //stop preview
                 stopPreview();
                 //start preview
-                curTuneTask = mIspTunningTask->mCurTuneTask = mIspTunningTask->mTuneInfoVector[mIspTunningTask->mCurTunIndex];
-
+                if (capOption.enable){
+                	curTuneTask = mIspTunningTask->mCurTuneTask;
+                }else{
+                	curTuneTask = mIspTunningTask->mCurTuneTask = mIspTunningTask->mTuneInfoVector[mIspTunningTask->mCurTunIndex];
+                }
                 curPreW = curTuneTask->mTuneWidth;
                 curPreH = curTuneTask->mTuneHeight;
 
@@ -3274,7 +3372,6 @@ PROCESS_CMD:
                 
                 }
 
-                #if 1
                 if(curTuneTask->mAfEnable){
                     LOGD("start oneshot af");
                     m_camDevice->startAfOneShot(CAM_ENGINE_AUTOFOCUS_SEARCH_ALGORITHM_ADAPTIVE_RANGE);
@@ -3282,7 +3379,6 @@ PROCESS_CMD:
                     m_camDevice->startAfOneShot(CAM_ENGINE_AUTOFOCUS_SEARCH_ALGORITHM_ADAPTIVE_RANGE);
                     sleep(1);
                 }
-                #endif   
                 skip_frames = 15;
                 
                 mIsSendToTunningTh = true;
@@ -3290,6 +3386,7 @@ PROCESS_CMD:
             case ISP_TUNNING_CMD_EXIT:
                 //restore saved config
                 mIsSendToTunningTh = false;
+		mISPTunningRun = false;
                 stopPreview();
                 //mISPOutputFmt = oldFmt;
                 startPreview(800, 600, 0, 0, ISP_OUT_YUV420SP, false);
@@ -3418,7 +3515,11 @@ PROCESS_CMD:
                     }else{
                         LOGD("\n\n*********************\n all tune tasks have fininished\n\n ******************");
 						m_camDevice->enableSensorOTP((bool_t)true);//enable sensor otp awb if it have.
-                        startPreview(800, 600, 0, 0, ISP_OUT_YUV420SP, false);
+                        if (capOption.enable) {
+                        	mISPTunningRun = false;
+                        	capOption.enable = false;
+                            startPreview(800, 600, 0, 0, ISP_OUT_YUV420SP, false);
+                        }
                     }
                 }
                 break;
@@ -3432,7 +3533,6 @@ PROCESS_CMD:
     }
     return 0;
  }
-
 /* ddl@rock-chips.com: v1.0xb.0 */
 int CameraIspAdapter::faceNotify(struct RectFace* faces, int* num)
 {

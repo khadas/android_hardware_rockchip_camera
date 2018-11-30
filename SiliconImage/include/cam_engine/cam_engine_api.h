@@ -595,6 +595,16 @@ RESULT CamEngineSetAecPoint
     float point
 );
 
+/******************************************************************************
+ * CamEngineStopFlash
+ *type: 0 - color  1 - b/w
+ *****************************************************************************/
+uint32_t CamEngineGetSensorType
+(
+	CamEngineHandle_t   hCamEngine,
+	uint32_t*           type
+);
+
 #ifdef __cplusplus
 }
 #endif

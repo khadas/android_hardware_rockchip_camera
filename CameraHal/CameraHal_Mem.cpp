@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -945,9 +945,7 @@ GrallocDrmMemManager::GrallocDrmMemManager(bool iommuEnabled)
 	mOps = get_cam_ops(CAM_MEM_TYPE_GRALLOC);
 	
 	if (mOps)
-		mHandle = mOps->init(iommuEnabled ? 1:0,
-					CAM_MEM_FLAG_HW_WRITE | CAM_MEM_FLAG_HW_READ | CAM_MEM_FLAG_SW_WRITE | CAM_MEM_FLAG_SW_READ,
-					0);
+		mHandle = mOps->init(iommuEnabled ? 1:0,DEFAULT_MEM_FLAG,0);
 }
 
 GrallocDrmMemManager::~GrallocDrmMemManager()
@@ -1035,7 +1033,13 @@ int GrallocDrmMemManager::createGrallocDrmBuffer(struct bufferinfo_s* grallocbuf
         default:
             return -1;
     }
-
+    if (grallocbuf->mCacheFlag == BUF_WITH_CACHE){
+        mHandle->flag |= GRALLOC_USAGE_SW_WRITE_OFTEN;
+        mHandle->flag |= GRALLOC_USAGE_SW_READ_OFTEN;
+    }else if (grallocbuf->mCacheFlag == BUF_NO_CACHE){
+        mHandle->flag &= ~GRALLOC_USAGE_SW_WRITE_OFTEN;
+        mHandle->flag &= ~GRALLOC_USAGE_SW_READ_OFTEN;
+    }
     for(i = 0;i < numBufs;i++){
 		*tmpalloc = mOps->alloc(mHandle,grallocbuf->mPerBuffersize);
 		if (*tmpalloc) {

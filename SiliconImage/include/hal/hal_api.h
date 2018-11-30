@@ -287,6 +287,20 @@ RESULT HalSetPower( HalHandle_t HalHandle, uint32_t dev_mask, bool_t activate );
 
 /*****************************************************************************/
 /**
+ * @brief   Enables/Disables power of given devices. HAL takes care of polarity!
+ *          See @ref HalSetCamConfig() for details regarding CAM devices,
+ *          and @ref HalSetCamPhyConfig() for details regarding CAMPHY devices.
+ * @param   HalHandle   Handle to HAL session as returned by @ref HalOpen.
+ * @param   dev_mask    Mask of devices to change power state.
+ * @return  Result of operation.
+ *
+ * @note    Device mask is bitwise OR (|) of HAL_DEVID_xxx.
+ *****************************************************************************/
+uint8_t HalSyncMaster( HalHandle_t HalHandle);
+
+
+/*****************************************************************************/
+/**
  * @brief   Enables+sets/Disables clock of given devices.
  * @param   HalHandle   Handle to HAL session as returned by @ref HalOpen.
  * @param   dev_mask    Mask of devices to change clock settings for.
@@ -663,6 +677,11 @@ RESULT HalGetMemoryMapFd(
     int *fd 
 );
 
+RESULT HalGetANDROIDMemory( 
+    HalHandle_t HalHandle, 
+    ulong_t  mem_address, 
+    void** priv 
+);
 /******************************************************************************
  * inline implementations of API
  *****************************************************************************/

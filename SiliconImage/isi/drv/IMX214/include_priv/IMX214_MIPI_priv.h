@@ -52,9 +52,12 @@ extern "C"
 *   1).change usFrameLengthLines.
 *v0.0xe.0 :
 *   1). change judgment condition of applying OTP data.
+*v0.0xf.0 :
+*   1). add support for OTP build in Sensor(module vender BKX).
 */
 
-#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 0xe, 0x00)
+
+#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 0xf, 0x00)
 
 
 #define Sensor_CHIP_ID_HIGH_BYTE            (0x0016) // r -

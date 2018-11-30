@@ -32,6 +32,8 @@
 
 #include <bufferpool/media_buffer.h>
 #include <cameric_drv/cameric_mi_drv_api.h>
+#include <common/cam_info.h>
+#include <common/cam_cb.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -349,6 +351,8 @@ typedef struct CamEnginePathConfig_s
     CamerIcMiDataLayout_t   layout;         /**< output data layout */
     bool_t                  dcEnable;       /**< enable cropping in dual cropping unit */
     CamEngineWindow_t       dcWin;          /**< image size after dual cropping unit */
+    CamSensorCb_t           sensorCb;       /**< sensor device information callback */
+    CamSensorCb2_t          *sensorCb2;
 } CamEnginePathConfig_t;
 
 
@@ -357,7 +361,7 @@ typedef struct CamEngineBestSensorResReq_s
     uint32_t request_w;
     uint32_t request_h;
     uint32_t request_fps;
-    float    request_exp_t;   
+    float    request_exp_t;
     bool_t   request_fullfov;
     bool_t   requset_aspect;
     uint32_t resolution;

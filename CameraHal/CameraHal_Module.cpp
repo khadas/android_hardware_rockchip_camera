@@ -1,27 +1,17 @@
-/*
+/******************************************************************************
+ *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd.
  * Modification based on code covered by the License (the "License").
  * You may not use this software except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS 
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS 
  * ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH RESPECT TO SUCH SOFTWARE, 
  * WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, INCLUDING WITHOUT LIMITATION,
  * ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY
  * QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Rockchip shall not be liable to make any corrections to this software or to 
+ * provide any support or assistance with respect to it.
  *
- * Copyright (C) Texas Instruments - http://www.ti.com/
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ *****************************************************************************/
 
 /**
 * @file CameraHal.cpp
@@ -786,14 +776,14 @@ int camera_get_number_of_cameras(void)
 
     profiles = camera_board_profiles::getInstance();
     nCamDev = profiles->mDevieVector.size();
-	LOGE("board profiles cam num %d\n", nCamDev);
+	LOGD("board profiles cam num %d\n", nCamDev);
     if (nCamDev>0) {
         camera_board_profiles::LoadSensor(profiles);
         char sensor_ver[32];
 		
         for (i=0; (i<nCamDev); i++) 
         {  
-        	LOGE("load sensor name(%s) connect %d\n", profiles->mDevieVector[i]->mHardInfo.mSensorInfo.mSensorName, profiles->mDevieVector[i]->mIsConnect);
+        	LOGD("load sensor name(%s) connect %d\n", profiles->mDevieVector[i]->mHardInfo.mSensorInfo.mSensorName, profiles->mDevieVector[i]->mIsConnect);
         	if(profiles->mDevieVector[i]->mIsConnect==1){
     	        rk_sensor_info *pSensorInfo = &(profiles->mDevieVector[i]->mHardInfo.mSensorInfo);
     	        

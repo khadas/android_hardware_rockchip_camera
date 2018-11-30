@@ -245,6 +245,83 @@ RESULT CamEngineBlsGet
     uint16_t * const    pBlue
 );
 
+RESULT CamEngineBlsEnable
+(
+    CamEngineHandle_t   hCamEngine
+);
+
+RESULT CamEngineBlsDisable
+(
+    CamEngineHandle_t   hCamEngine
+);
+
+RESULT CamEngineBlsISEnabled
+(
+    CamEngineHandle_t   hCamEngine,
+    bool_t              *pIsEnabled
+);
+
+RESULT CamEngineBlsSetSubstractionMode
+(
+    CamEngineHandle_t   hCamEngine,
+    uint16_t   submode
+);
+
+RESULT CamEngineBlsGetSubstractionMode
+(
+    CamEngineHandle_t   hCamEngine,
+    uint16_t   *submode
+);
+
+RESULT CamEngineBlsSetMeasuringWindow
+(
+    CamEngineHandle_t               hCamEngine,
+    const uint16_t   WdwId,
+    const uint16_t                  x,
+    const uint16_t                  y,
+    const uint16_t                  width,
+    const uint16_t                  height
+);
+
+RESULT CamEngineBlsGetMeasuringWindow
+(
+    CamEngineHandle_t               hCamEngine,
+    uint16_t                  WdwId,
+    uint16_t                  *x,
+    uint16_t                  *y,
+    uint16_t                  *width,
+    uint16_t                  *height
+);
+
+RESULT CamEngineBlsEnableMeasuringWindow
+(
+    CamEngineHandle_t               hCamEngine,
+    const uint16_t   WdwId
+);
+
+RESULT CamEngineBlsDisableMeasuringWindow
+(
+    CamEngineHandle_t               hCamEngine,
+    const uint16_t                  WdwId
+);
+
+bool_t CamEngineBlsMeasuringWindowIsEnabled
+(
+    CamEngineHandle_t               hCamEngine,
+    const uint16_t                  WdwId
+);
+
+RESULT CamEngineBlsSetSamples
+(
+    CamEngineHandle_t               hCamEngine,
+    const uint8_t                   samples
+);
+
+RESULT CamEngineBlsGetSamples
+(
+    CamEngineHandle_t               hCamEngine,
+    uint8_t                   *samples
+);
 
 /*****************************************************************************/
 /**
@@ -570,7 +647,8 @@ RESULT CamEngineWdrSetCurve
 RESULT CamEngineGammaStatus
 (
     CamEngineHandle_t   hCamEngine,
-    bool_t * const      pRunning
+    bool_t * const      pRunning,
+    CamEngineGammaOutCurve_t    *GammaCurve
 );
 
 
@@ -627,7 +705,7 @@ RESULT CamEngineGammaDisable
 RESULT CamEngineGammaSetCurve
 (
     CamEngineHandle_t           hCamEngine,
-    CamEngineGammaOutCurve_t    GammaCurve
+    CamEngineGammaOutCurve_t    *pGammaCurve
 );
 
 

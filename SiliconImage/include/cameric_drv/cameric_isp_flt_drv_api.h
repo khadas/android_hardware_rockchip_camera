@@ -55,8 +55,67 @@
 extern "C"
 {
 #endif
+/******************************************************************************
+ * CamerIcIspFltRBDisable()
+ *****************************************************************************/
+RESULT CamerIcIspFltRKRBDisable
+(
+    CamerIcDrvHandle_t handle
+);
+/******************************************************************************
+ * CamerIcIspFltRBEnable()
+ *****************************************************************************/
 
+RESULT CamerIcIspFltRKRBEnable
+(
+     CamerIcDrvHandle_t handle
+);
+/******************************************************************************
+ * CamerIcIspFltRBIsEnabled()
+ *****************************************************************************/
 
+RESULT CamerIcIspFltRKRBIsEnabled
+(
+	CamerIcDrvHandle_t handle,
+	  bool_t                  *pIsEnabled
+);
+/******************************************************************************
+ * CamerIcIspFltRBDisable()
+ *****************************************************************************/
+RESULT CamerIcIspFltRKhpDisable
+(
+    CamerIcDrvHandle_t handle
+);
+/******************************************************************************
+ * CamerIcIspFltRBEnable()
+ *****************************************************************************/
+
+RESULT CamerIcIspFltRKhpEnable
+(
+     CamerIcDrvHandle_t handle
+);
+/******************************************************************************
+ * CamerIcIspFltRBIsEnabled()
+ *****************************************************************************/
+
+RESULT CamerIcIspFltRKhpIsEnabled
+(
+	CamerIcDrvHandle_t handle,
+	bool_t                  *pIsEnabled
+);
+
+RESULT CamerIcIspFltRKLpConfigure
+(
+	CamerIcDrvHandle_t  handle,
+	CamDemosaicLpProfile_t  *rkDLpConf
+) ;
+
+RESULT CamerIcIspFltRKLpConfByGain
+(
+	CamerIcDrvHandle_t handle,
+	CamDemosaicLpProfile_t *rkDLpConf,
+	CamDemosaicLpThreshold_t *rkDLpTh
+);
 
 /*****************************************************************************/
 /**

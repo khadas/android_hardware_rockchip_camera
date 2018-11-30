@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -33,6 +33,7 @@ CameraAdapter::CameraAdapter(int cameraId):mPreviewRunning(0),
     mPreviewRunning = 0;
 	mPictureRunning = 0;
     mPreviewBufProvider = NULL;
+    mEncBufProvider = NULL;
     mCamDrvWidth = 0;
     mCamDrvHeight = 0;
     mVideoWidth = 0;
@@ -90,7 +91,8 @@ CameraAdapter::~CameraAdapter()
 
     if(mPreviewBufProvider)
         mPreviewBufProvider->freeBuffer();
-    
+    if(mEncBufProvider)
+        mEncBufProvider->freeBuffer();  
     if (mCamFd > 0) {
         close(mCamFd);
         mCamFd = -1;
@@ -117,6 +119,11 @@ void CameraAdapter::setPreviewBufProvider(BufferProvider* bufprovider)
 {
     mPreviewBufProvider = bufprovider;
 }
+void CameraAdapter::setEncBufProvider(BufferProvider* bufprovider)
+{
+    mEncBufProvider = bufprovider;
+}
+
 CameraParameters & CameraAdapter::getParameters()
 {
     return mParameters;

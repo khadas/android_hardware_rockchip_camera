@@ -69,10 +69,13 @@ v0.7.0
 *	1). add ov13850 R1A and R2A compatible
 *v0.c.0
 *   1). support isi v0.0xd.0
+*v0.d.0
+*   1). add ov13850 R2A 4 lane setting
+*	2). add OTP driver
 */
 
 
-#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 0xc, 0x00)
+#define CONFIG_SENSOR_DRV_VERSION KERNEL_VERSION(0, 0xd, 0x00)
 
 
 #define OV13850_CHIP_ID_HIGH_BYTE            (0x300a) // r - 

@@ -3,7 +3,7 @@
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
  * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -21,6 +21,7 @@
  *****************************************************************************/
 #ifndef ANDROID_HARDWARE_COMMONTYPE_H
 #define ANDROID_HARDWARE_COMMONTYPE_H
+#include <common/cam_info.h>
 
 /*****************************************************************************/
 /**
@@ -57,6 +58,7 @@ typedef struct FramInfo
     bool vir_addr_valid;
     bool is_even_field;
     Picmergestatus_t merge_status;
+    Camispinfo_t isp_info;
 }FramInfo_s;
 
 typedef int (*func_displayCBForIsp)(void* frameinfo,void* cookie);

@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -596,8 +596,11 @@ void camera_board_profiles::ParserAwbConfig(const char *name, const char **atts,
         support = atoi(atts[1]);
 	    if(support==1)
             pAWBConfig->mAwbSupport |= (0x01<<AWB_SHADE_BITPOS); 
+    } else if (strcmp(name,"AWB_flash")==0){
+        support = atoi(atts[1]);
+	    if(support==1)
+            pAWBConfig->mAwbSupport |= (0x01<<AWB_FLASH_BITPOS); 
     } 
-	
 }
 
 void camera_board_profiles::ParserSenceConfig(const char *name, const char **atts, void *userData)

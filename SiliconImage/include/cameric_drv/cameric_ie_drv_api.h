@@ -174,6 +174,16 @@ typedef enum CamerIcIeColorSelection_e
     CAMERIC_IE_COLOR_SELECTION_MAX                      /**< upper border (only for an internal evaluation) */
 } CamerIcIeColorSelection_t;
 
+typedef struct CamerIcIesharpen_mconf_s
+{
+	uint16_t p_grad[4];
+	uint8_t sharp_factor[5];
+	uint8_t line1_filter_coe[6];
+	uint8_t line2_filter_coe[9];
+	uint8_t line3_filter_coe[6];
+}CamerIcIeIesharpen_mconf_t;
+#define IESHARPEN_HIGHGAIN 4.0
+#define IESHARPEN_LOWGAIN 0.5
 
 
 /******************************************************************************/
@@ -386,6 +396,58 @@ extern RESULT CamerIcIeSetSharpen
     const uint8_t                   threshold
 );
 
+/*****************************************************************************/
+/**
+ * @brief   
+ *
+ * @return  Return the result of the function call.
+ * @retval  RET_SUCCESS         Configuration successfully applied
+ * @retval  RET_OUTOFRANGE      At least one perameter of out range
+ * @retval  RET_NULL_POINTER    NULL pointer detected
+ *
+ *****************************************************************************/
+
+RESULT CamerIcIeRKSharpen
+(
+	CamerIcDrvHandle_t     handle,
+	CamIesharpenProfile_t  *prksharpProfile
+);
+
+/*************************************************************
+*CamerIcIspDpfRKSharpenEnable
+**************************************************************/
+RESULT CamerIcIeRKSharpenEnable
+(
+	CamerIcDrvHandle_t	handle
+);
+
+/*************************************************************
+*CamerIcIspDpfRKSharpenDisable
+**************************************************************/
+RESULT CamerIcIeRKSharpenDisable
+(
+	CamerIcDrvHandle_t	handle
+);
+
+/******************************************************************************
+	 * CamerIcIspDpfRKSharpenByGain()
+ *****************************************************************************/
+RESULT CamerIcIeRKSharpenByGain
+(
+	CamerIcDrvHandle_t		handle,
+	CamIesharpenProfile_t   *prksharpProfile,
+	float Aecgain
+);
+
+RESULT CamerIcIeRKSharpenEnableClock
+(
+    CamerIcDrvHandle_t  handle
+);
+
+RESULT CamerIcIeRKSharpenDisableClock
+(
+    CamerIcDrvHandle_t  handle
+);
 
 #ifdef __cplusplus
 }

@@ -2949,7 +2949,7 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pszName */
         0,                      /**< IsiSensor_t.pRegisterTable */
         0,                      /**< IsiSensor_t.pIsiSensorCaps */
-        0,						/**< IsiSensor_t.pIsiGetSensorIsiVer_t>*/   //oyyf add
+        0,			/**< IsiSensor_t.pIsiGetSensorIsiVer_t>*/   //oyyf add
         0,                      /**< IsiSensor_t.pIsiGetSensorTuningXmlVersion_t>*/   //oyyf add 
         0,                      /**< IsiSensor_t.pIsiWhiteBalanceIlluminationChk>*/   //ddl@rock-chips.com 
         0,                      /**< IsiSensor_t.pIsiWhiteBalanceIlluminationSet>*/   //ddl@rock-chips.com
@@ -2968,6 +2968,8 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiRegisterReadIss */
         0,                      /**< IsiSensor_t.pIsiRegisterWriteIss */
         0,                      /**< IsiSensor_t.pIsiIsEvenFieldIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorModeIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorFiledStatIss */
 
         0,                      /**< IsiSensor_t.pIsiExposureControlIss */
         0,                      /**< IsiSensor_t.pIsiGetGainLimitsIss */
@@ -3001,8 +3003,8 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiGetSensorMipiInfoIss */
 
         0,                      /**< IsiSensor_t.pIsiActivateTestPattern */
-        0,
-        0,						/**< IsiSensor_t.pIsiGetColorIss */
+        0,			/**< IsiSetSensorFrameRateLimitIss */
+        0,			/**< IsiSensor_t.pIsiGetColorIss */
     },
     SP2518_IsiGetSensorI2cInfo,
 };

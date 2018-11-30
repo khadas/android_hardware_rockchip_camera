@@ -13,7 +13,6 @@
  * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
  * dissemble, or attempt to derive any source code from the software.
  *
-
  *****************************************************************************/
 /**
  * @file isi_priv.h
@@ -84,6 +83,7 @@ typedef struct IsiSensorContext_s
     uint8_t        NrOfAfAddressBytes;  /**< Number of Address-Bytes */
 
     IsiSensor_t    *pSensor;            /**< points to the sensor device */
+    osMutex        mutex;
 } IsiSensorContext_t;
 
 

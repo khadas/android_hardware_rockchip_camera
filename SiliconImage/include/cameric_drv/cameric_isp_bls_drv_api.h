@@ -165,6 +165,11 @@ extern RESULT CamerIcIspBlsSetSubstractionMode
     const CamerIcIspBlsMode_t   submode
 );
 
+RESULT CamerIcIspBlsGetSubstractionMode
+(
+    CamerIcDrvHandle_t          handle,
+    uint16_t                    *psubmode
+);
 
 /*****************************************************************************/
 /**
@@ -264,6 +269,15 @@ extern RESULT CamerIcIspBlsSetMeasuringWindow
     const uint16_t          height
 );
 
+RESULT CamerIcIspBlsGetMeasuringWindow
+(
+    CamerIcDrvHandle_t              handle,
+    const CamerIcIspBlsWindowId_t   WdwId,
+    uint16_t                  *x,
+    uint16_t                  *y,
+    uint16_t                  *width,
+    uint16_t                  *height
+);
 
 /*****************************************************************************/
 /**
@@ -356,6 +370,18 @@ extern RESULT CamerIcIspBlsGetMeasuredBlackLevel
     uint16_t            *B,
     uint16_t            *C,
     uint16_t            *D
+);
+
+RESULT CamerIcIspBlsSetSamples
+(
+    CamerIcDrvHandle_t handle,
+    uint8_t            samples
+);
+
+RESULT CamerIcIspBlsGetSamples
+(
+    CamerIcDrvHandle_t handle,
+    uint8_t            *samples
 );
 
 #ifdef __cplusplus

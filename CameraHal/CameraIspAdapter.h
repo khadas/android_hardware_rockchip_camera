@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -29,10 +29,45 @@
 #include "oslayer/oslayer.h"
 #include <string>
 #include <utils/KeyedVector.h>
-#include "CameraGL.h"
-#include "MutliFrameDenoise.h"
+#include "CameraGLAdapter.h"
+#define LOCK3A_TIMEOUT_US		2000 * 1000//3a lock time
+#define AECCNT					6// > 2*max(ExpCnt,MeanCnt,AwbCnt) fps
 
 namespace android{
+typedef enum
+{
+    FLASH_STATE_IDLE_STATUS,
+    FLASH_STATE_WAIT_3ALOCK,
+    FLASH_STATE_LOCK_TIMEOUT,
+    FLASH_STATE_FLASH_TORCH
+} Flash_State_t;
+
+typedef struct unflashPara_s
+{
+	float settime;
+	float newtime;
+	float mintime;
+	float maxtime;
+	float timestep;
+
+	float setgain;
+	float newgain;
+	float mingain;
+	float maxgain;
+	float gainstep;
+}unflashPara_t;
+
+typedef struct flashStatus_s
+{
+	bool                isflash;
+	Flash_State_t       old_state;
+	Flash_State_t       current_state;
+	unsigned int        skip_frames;
+	unsigned long long  flash_time;
+	bool                capture_ready;
+	unflashPara_t       unflash;
+}flashStatus_t;
+
 
 typedef struct awbStatus{
     bool enabled;
@@ -64,21 +99,66 @@ typedef struct mfdprocess{
 	int  frame_cnt;
 }mfdprocess_s;
 
+typedef struct CaptureOption_s{
+    bool enable;
+	uint8_t capture_id;
+	//char path[64];
+	uint8_t format;
+	uint8_t number;
+	uint16_t width;
+	uint16_t height;
+	uint8_t ae_mode;
+	float integrationTime;
+	float gain;
+}CaptureOption_t;
+
+
+class CameraIspAdapter;
+
+typedef void (*uvc_setDevice)(CameraIspAdapter *adp, CamDevice *dev);
+typedef int (*vpu_encode_jpeg_init)(int width,int height,int quant);
+typedef void (*uvc_set_run_state)(bool state);
+typedef void (*vpu_encode_jpeg_done)();
+typedef bool (*uvc_get_run_state)();
+typedef unsigned int (*uvc_get_fcc)();
+typedef void (*uvc_get_resolution)(int* width, int* height);
+typedef void (*uvc_buffer_write)(void* extra_data,
+                      size_t extra_size,
+                      void* data,
+                      size_t size,
+                      unsigned int fcc);
+typedef	int (*vpu_encode_jpeg_doing)(
+								   void* srcbuf,
+								   int src_fd,
+								   size_t src_size);
+typedef void (*vpu_encode_jpeg_set_encbuf)(int fd, void *viraddr, unsigned long phyaddr, unsigned int size);
+typedef void (*vpu_encode_jpeg_get_encbuf)(unsigned char** jpeg_out, unsigned int *jpeg_len);
+typedef bool (*uvc_buffer_write_enable)();
+typedef bool (*uvc_gadget_main)();
+
+typedef struct uvc_cam_ops_s{
+	vpu_encode_jpeg_init encode_init;
+	vpu_encode_jpeg_doing encode_process;
+	vpu_encode_jpeg_done encode_deinit;
+	vpu_encode_jpeg_set_encbuf encode_set_buf;
+	vpu_encode_jpeg_get_encbuf encode_get_buf;
+	uvc_setDevice set_device;
+	uvc_set_run_state set_state;
+	uvc_get_run_state get_state;
+	uvc_get_fcc get_fcc;
+	uvc_get_resolution get_res;
+	uvc_buffer_write transfer_data;
+	uvc_buffer_write_enable transfer_data_enable;
+	uvc_gadget_main uvc_thread_func;
+}uvc_cam_ops_t;
+
+extern void* mLibUvcApp;
+extern uvc_cam_ops_t uvc_cam_ops;
+
 class CameraIspTunning;
 class CameraIspAdapter: public CameraAdapter,public BufferCb
 {
-private:
-    float mISO,mfdISO;
 public:
-    enum GPUProcessCommands {
-               // Comands
-               CMD_GPU_PROCESS_INIT,
-        CMD_GPU_PROCESS_UPDATE,
-        CMD_GPU_PROCESS_RENDER,
-        CMD_GPU_PROCESS_GETRESULT,
-        CMD_GPU_PROCESS_SETFRAMES,
-        CMD_GPU_PROCESS_DEINIT
-    };
 	static int preview_frame_inval;
     static int DEFAULTPREVIEWWIDTH;
     static int DEFAULTPREVIEWHEIGHT;
@@ -103,49 +183,12 @@ public:
 	virtual bool getFlashStatus();
 	virtual void getSensorMaxRes(unsigned int &max_w, unsigned int &max_h);
 	virtual int faceNotify(struct RectFace* faces, int* num);
+    void captureFrame();
+	bool tuningThreadIsRunning();
+    CaptureOption_t capOption;
+    bool mISPTunningRun;
+    MessageQueue mISPUvcQ;
 
-    enum GPU_COMMAND_STATUS{
-        STA_GPUCMD_IDLE,
-        STA_GPUCMD_RUNNING,
-        STA_GPUCMD_STOP,
-    };
-
-    int mMFDCommandThreadState;
-    class MFDCommandThread : public Thread {
-        CameraIspAdapter* mCameraIspAdapter;
-    public:
-        MFDCommandThread(CameraIspAdapter* disadap)
-            : Thread(false), mCameraIspAdapter(disadap){}
-
-        virtual bool threadLoop() {
-            mCameraIspAdapter->mfdCommandThread();
-
-            return false;
-        }
-    };
-
-       void mfdsendBlockedMsg(int message);
-       MutliFrameDenoise* mMutliFrameDenoise;
-       struct cv_fimc_buffer* mfd_buffers_capture;
-
-
-    int mGPUCommandThreadState;
-    class GPUCommandThread : public Thread {
-        CameraIspAdapter* mCameraIspAdapter;
-    public:
-        GPUCommandThread(CameraIspAdapter* disadap)
-            : Thread(false), mCameraIspAdapter(disadap){}
-
-        virtual bool threadLoop() {
-            mCameraIspAdapter->gpuCommandThread();
-
-            return false;
-        }
-    };
-
-       void sendBlockedMsg(int message);
-       CameraGL* mCameraGL;
-       struct cv_fimc_buffer* m_buffers_capture;
 private:
     //talk to driver
     virtual int cameraCreate(int cameraId);
@@ -173,27 +216,16 @@ private:
     int afListenerThread(void);
     int cameraConfig(const CameraParameters &tmpparams,bool isInit,bool &isRestartValue);
     bool isLowIllumin(const float lumaThreshold);
-    void flashControl(bool on);
+    void paraReConfig(void);
+    void flashProcess(void);
+    void flashCtrl(void);
+    void flashSettle(CamEngineFlashMode_t mode);
     bool isNeedToEnableFlash();
 	void setMwb(const char *white_balance);
 	void setMwb_Temp(uint32_t colortemperature);
 	void setMe(const char *exposure);
-    Mutex mMfdOPLock;
-    Condition mMfdOPCond;
 
-	int mMfdFBOWidth, mMfdFBOHeight;
-    sp<MFDCommandThread> mMFDCommandThread;
-    MessageQueue mfdCmdThreadCommandQ;
-    void mfdCommandThread();
 	uvnrprocess uvnr;
-
-    Mutex mGpuOPLock;
-    Condition mGpuOPCond;
-
-    int mGpuFBOWidth, mGpuFBOHeight;
-    sp<GPUCommandThread> mGPUCommandThread;
-    MessageQueue gpuCmdThreadCommandQ;
-    void gpuCommandThread();
 	mfdprocess mfd;
 
 protected:
@@ -207,11 +239,12 @@ protected:
     std::string mSensorDriverFile[3];
     int mSensorItfCur;
     bool mFlashStatus;
+	bool mTorchStatus;
 	CtxCbResChange_t mCtxCbResChange;
     bool mAfChk;
     class CameraAfThread :public Thread
     {
-        //deque µΩ÷°∫Û∏˘æ›–Ë“™∑÷∑¢∏¯DisplayAdapter¿‡º∞EventNotifier¿‡°£
+        //deque Âà∞Â∏ßÂêéÊ†πÊçÆÈúÄË¶ÅÂàÜÂèëÁªôDisplayAdapterÁ±ªÂèäEventNotifierÁ±ª„ÄÇ
         CameraIspAdapter* mCameraAdapter;
     public:
         CameraAfThread(CameraIspAdapter* adapter)
@@ -235,7 +268,7 @@ protected:
 
     class CamISPTunningThread :public Thread
     {
-        //deque µΩ÷°∫Û∏˘æ›–Ë“™∑÷∑¢∏¯DisplayAdapter¿‡º∞EventNotifier¿‡°£
+        //deque Âà∞Â∏ßÂêéÊ†πÊçÆÈúÄË¶ÅÂàÜÂèëÁªôDisplayAdapterÁ±ªÂèäEventNotifierÁ±ª„ÄÇ
         CameraIspAdapter* mCameraAdapter;
     public:
         CamISPTunningThread(CameraIspAdapter* adapter)
@@ -252,18 +285,61 @@ protected:
     MessageQueue* mISPTunningQ;
     sp<CamISPTunningThread>   mISPTunningThread;
     int mISPOutputFmt;
-    bool mISPTunningRun;
-    bool mIsSendToTunningTh;    
 
+    bool mIsSendToTunningTh;    
+    enum ISP_UVC_THREAD_CMD_e{
+       ISP_UVC_CMD_START,
+       ISP_UVC_CMD_EXIT,
+       ISP_UVC_CMD_CAPTURE,
+       ISP_UVC_CMD_REBOOT,
+       ISP_UVC_CMD_PROCESS_FRAME
+    };
+    class CamISPUvcThread :public Thread
+    {
+        CameraIspAdapter* mCameraAdapter;
+    public:
+        CamISPUvcThread(CameraIspAdapter* adapter)
+            : Thread(false), mCameraAdapter(adapter) { }
+
+        virtual bool threadLoop() {
+            mCameraAdapter->ispUvcThread();
+
+            return false;
+        }
+    };
+	int ispUvcThread(void);
+
+    //BufferProvider* mUvcBuf;
+    sp<CamISPUvcThread>   mISPUvcThread;
+    class CamISPUvcProcessThread :public Thread
+    {
+        CameraIspAdapter* mCameraAdapter;
+    public:
+        CamISPUvcProcessThread(CameraIspAdapter* adapter)
+            : Thread(false), mCameraAdapter(adapter) { }
+
+        virtual bool threadLoop() {
+        	if(uvc_cam_ops.uvc_thread_func != NULL)
+            	uvc_cam_ops.uvc_thread_func();
+
+            return false;
+        }
+    };
+	sp<CamISPUvcProcessThread>   mISPUvcProcessThread;
+	bool mIsSendToUvcTh;
+	bool mUvcThreaRunning;
     int mDispFrameLeak;
     int mVideoEncFrameLeak;
     int mPreviewCBFrameLeak;
     int mPicEncFrameLeak;
 private:
-    
+    flashStatus_t curFlashStatus;
     awbStatus curAwbStatus;
     CameraIspTunning* mIspTunningTask;
     manExpConfig_s manExpConfig;
+	UVNRAdapter* mUVNRAdapter;
+    MFNRAdapter* mMFNRAdapter;
+	bool mUVNRAvailable, mMFNRAvailable;
     
 };
 

@@ -13,7 +13,6 @@
  * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
  * dissemble, or attempt to derive any source code from the software.
  *
-
  *****************************************************************************/
 /**
  * @file isi_common.h
@@ -325,6 +324,16 @@ extern "C"
 #define ISI_RES_2104_1560P40                   0x50838618
 #define ISI_RES_2104_1560P50                   0x64838618
 #define ISI_RES_2104_1560P60                   0x78838618
+
+#define ISI_RES_2096_1560P7                    0x0e830618 
+#define ISI_RES_2096_1560P10                   0x14830618
+#define ISI_RES_2096_1560P15                   0x1e830618
+#define ISI_RES_2096_1560P20                   0x28830618
+#define ISI_RES_2096_1560P25                   0x32830618
+#define ISI_RES_2096_1560P30                   0x3c830618
+#define ISI_RES_2096_1560P40                   0x50830618
+#define ISI_RES_2096_1560P50                   0x64830618
+#define ISI_RES_2096_1560P60                   0x78830618
 
 #define ISI_RES_3840_2160P7                    0x0ef00870      /**<  3840x2160    */
 #define ISI_RES_3840_2160P10                   0x14f00870      /**<  3840x2160    */

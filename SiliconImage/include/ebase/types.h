@@ -100,6 +100,8 @@ typedef enum
     BOOL_TRUE = (!BOOL_FALSE)
 } bool_t;
 
+#define COLOR_SENSOR          0
+#define WHITE_BLACK_SENSOR    1
 
 #define UNUSED_PARAM(unref_param)  ((void) (unref_param));
 #define CAST_POINTER_TO_UINT32( pointer ) ((ulong_t) (pointer))

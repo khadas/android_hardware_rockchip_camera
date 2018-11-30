@@ -1,22 +1,17 @@
 /******************************************************************************
  *
- * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
- * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
-   REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
- * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
- * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
- * A PARTICULAR PURPOSE. 
- * Rockchip hereby grants to you a limited, non-exclusive, non-sublicensable and 
- * non-transferable license (a) to install, save and use the Software; (b) to copy 
- * and distribute the Software in binary code format only. 
- * Except as expressively authorized by Rockchip in writing, you may NOT: (a) distribute 
- * the Software in source code; (b) distribute on a standalone basis but you may distribute 
- * the Software in conjunction with platforms incorporating Rockchip integrated circuits;
- * (c) modify the Software in whole or part;(d) decompile, reverse-engineer, dissemble,
- * or attempt to derive any source code from the Software;(e) remove or obscure any copyright,
- * patent, or trademark statement or notices contained in the Software.
+ * The copyright in this software is owned by Rockchip and/or its licensors.
+ * This software is made available subject to the conditions of the license 
+ * terms to be determined and negotiated by Rockchip and you.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
+ * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
+ * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
+ * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
+ * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Except as expressively authorized by Rockchip and/or its licensors, you may not 
+ * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
+ * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
+ * dissemble, or attempt to derive any source code from the software.
  *
  *****************************************************************************/
 /**
@@ -41,6 +36,7 @@
 #include <ebase/dct_assert.h>
 
 #include <common/return_codes.h>
+#include <common/cam_info.h>
 
 #if defined (__cplusplus)
 extern "C" {
@@ -79,6 +75,7 @@ typedef struct MediaBuffer_s
     void*         pMetaData;    /**< Pointer to optional meta data structure. */
     uint16_t      pFrameNumFS;	/**< 16 bit frame number from Frame Start (FS) short packet */
     uint16_t      pFrameNumFE;	/**< 16 bit frame number from Frame End (FE) short packet */
+    Camispinfo_t  ispinfo;		/**< isp satics information and set parameter*/
 } MediaBuffer_t;
 
 

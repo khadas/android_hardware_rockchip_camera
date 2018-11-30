@@ -263,8 +263,6 @@ typedef struct Cam3x2FloatMatrix_s
     float fCoeff[6];
 } Cam3x2FloatMatrix_t;
 
-
-
 /*****************************************************************************/
 /**
  * @brief   Matrix coefficients
@@ -280,7 +278,6 @@ typedef struct Cam3x3FloatMatrix_s
 {
     float fCoeff[9];
 } Cam3x3FloatMatrix_t;
-
 
 /******************************************************************************/
 /**
@@ -354,8 +351,6 @@ typedef struct Cam1x4UShortMatrix_s
 {
     uint16_t uCoeff[4];
 } Cam1x4UShortMatrix_t;
-
-
 
 /*****************************************************************************/
 /**
@@ -495,6 +490,16 @@ typedef char                        CamCacProfileName_t[CAM_CAC_PROFILE_NAME];
 #define CAM_DPF_PROFILE_NAME        ( 20U )
 typedef char                        CamDpfProfileName_t[CAM_DPF_PROFILE_NAME];
 
+//werring.wu 2018 1.17
+/*****************************************************************************/
+/**
+ * @brief   name/identifier of a issharpen prefilter profile (Profile)
+ */
+/*****************************************************************************/
+#define CAM_IESHARPEN_PROFILE_NAME        ( 20U )
+typedef char  CamIesharpenProfileName_t[CAM_IESHARPEN_PROFILE_NAME];
+
+
 
 /*****************************************************************************/
 /**
@@ -600,47 +605,51 @@ typedef struct CamBlsProfile_s
 
 /*****************************************************************************/
 /**
- * @brief   Illumination specific structure.
+ * @brief   Awb Illumination specific structure.
  */
 /*****************************************************************************/
-typedef struct CamIlluProfile_s
-{
-    void                        *p_next;                /**< for adding to a list */
+typedef struct CamIlluProfile_s {
+  void*                        p_next;                /**< for adding to a list */
 
-    CamIlluminationName_t       name;                   /**< name of the illumination profile (i.e. "D65", "A", ... )*/
-    uint32_t                    id;                     /**< unique id */
+  CamIlluminationName_t       name;                   /**< name of the illumination profile (i.e. "D65", "A", ... )*/
+  uint32_t                    id;                     /**< unique id */
 
-    CamDoorType_t               DoorType;               /**< indoor or outdoor profile */
-    CamAwbType_t                AwbType;                /**< manual or auto profile */
+  CamDoorType_t               DoorType;               /**< indoor or outdoor profile */
+  CamAwbType_t                AwbType;                /**< manual or auto profile */
 
-    /* for manual white balance data */
-    Cam3x3FloatMatrix_t         CrossTalkCoeff;         /**< CrossTalk matrix coefficients */
-    Cam1x3FloatMatrix_t         CrossTalkOffset;        /**< CrossTalk offsets */
-    Cam1x4FloatMatrix_t         ComponentGain;          /**< White Balance Gains*/
+  /* for manual white balance data */
+  Cam3x3FloatMatrix_t         CrossTalkCoeff;         /**< CrossTalk matrix coefficients */
+  Cam1x3FloatMatrix_t         CrossTalkOffset;        /**< CrossTalk offsets */
+  Cam1x4FloatMatrix_t         ComponentGain;          /**< White Balance Gains*/
 
-    /* gaussian mixture modell */
-    Cam2x1FloatMatrix_t         GaussMeanValue;         /**< */
-    Cam2x2FloatMatrix_t         CovarianceMatrix;       /**< */
-    Cam1x1FloatMatrix_t         GaussFactor;            /**< */
-    Cam2x1FloatMatrix_t         Threshold;              /**< */
 
-    /* adaptive color correctio */
-    CamSaturationCurve_t        SaturationCurve;        /**< stauration over gain curve */
+  /* gaussian mixture modell */
+  // for v10
+  Cam2x1FloatMatrix_t         GaussMeanValue;         /**< */
+  Cam2x2FloatMatrix_t         CovarianceMatrix;       /**< */
+  Cam1x1FloatMatrix_t         GaussFactor;            /**< */
+  Cam2x1FloatMatrix_t         Threshold;              /**< */
+  
+  ///* from awb calibration data */
+  // for v11
+  Cam1x4FloatMatrix_t         referenceWBgain;        /**< */
 
-    /* adative lense shade correction */
-    CamVignettingCurve_t        VignettingCurve;        /**< vignetting over gain curve */
+  /* adaptive color correctio */
+  CamSaturationCurve_t        SaturationCurve;        /**< stauration over gain curve */
 
-    #define CAM_NO_CC_PROFILES  ( 10 )                  /**< max number of cc-profiles per illumination */
-    int32_t                     cc_no;
-    CamCcProfileName_t          cc_profiles[CAM_NO_CC_PROFILES];
+  /* adative lense shade correction */
+  CamVignettingCurve_t        VignettingCurve;        /**< vignetting over gain curve */
 
-    #define CAM_NO_LSC_PROFILES ( 5 )
-    #define CAM_NO_RESOLUTIONS  ( 4 )
-    int32_t                     lsc_res_no;
-    int32_t                     lsc_no[CAM_NO_RESOLUTIONS];
-    CamLscProfileName_t         lsc_profiles[CAM_NO_RESOLUTIONS][CAM_NO_LSC_PROFILES];
+  #define CAM_NO_CC_PROFILES  ( 10 )                  /**< max number of cc-profiles per illumination */
+  int32_t                     cc_no;
+  CamCcProfileName_t          cc_profiles[CAM_NO_CC_PROFILES];
+
+  #define CAM_NO_LSC_PROFILES ( 5 )
+  #define CAM_NO_RESOLUTIONS  ( 4 )
+  int32_t                     lsc_res_no;
+  int32_t                     lsc_no[CAM_NO_RESOLUTIONS];
+  CamLscProfileName_t         lsc_profiles[CAM_NO_RESOLUTIONS][CAM_NO_LSC_PROFILES];
 } CamIlluProfile_t;
-
 
 
 /*****************************************************************************/
@@ -842,6 +851,163 @@ typedef struct CamFilterLevelRegConf_s {
   uint8_t  fac_bl1_ArraySize;
 } CamFilterLevelRegConf_t;
 
+typedef struct CamFltLevelRegConf_s {
+	uint8_t  grn_stage1;
+	uint8_t  chr_h_mode;
+	uint8_t  chr_v_mode;
+	uint32_t thresh_bl0;
+	uint32_t thresh_bl1;
+	uint32_t thresh_sh0;
+	uint32_t thresh_sh1;
+	uint32_t fac_sh1;
+	uint32_t fac_sh0;
+	uint32_t fac_mid;
+	uint32_t fac_bl0;
+	uint32_t fac_bl1;
+	bool_t   enable;
+	bool_t   regConfEnable;
+	uint8_t  level;
+	char     resolution[20];
+	uint8_t denoise_gain[5];
+    uint8_t denoise_level[5];
+    uint8_t sharpen_gain[5];
+    uint8_t sharpen_level[5];
+}CamFltLevelRegConf_t;
+
+
+//werring.wu 2018 1 17
+/*****************************************************************************/
+/**
+ * @brief   IESHARPEN calibration structure
+ */
+/*****************************************************************************/
+typedef struct CamIesharpenGridConf_s
+{
+    uint32_t* p_grad;            //lowlight grad segment points
+    uint8_t p_grad_ArraySize;
+    uint32_t* sharp_factor;    // lowlight sharpen factor 0-64
+    uint8_t sharp_factor_ArraySize;
+    uint32_t* line1_filter_coe; //prefilter the data 2x3 
+    uint8_t line1_filter_coe_ArraySize;
+    uint32_t* line2_filter_coe;//                           3x3
+    uint8_t line2_filter_coe_ArraySize;
+    uint32_t* line3_filter_coe;//                           2x3
+    uint8_t line3_filter_coe_ArraySize;
+}CamIesharpenGridConf_t;
+
+typedef struct CamIesharpenProfile_s
+{
+    void                        *p_next;                /**< for adding to a list */
+    CamIesharpenProfileName_t   name;//
+    CamResolutionName_t         resolution;             /**< resolution link */
+    uint8_t iesharpen_en;     // iesharpen_en 0 off, 1 on
+    uint8_t coring_thr;         // iesharpen coring_thr is default 0
+    uint8_t full_range;         // iesharpen full range(yuv data) 1:full_range(0-255),2:range(16-24?)
+    uint8_t switch_avg;       //iesharpen whether is compare center pixel with edge pixel
+    uint32_t* yavg_thr;// Y channel is set five segments by the Matrix
+    uint8_t yavg_thr_ArraySize;
+    uint32_t* P_delta1; 
+    uint8_t P_delta1_ArraySize;
+    uint32_t* P_delta2;
+    uint8_t P_delta2_ArraySize;
+    uint32_t* pmaxnumber;
+    uint8_t pmaxnumber_ArraySize;
+    uint32_t* pminnumber;
+    uint8_t pminnumber_ArraySize;
+    uint32_t* gauss_flat_coe;    // filter mask for flat 
+    uint8_t gauss_flat_coe_ArraySize;
+    uint32_t* gauss_noise_coe;//filter mask2 for noise
+    uint8_t gauss_noise_coe_ArraySize;
+    uint32_t* gauss_other_coe; //filter mask for other
+    uint8_t gauss_other_coe_ArraySize;
+    CamIesharpenGridConf_t lgridconf;
+    CamIesharpenGridConf_t hgridconf;
+    uint32_t* uv_gauss_flat_coe; //uv channel faussian filter 3x5 in flat point
+    uint8_t uv_gauss_flat_coe_ArraySize;
+    uint32_t* uv_gauss_noise_coe;//uv channel faussian filter 3x5 in noise point
+    uint8_t uv_gauss_noise_coe_ArraySize;
+    uint32_t* uv_gauss_other_coe;//uv channel faussian filter 3x5 in other point
+    uint8_t uv_gauss_other_coe_ArraySize;
+} CamIesharpenProfile_t;
+
+typedef struct CamDemosaicLpThreshold_s
+{
+	uint8_t  sw_thgrad_divided[5];
+	uint8_t  sw_thCSC_divided[5];
+	uint8_t  sw_thdiff_divided[5];
+	uint16_t sw_thVar_divided[5];
+}CamDemosaicLpThreshold_t;
+
+//werring.wu add 2018 1 17
+typedef struct CamDemosaicLpProfile_s
+{
+	uint8_t  lp_en;
+	uint8_t  rb_filter_en;
+	uint8_t  hp_filter_en;
+	uint8_t  use_old_lp;// use old version
+	uint8_t* lu_divided;//
+	uint8_t  lu_divided_ArraySize;
+	float* gainsArray;
+	uint8_t  gainsArray_ArraySize;
+	float* thH_divided0;
+	uint8_t  thH_divided0_ArraySize;
+	float* thH_divided1;
+	uint8_t  thH_divided1_ArraySize;
+	float* thH_divided2;
+	uint8_t  thH_divided2_ArraySize;
+	float* thH_divided3;
+	uint8_t  thH_divided3_ArraySize;
+	float* thH_divided4;
+	uint8_t  thH_divided4_ArraySize;
+	float* thCSC_divided0;
+	uint8_t  thCSC_divided0_ArraySize;
+	float* thCSC_divided1;
+	uint8_t  thCSC_divided1_ArraySize;
+	float* thCSC_divided2;
+	uint8_t  thCSC_divided2_ArraySize;
+	float* thCSC_divided3;
+	uint8_t  thCSC_divided3_ArraySize;
+	float* thCSC_divided4;
+	uint8_t  thCSC_divided4_ArraySize;
+	float* diff_divided0;
+	uint8_t  diff_divided0_ArraySize;
+	float* diff_divided1;
+	uint8_t  diff_divided1_ArraySize;
+	float* diff_divided2;
+	uint8_t  diff_divided2_ArraySize;
+	float* diff_divided3;
+	uint8_t  diff_divided3_ArraySize;
+	float* diff_divided4;
+	uint8_t  diff_divided4_ArraySize;
+	float* varTh_divided0;
+	uint8_t  varTh_divided0_ArraySize;
+	float* varTh_divided1;
+	uint8_t  varTh_divided1_ArraySize;
+	float* varTh_divided2;
+	uint8_t  varTh_divided2_ArraySize;
+	float* varTh_divided3;
+	uint8_t  varTh_divided3_ArraySize;
+	float* varTh_divided4;
+	uint8_t  varTh_divided4_ArraySize;
+	uint8_t  thgrad_r_fct;
+	uint8_t  thdiff_r_fct;
+	uint8_t  thvar_r_fct;
+	uint8_t  thgrad_b_fct;
+	uint8_t  thdiff_b_fct;
+	uint8_t  thvar_b_fct;
+	uint8_t  similarity_th;
+	uint8_t  th_var_en;
+	uint8_t  th_csc_en;
+	uint8_t  th_diff_en;
+	uint8_t  th_grad_en;
+	uint16_t  th_var;
+	uint8_t  th_csc;
+	uint8_t  th_diff;
+	uint8_t  th_grad;
+	uint8_t  flat_level_sel;
+	uint8_t  pattern_level_sel;
+	uint8_t  edge_level_sel;
+}CamDemosaicLpProfile_t;
 
 /*****************************************************************************/
 /**
@@ -854,7 +1020,7 @@ typedef struct CamDpfProfile_s
 
     CamDpfProfileName_t     name;               /**< profile name */
     CamResolutionName_t     resolution;         /**< resolution link */
-
+    uint16_t                adpf_enable;
     uint16_t                nll_segmentation;
     Cam1x17UShortMatrix_t   nll_coeff;
 
@@ -864,12 +1030,13 @@ typedef struct CamDpfProfile_s
     float                   fOffset;            /**< */
     Cam1x4FloatMatrix_t     NfGains;            /**< */
 
-	CamMfdProfile_t			Mfd;			    /**< mfd struct*/
-	CamUvnrProfile_t		Uvnr;			    /**< uvnr struct*/
+    CamMfdProfile_t         Mfd;                /**< mfd struct*/
+    CamUvnrProfile_t        Uvnr;               /**< uvnr struct*/
     CamDenoiseLevelCurve_t        DenoiseLevelCurve;
     CamSharpeningLevelCurve_t     SharpeningLevelCurve;
-	float FilterEnable;
-	CamFilterLevelRegConf_t FiltLevelRegConf;
+    float FilterEnable;
+    CamFilterLevelRegConf_t FiltLevelRegConf;
+    CamDemosaicLpProfile_t DemosaicLpConf;
 } CamDpfProfile_t;
 
 
@@ -956,28 +1123,91 @@ typedef struct CamAwbGlobalFadeParm_s
  *          parameter calculations
  */
 /*****************************************************************************/
-typedef struct CamAwbFade2Parm_s
+typedef struct CamAwb_V11_Fade2Parm_s {
+  float*      pFade;
+
+  float*      pMaxCSum_br;
+  float*      pMaxCSum_sr;
+  float*      pMinC_br;
+  float*      pMinC_sr;
+  float*      pMaxY_br;
+  float*      pMaxY_sr;
+  float*      pMinY_br;
+  float*      pMinY_sr;
+  float*      pRefCb;
+  float*      pRefCr;
+  uint16_t    ArraySize;
+} CamAwb_V11_Fade2Parm_t;
+
+
+/*****************************************************************************/
+/**
+ * @brief   Contains pointers to parameter arrays for near white pixel
+ *          parameter calculations
+ */
+/*****************************************************************************/
+typedef struct CamAwb_V10_Fade2Parm_s {
+  float*      pFade;
+  float*      pCbMinRegionMax;
+  float*      pCrMinRegionMax;
+  float*      pMaxCSumRegionMax;
+  float*      pCbMinRegionMin;
+  float*      pCrMinRegionMin;
+  float*      pMaxCSumRegionMin;
+  float*      pMinCRegionMax;
+  float*      pMinCRegionMin;
+  float*      pMaxYRegionMax;
+  float*      pMaxYRegionMin;
+  float*      pMinYMaxGRegionMax;
+  float*      pMinYMaxGRegionMin;
+  float*      pRefCb;
+  float*      pRefCr;
+  uint16_t    ArraySize;
+} CamAwb_V10_Fade2Parm_t;
+
+
+typedef struct CamAwbMeasResult_s
 {
-    float*      pFade;
-    float*      pCbMinRegionMax;
-    float*      pCrMinRegionMax;
-    float*      pMaxCSumRegionMax;
-    float*      pCbMinRegionMin;
-    float*      pCrMinRegionMin;
-    float*      pMaxCSumRegionMin;
-	float*		pMinCRegionMax;
-	float*    	pMinCRegionMin;
-	float*		pMaxYRegionMax;
-	float*		pMaxYRegionMin;
-	float*		pMinYMaxGRegionMax;
-	float*		pMinYMaxGRegionMin;
-	float*  	pRefCb;
-	float*		pRefCr;
-	uint16_t	regionAdjustEnable;
-    uint16_t    ArraySize;
-} CamAwbFade2Parm_t;
+    uint32_t    NoWhitePixel;           /**< number of white pixel */
+    uint8_t     MeanY_G;               /**< Y/G  value in YCbCr/RGB Mode */
+    uint8_t     MeanCb_B;              /**< Cb/B value in YCbCr/RGB Mode */
+    uint8_t     MeanCr_R;              /**< Cr/R value in YCbCr/RGB Mode */
+    uint16_t     MeanR;
+    uint16_t     MeanG;
+    uint16_t     MeanB;
+} CamAwbMeasResult_t;
 
+typedef struct CamAwbMeasConfig_s
+{
+    uint8_t MaxY;           /**< YCbCr Mode: only pixels values Y <= ucMaxY contribute to WB measurement (set to 0 to disable this feature) */
+                            /**< RGB Mode  : unused */
+    uint8_t RefCr_MaxR;     /**< YCbCr Mode: Cr reference value */
+                            /**< RGB Mode  : only pixels values R < MaxR contribute to WB measurement */
+    uint8_t MinY_MaxG;      /**< YCbCr Mode: only pixels values Y >= ucMinY contribute to WB measurement */
+                            /**< RGB Mode  : only pixels values G < MaxG contribute to WB measurement */
+    uint8_t RefCb_MaxB;     /**< YCbCr Mode: Cb reference value */
+                            /**< RGB Mode  : only pixels values B < MaxB contribute to WB measurement */
+    uint8_t MaxCSum;        /**< YCbCr Mode: chrominance sum maximum value, only consider pixels with Cb+Cr smaller than threshold for WB measurements */
+                            /**< RGB Mode  : unused */
+    uint8_t MinC;           /**< YCbCr Mode: chrominance minimum value, only consider pixels with Cb/Cr each greater than threshold value for WB measurements */
+                            /**< RGB Mode  : unused */
+} CamAwbMeasConfig_t;
 
+typedef struct CamWbGainsOverG_s
+{
+    float GainROverG;                           /**< (Gain-Red / Gain-Green) */
+    float GainBOverG;                           /**< (Gain-Blue / Gain-Green) */
+} CamWbGainsOverG_t;
+
+typedef struct CamAwbWpGet_s
+{
+	CamAwbMeasResult_t measResult;
+	CamAwbMeasConfig_t measConfig;
+	CamWbGainsOverG_t  wbGainOver;
+	CamWbGainsOverG_t  wbClipGainOver;
+	float rgProj;
+	float regionSize;
+}CamAwbWpGet_t;
 
 /*****************************************************************************/
 /**
@@ -995,6 +1225,13 @@ typedef struct CamCenterLine_s
     float f_d;                                      /**< Distance of normal vector     */
 } CamCenterLine_t;
 
+typedef struct CamAwbCurve_s
+{
+	Cam1x1FloatMatrix_t    *pKFactor;
+	CamCenterLine_t        centerLine; /**< center-line in Rg/Rb-layer */
+	CamAwbClipParm_t       gainClipCurve;
+	CamAwbGlobalFadeParm_t globalFadeParam;
+}CamAwbCurve_t;
 
 
 /*****************************************************************************/
@@ -1017,51 +1254,151 @@ typedef struct CamCalibIIR_s
 } CamCalibIIR_t;
 
 
+/*****************************************************************************/
+/**
+ * @brief  AwbVersion_t
+ */
+/*****************************************************************************/
+typedef enum CAM_AwbVersion_e
+{
+  CAM_AWB_VERSION_INVALID 		= 0,        /* invalid */
+  CAM_AWB_VERSION_10  			= 1,        /*illuminatant estmation by GMM */
+  CAM_AWB_VERSION_11  			= 2,  		/*illuminatant estmation by minimun distance method, using direct white point conditon  */
+  CAM_AWB_VERSION_MAX
+} CAM_AwbVersion_t;
+
 
 /*****************************************************************************/
 /**
- * @brief   Global AWB calibration structure
+ * @brief   Global AWBV11 calibration structure
  */
 /*****************************************************************************/
-typedef struct CamCalibAwbGlobal_s
-{
-    void                    *p_next;                    /**< for adding to a list */
+typedef struct CamCalibAwb_V11_Global_s {
+  void*                    p_next;                    /**< for adding to a list */
 
-    CamAwbProfileName_t     name;                       /**< profile name */
-    CamResolutionName_t     resolution;                 /**< resolution link */
+  CamAwbProfileName_t     name;                       /**< profile name */
+  CamResolutionName_t     resolution;                 /**< resolution link */
 
-    Cam3x1FloatMatrix_t     SVDMeanValue;
-    Cam3x2FloatMatrix_t     PCAMatrix;
-    CamCenterLine_t         CenterLine;
-    Cam1x1FloatMatrix_t     KFactor;
+  //Cam3x1FloatMatrix_t     SVDMeanValue;
+  //Cam3x2FloatMatrix_t     PCAMatrix;
 
-    CamAwbClipParm_t        AwbClipParam;               /**< clipping parameter in Rg/Bg space */
-    CamAwbGlobalFadeParm_t  AwbGlobalFadeParm;
-    CamAwbFade2Parm_t       AwbFade2Parm;
+  CamCenterLine_t         CenterLine;
+  Cam1x1FloatMatrix_t     KFactor;
 
-    float                   fRgProjIndoorMin;
-    float                   fRgProjOutdoorMin;
-    float                   fRgProjMax;
-    float                   fRgProjMaxSky;
+  uint16_t                AwbClipEnable;
+  CamAwbClipParm_t        AwbClipParam;               /**< clipping parameter in Rg/Bg space */
+  CamAwbGlobalFadeParm_t  AwbGlobalFadeParm;
+  CamAwb_V11_Fade2Parm_t  AwbFade2Parm;
 
-	float 					fRgProjALimit;    //oyyf
-	float					fRgProjAWeight;		//oyyf
-	float 					fRgProjYellowLimit;		//oyyf
-	float					fRgProjIllToCwf;		//oyyf
-	float					fRgProjIllToCwfWeight;	//oyyf
+  float                   fRgProjIndoorMin;
+  float                   fRgProjOutdoorMin;
+  float                   fRgProjMax;
+  float                   fRgProjMaxSky;
 
-    CamIlluminationName_t   outdoor_clipping_profile;
+  uint16_t                fRgProjYellowLimitEnable;   //oyyf
+  float                   fRgProjALimit;    //oyyf
+  float                   fRgProjAWeight;   //oyyf
+  float                   fRgProjYellowLimit;   //oyyf
+  uint16_t                fRgProjIllToCwfEnable;    //oyyf
+  float                   fRgProjIllToCwf;    //oyyf
+  float                   fRgProjIllToCwfWeight;  //oyyf
 
-    float                   fRegionSize;
-    float                   fRegionSizeInc;
-    float                   fRegionSizeDec;
-    float                   awbMeasWinWidthScale;
-    float                   awbMeasWinHeightScale;
 
-	float 					fExppriorOutdoorSwitchOff;
-    CamCalibIIR_t           IIR;
-} CamCalibAwbGlobal_t;
+  CamIlluminationName_t   outdoor_clipping_profile;
 
+  float                   fRegionSize;
+  float                   fRegionSizeInc;
+  float                   fRegionSizeDec;
+  float                   awbMeasWinWidthScale;
+  float                   awbMeasWinHeightScale;
+  float 			      fExppriorOutdoorSwitchOff;
+
+
+  CamCalibIIR_t           IIR;
+} CamCalibAwb_V11_Global_t;
+
+
+/*****************************************************************************/
+/**
+ * @brief   Global AWB_V10 calibration structure
+ */
+/*****************************************************************************/
+typedef struct CamCalibAwb_V10_Global_s {
+  void*                    p_next;                    /**< for adding to a list */
+
+  CamAwbProfileName_t     name;                       /**< profile name */
+  CamResolutionName_t     resolution;                 /**< resolution link */
+
+  Cam3x1FloatMatrix_t     SVDMeanValue;
+  Cam3x2FloatMatrix_t     PCAMatrix;
+
+  CamCenterLine_t         CenterLine;
+  Cam1x1FloatMatrix_t     KFactor;
+
+  //uint16_t                AwbClipEnable;
+  CamAwbClipParm_t        AwbClipParam;               /**< clipping parameter in Rg/Bg space */
+  CamAwbGlobalFadeParm_t  AwbGlobalFadeParm;
+  CamAwb_V10_Fade2Parm_t  AwbFade2Parm;
+
+  float                   fRgProjIndoorMin;
+  float                   fRgProjOutdoorMin;
+  float                   fRgProjMax;
+  float                   fRgProjMaxSky;
+
+  uint16_t                fRgProjYellowLimitEnable;   //oyyf
+  float                   fRgProjALimit;    //oyyf
+  float                   fRgProjAWeight;   //oyyf
+  float                   fRgProjYellowLimit;   //oyyf
+  uint16_t                fRgProjIllToCwfEnable;    //oyyf
+  float                   fRgProjIllToCwf;    //oyyf
+  float                   fRgProjIllToCwfWeight;  //oyyf
+
+  CamIlluminationName_t   outdoor_clipping_profile;
+
+  float                   fRegionSize;
+  float                   fRegionSizeInc;
+  float                   fRegionSizeDec;
+  float                   awbMeasWinWidthScale;
+  float                   awbMeasWinHeightScale;
+  float 			      fExppriorOutdoorSwitchOff;
+
+  CamCalibIIR_t           IIR;
+} CamCalibAwb_V10_Global_t;
+
+/*****************************************************************************/
+/**
+ * @brief   AWB Version11 para
+ */
+/*****************************************************************************/
+typedef struct CamAwbPara_V11_s{
+	List						awb_global; 	/**< list of supported awb_globals */
+	List						illumination;	/**< list of supported illuminations */
+
+}CamAwbPara_V11_t;
+
+
+/*****************************************************************************/
+/**
+ * @brief   AWB Version11 para
+ */
+/*****************************************************************************/
+typedef struct CamAwbPara_V10_s{
+	List						awb_global; 	/**< list of supported awb_globals */
+	List						illumination;	/**< list of supported illuminations */
+
+}CamAwbPara_V10_t;
+
+
+/*****************************************************************************/
+/**
+ * @brief   AWB profile
+ */
+/*****************************************************************************/
+typedef struct CamCalibAwbPara_s{
+	CAM_AwbVersion_t valid_version;
+	CamAwbPara_V10_t Para_V10;
+	CamAwbPara_V11_t Para_V11;
+}CamCalibAwbPara_t;
 
 
 /*****************************************************************************/
@@ -1159,7 +1496,11 @@ typedef enum CamEngineGammaOutXScale_e
  * @brief   This macro defines the number of elements in a gamma-curve.
  *
  *****************************************************************************/
+#ifdef RK_ISP_V12
+#define CAMERIC_ISP_GAMMA_CURVE_SIZE        34
+#else
 #define CAMERIC_ISP_GAMMA_CURVE_SIZE        17
+#endif
 /* @endcond */
 
 
@@ -1176,6 +1517,11 @@ typedef struct CamEngineGammaOutCurve_s
     uint16_t                    GammaY[CAMERIC_ISP_GAMMA_CURVE_SIZE];
 } CamEngineGammaOutCurve_t;
 
+typedef struct CamGoc_s
+{
+	uint8_t  mode;
+    uint16_t gamma_y[34];
+} CamGoc_t;
 
 
 /*****************************************************************************/
@@ -1198,9 +1544,42 @@ typedef struct CamCalibGammaOut_s
 typedef struct CamCalibSystemData_s
 {
     bool_t                  AfpsDefault;
+    uint8_t                 OutputGrayMode;
 } CamCalibSystemData_t;
 
 
+typedef struct CamCalibWdrMaxGainLevelCurve_s {
+  uint16_t nSize;
+  uint16_t filter_enable;
+  float*  pfSensorGain_level;
+  float*  pfMaxGain_level;
+} CamCalibWdrMaxGainLevelCurve_t;
+
+typedef struct CamCalibWdrGlobal_s {
+  uint16_t                   Enabled;
+  uint16_t                   Mode;
+  uint16_t                   LocalCurve[33];
+  uint16_t                   GlobalCurve[33];
+  uint16_t                   wdr_noiseratio;
+  uint16_t                   wdr_bestlight;
+  uint32_t                   wdr_gain_off1;
+  uint16_t                   wdr_pym_cc;
+  uint8_t                    wdr_epsilon;
+  uint8_t                    wdr_lvl_en;
+  uint8_t                    wdr_flt_sel;
+  uint8_t                    wdr_gain_max_clip_enable;
+  uint8_t                    wdr_gain_max_value;
+  uint8_t                    wdr_bavg_clip;
+  uint8_t                    wdr_nonl_segm;
+  uint8_t                    wdr_nonl_open;
+  uint8_t                    wdr_nonl_mode1;
+  uint32_t                   wdr_coe0;
+  uint32_t                   wdr_coe1;
+  uint32_t                   wdr_coe2;
+  uint32_t                   wdr_coe_off;
+
+  CamCalibWdrMaxGainLevelCurve_t  wdr_MaxGain_Level_curve;
+} CamCalibWdrGlobal_t;
 
 #ifdef __cplusplus
 }

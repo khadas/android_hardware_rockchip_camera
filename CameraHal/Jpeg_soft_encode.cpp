@@ -1,19 +1,16 @@
-/****************************************************************************
+/******************************************************************************
+ *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd.
- * 2015 - 2018 RogerZheng
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * Modification based on code covered by the License (the "License").
+ * You may not use this software except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS 
+ * ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH RESPECT TO SUCH SOFTWARE, 
+ * WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, INCLUDING WITHOUT LIMITATION,
+ * ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY
+ * QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Rockchip shall not be liable to make any corrections to this software or to 
+ * provide any support or assistance with respect to it.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *****************************************************************************/
 
 /*

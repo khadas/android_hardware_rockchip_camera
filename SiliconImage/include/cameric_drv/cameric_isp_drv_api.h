@@ -92,15 +92,6 @@ extern "C"
 {
 #endif
 
-/******************************************************************************/
-/**
- * @cond    SENSOR COLOR MODE
- *
- * @brief   This macro defines the color mode of sensor.
- *
- *****************************************************************************/
-#define COLOR_SENSOR						0
-#define WHITE_BLACK_SENSOR					1
 /* @endcond */
 
 
@@ -111,7 +102,11 @@ extern "C"
  * @brief   This macro defines the number of elements in a gamma-curve.
  *
  *****************************************************************************/
+#ifdef RK_ISP_V12
+#define CAMERIC_ISP_GAMMA_CURVE_SIZE        34
+#else
 #define CAMERIC_ISP_GAMMA_CURVE_SIZE        17
+#endif
 /* @endcond */
 
 

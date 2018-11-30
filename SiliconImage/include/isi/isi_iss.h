@@ -129,6 +129,8 @@ typedef RESULT (IsiGetSensorRevisionIss_t)          ( IsiSensorHandle_t handle, 
 typedef RESULT (IsiRegisterReadIss_t)               ( IsiSensorHandle_t handle, const uint32_t address, uint32_t *p_value );
 typedef RESULT (IsiRegisterWriteIss_t)              ( IsiSensorHandle_t handle, const uint32_t address, const uint32_t value );
 typedef RESULT (IsiIsEvenFieldIss_t)                ( IsiSensorHandle_t handle, IsiSensorFrameInfo_t *pIsiSensorInfo, bool *IsEvenFiled );
+typedef RESULT (IsiGetSensorModeIss_t)              ( IsiSensorHandle_t	handle, CamSensorMode_t *mode );
+typedef RESULT (IsiGetSensorFiledStatIss_t)         ( IsiSensorHandle_t	handle, CamSensorFiledStat_t *filedStat );
 
 /* AEC */
 typedef RESULT (IsiExposureControlIss_t)            ( IsiSensorHandle_t handle, const float NewGain, const float NewIntegrationTime, uint8_t *pNumberOfFramesToSkip, float *pSetGain, float *pSetIntegrationTime );
@@ -225,6 +227,9 @@ struct IsiSensor_s
     IsiRegisterWriteIss_t               *pIsiRegisterWriteIss;          /**< write sensor register */
 
     IsiIsEvenFieldIss_t                 *pIsiIsEvenFieldIss;             /**< current field is even field or not */
+
+    IsiGetSensorModeIss_t               *pIsiGetSensorModeIss;           /**< get sensor mode: frame/field mode */
+    IsiGetSensorFiledStatIss_t          *pIsiGetSensorFiledStatIss;      /**< get sensor Filed stat: odd/even field */
 
     /* AEC functions */
     IsiExposureControlIss_t             *pIsiExposureControlIss;

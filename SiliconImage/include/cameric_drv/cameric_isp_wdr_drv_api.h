@@ -103,7 +103,45 @@ extern "C"
 #define CAMERIC_WDR_MAX_COEFFS      33
 #define CAMERIC_WDR_MAX_SEGMENTS    ( CAMERIC_WDR_MAX_COEFFS - 1 )
 
+#define CAMERIC_WDR_CURVE_SIZE 33
 
+typedef enum  CameraIcRKWdrMode_e {
+  CAMERIC_WDR_MODE_GLOBAL,
+  CAMERIC_WDR_MODE_BLOCK
+}CameraIcRKWdrMode_t;
+
+/*****************************************************************************/
+/**
+ * @brief   This type defines the configuration structure of the CamerIc
+ *          RKWDR module.
+ */
+/*****************************************************************************/
+typedef struct CamerIcRKWdrConfig_s
+{
+   bool_t             enabled;                      /**< measuring enabled */
+  CameraIcRKWdrMode_t mode;
+  uint8_t             segment[CAMERIC_WDR_CURVE_SIZE - 1];    /**< x_i segment size */
+  uint16_t            wdr_global_y[CAMERIC_WDR_CURVE_SIZE];
+  uint16_t            wdr_block_y[CAMERIC_WDR_CURVE_SIZE];
+  uint16_t            wdr_noiseratio;
+  uint16_t            wdr_bestlight;
+  uint32_t            wdr_gain_off1;
+  uint16_t            wdr_pym_cc;
+  uint8_t             wdr_epsilon;
+  uint8_t             wdr_lvl_en;
+  uint8_t             wdr_flt_sel;
+  uint8_t             wdr_gain_max_clip_enable;
+  uint8_t             wdr_gain_max_value;
+  uint8_t             wdr_bavg_clip;
+  uint8_t             wdr_nonl_segm;
+  uint8_t             wdr_nonl_open;
+  uint8_t             wdr_nonl_mode1;
+  uint8_t             wdr_nonl_mode0;
+  uint32_t            wdr_coe0;
+  uint32_t            wdr_coe1;
+  uint32_t            wdr_coe2;
+  uint32_t            wdr_coe_off;
+} CamerIcRKWdrConfig_t;
 
 /*******************************************************************************
  *
@@ -257,6 +295,38 @@ RESULT CamerIcIspWdrSetCurve
     uint16_t            *Ym,
     uint8_t             *dY
 );
+
+#if defined(RK_ISP_V12)
+extern RESULT CamerIcIspWdrSetMode
+(
+    CamerIcDrvHandle_t              handle,
+    const CameraIcRKWdrMode_t mode
+);
+
+extern RESULT CamerIcIspWdrConfig
+(
+    CamerIcDrvHandle_t          handle,
+    const CamerIcRKWdrConfig_t    *pRKWdrCfg
+);
+
+extern RESULT CamerIcIspWdrSetMaxGain
+(
+    CamerIcDrvHandle_t              handle,
+    const uint8_t wdr_gain_max_value
+);
+
+extern RESULT CamerIcIspWdrSetGlobalYCurve
+(
+    CamerIcDrvHandle_t              handle,
+    const uint16_t    *pwdr_global_y
+);
+
+extern RESULT CamerIcIspWdrSetBlockYCurve
+(
+    CamerIcDrvHandle_t              handle,
+    const uint16_t    *pwdr_block_y
+);
+#endif
 
 #ifdef __cplusplus
 }

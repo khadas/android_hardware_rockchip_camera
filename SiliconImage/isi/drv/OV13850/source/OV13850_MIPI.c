@@ -48,7 +48,7 @@ CREATE_TRACER( OV13850_INFO , "OV13850: ", INFO,    0U );
 CREATE_TRACER( OV13850_WARN , "OV13850: ", WARNING, 1U );
 CREATE_TRACER( OV13850_ERROR, "OV13850: ", ERROR,   1U );
 
-CREATE_TRACER( OV13850_DEBUG, "OV13850: ", INFO,     0U );
+CREATE_TRACER( OV13850_DEBUG, "OV13850: ", INFO,     1U );
 
 CREATE_TRACER( OV13850_REG_INFO , "OV13850: ", INFO, 0);
 CREATE_TRACER( OV13850_REG_DEBUG, "OV13850: ", INFO, 0U );
@@ -98,9 +98,13 @@ static int g_sensor_version = OV13850_R1A;
  *****************************************************************************/
 const char OV13850_g_acName[] = "OV13850_MIPI";
 
-extern const IsiRegDescription_t OV13850_g_aRegDescription_fourlane[];
-extern const IsiRegDescription_t OV13850_g_fourlane_resolution_4224_3136[];
-extern const IsiRegDescription_t OV13850_g_fourlane_resolution_2112_1568[];
+extern const IsiRegDescription_t OV13850_g_aRegDescription_fourlane_r1a[];
+extern const IsiRegDescription_t OV13850_g_aRegDescription_fourlane_r2a[];
+extern const IsiRegDescription_t OV13850_g_fourlane_resolution_4224_3136_r1a[];
+extern const IsiRegDescription_t OV13850_g_fourlane_resolution_4224_3136_r2a[];
+extern const IsiRegDescription_t OV13850_g_fourlane_resolution_2112_1568_r1a[];
+extern const IsiRegDescription_t OV13850_g_fourlane_resolution_2112_1568_r2a[];
+
 extern const IsiRegDescription_t OV13850_g_aRegDescription_twolane_r1a[];
 extern const IsiRegDescription_t OV13850_g_aRegDescription_twolane_r2a[];
 extern const IsiRegDescription_t OV13850_g_twolane_resolution_4224_3136[];
@@ -125,6 +129,14 @@ extern const IsiRegDescription_t OV13850_g_4224x3136P15_fourlane_fpschg[];
 extern const IsiRegDescription_t OV13850_g_4224x3136P7_fourlane_fpschg[];
 extern const IsiRegDescription_t OV13850_g_4224x3136P4_fourlane_fpschg[];
 
+extern const IsiRegDescription_t OV13850_g_2112x1568P30_fourlane_fpschg_r2a[];
+extern const IsiRegDescription_t OV13850_g_2112x1568P25_fourlane_fpschg_r2a[];
+extern const IsiRegDescription_t OV13850_g_2112x1568P20_fourlane_fpschg_r2a[];
+extern const IsiRegDescription_t OV13850_g_2112x1568P15_fourlane_fpschg_r2a[];
+extern const IsiRegDescription_t OV13850_g_2112x1568P10_fourlane_fpschg_r2a[];
+extern const IsiRegDescription_t OV13850_g_4224x3136P15_fourlane_fpschg_r2a[];
+extern const IsiRegDescription_t OV13850_g_4224x3136P7_fourlane_fpschg_r2a[];
+extern const IsiRegDescription_t OV13850_g_4224x3136P4_fourlane_fpschg_r2a[];
 
 const IsiSensorCaps_t OV13850_g_IsiSensorDefaultConfig;
 
@@ -1023,33 +1035,68 @@ static RESULT OV13850_SetupOutputWindowInternal
 	        {
 				if (set2Sensor == BOOL_TRUE) {                    
                     if (res_no_chg == BOOL_FALSE) {
-                        result = IsiRegDefaultsApply((IsiSensorHandle_t)pOV13850Ctx, OV13850_g_twolane_resolution_2112_1568);
+						if (g_sensor_version == OV13850_R1A) {
+                        	result = IsiRegDefaultsApply((IsiSensorHandle_t)pOV13850Ctx, OV13850_g_fourlane_resolution_2112_1568_r1a);
+						} else{
+							result = IsiRegDefaultsApply((IsiSensorHandle_t)pOV13850Ctx, OV13850_g_fourlane_resolution_2112_1568_r2a);
+						}
                     }
-                    if (pConfig->Resolution == ISI_RES_2112_1568P30) {                        
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P30_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_2112_1568P25) {
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P25_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_2112_1568P20) {
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P20_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_2112_1568P15) {
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P15_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_2112_1568P10) {
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P10_fourlane_fpschg);
-                    }					
+					if (g_sensor_version == OV13850_R1A) {
+	                    if (pConfig->Resolution == ISI_RES_2112_1568P30) {                        
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P30_fourlane_fpschg);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P25) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P25_fourlane_fpschg);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P20) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P20_fourlane_fpschg);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P15) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P15_fourlane_fpschg);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P10) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P10_fourlane_fpschg);
+	                    }
+					} else{
+						if (pConfig->Resolution == ISI_RES_2112_1568P30) {                        
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P30_fourlane_fpschg_r2a);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P25) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P25_fourlane_fpschg_r2a);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P20) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P20_fourlane_fpschg_r2a);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P15) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P15_fourlane_fpschg_r2a);
+	                    } else if (pConfig->Resolution == ISI_RES_2112_1568P10) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_2112x1568P10_fourlane_fpschg_r2a);
+	                    }
+					}
+						
 				}
-    			usTimeHts = 0x2580; 
-                if (pConfig->Resolution == ISI_RES_2112_1568P30) {
-                    usTimeVts = 0x0680;
-                } else if (pConfig->Resolution == ISI_RES_2112_1568P25) {
-                    usTimeVts = 0x7cc;
-                } else if (pConfig->Resolution == ISI_RES_2112_1568P20) {
-                    usTimeVts = 0x9c0;
-                } else if (pConfig->Resolution == ISI_RES_2112_1568P15) {
-                    usTimeVts = 0xd00;
-                } else if (pConfig->Resolution == ISI_RES_2112_1568P10) {
-                    usTimeVts = 0x1380;
-                }
-                
+				 
+				if (g_sensor_version == OV13850_R1A) {
+	    			usTimeHts = 0x2580; 
+	                if (pConfig->Resolution == ISI_RES_2112_1568P30) {
+	                    usTimeVts = 0x0680;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P25) {
+	                    usTimeVts = 0x7cc;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P20) {
+	                    usTimeVts = 0x9c0;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P15) {
+	                    usTimeVts = 0xd00;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P10) {
+	                    usTimeVts = 0x1380;
+	                }
+				} else{
+					usTimeHts = 0x0960;
+					if (pConfig->Resolution == ISI_RES_2112_1568P30) {
+	                    usTimeVts = 0x0d00;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P25) {
+	                    usTimeVts = 0x0f98;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P20) {
+	                    usTimeVts = 0x1380;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P15) {
+	                    usTimeVts = 0x1a00;
+	                } else if (pConfig->Resolution == ISI_RES_2112_1568P10) {
+	                    usTimeVts = 0x2700;
+	                }
+				}
+				
     		    /* sleep a while, that sensor can take over new default values */
     		    osSleep( 10 );
 
@@ -1061,33 +1108,58 @@ static RESULT OV13850_SetupOutputWindowInternal
 	        case ISI_RES_4224_3136P15:
 			case ISI_RES_4224_3136P7:
 			case ISI_RES_4224_3136P4:
-				
 	        {
                 if (set2Sensor == BOOL_TRUE) {
                     if (res_no_chg == BOOL_FALSE) {
-        			    result = IsiRegDefaultsApply((IsiSensorHandle_t)pOV13850Ctx, OV13850_g_twolane_resolution_4224_3136);
+						if (g_sensor_version == OV13850_R1A) {
+                        	result = IsiRegDefaultsApply((IsiSensorHandle_t)pOV13850Ctx, OV13850_g_fourlane_resolution_4224_3136_r1a);
+						} else{
+							result = IsiRegDefaultsApply((IsiSensorHandle_t)pOV13850Ctx, OV13850_g_fourlane_resolution_4224_3136_r2a);
+						}
         		    }
+					if (g_sensor_version == OV13850_R1A) {
+	                    if (pConfig->Resolution == ISI_RES_4224_3136P15) {                        
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P15_fourlane_fpschg);
+	                    } else if (pConfig->Resolution == ISI_RES_4224_3136P7) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P7_fourlane_fpschg);
+	                    }else if (pConfig->Resolution == ISI_RES_4224_3136P4) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P4_fourlane_fpschg);
+	                    }
+					} else{
+						if (pConfig->Resolution == ISI_RES_4224_3136P15) {                        
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P15_fourlane_fpschg_r2a);
+	                    } else if (pConfig->Resolution == ISI_RES_4224_3136P7) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P7_fourlane_fpschg_r2a);
+	                    }else if (pConfig->Resolution == ISI_RES_4224_3136P4) {
+	                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P4_fourlane_fpschg_r2a);
+	                    }
+					}
+					
+        		}
 
-                    if (pConfig->Resolution == ISI_RES_4224_3136P15) {                        
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P15_fourlane_fpschg);
-                    } else if (pConfig->Resolution == ISI_RES_4224_3136P7) {
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P7_fourlane_fpschg);
-                    }else if (pConfig->Resolution == ISI_RES_4224_3136P4) {
-                        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_4224x3136P4_fourlane_fpschg);
-                    }
-        		}				
+				if (g_sensor_version == OV13850_R1A) {
     			usTimeHts = 0x2580;
-                if (pConfig->Resolution == ISI_RES_4224_3136P15) { 
-					usTimeVts = 0x0d00;
-            	}
-                else if (pConfig->Resolution == ISI_RES_4224_3136P7) {                        
-                    usTimeVts = 0x1bdb;
-                } else if (pConfig->Resolution == ISI_RES_4224_3136P4) {
-                    usTimeVts = 0x30c0;
-                }
+	                if (pConfig->Resolution == ISI_RES_4224_3136P15) { 
+						usTimeVts = 0x0d00;
+	            	}
+	                else if (pConfig->Resolution == ISI_RES_4224_3136P7) {                        
+	                    usTimeVts = 0x1bdb;
+	                } else if (pConfig->Resolution == ISI_RES_4224_3136P4) {
+	                    usTimeVts = 0x30c0;
+	                }
+				} else{
+				usTimeHts = 0x12c0;
+					 if (pConfig->Resolution == ISI_RES_4224_3136P15) { 
+						usTimeVts = 0x0d00;
+	            	}
+	                else if (pConfig->Resolution == ISI_RES_4224_3136P7) {                        
+	                    usTimeVts = 0x1bdb;
+	                } else if (pConfig->Resolution == ISI_RES_4224_3136P4) {
+	                    usTimeVts = 0x30c0;
+	                }
+				}
     		    /* sleep a while, that sensor can take over new default values */
     		    osSleep( 10 );
-
 				pOV13850Ctx->IsiSensorMipiInfo.ulMipiFreq = 640;
 	            break;
 	            
@@ -1418,7 +1490,14 @@ static RESULT OV13850_IsiSetupSensorIss
 		result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_aRegDescription_onelane);
 	}
 	else if(pOV13850Ctx->IsiSensorMipiInfo.ucMipiLanes == SUPPORT_MIPI_FOUR_LANE){
-        result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_aRegDescription_fourlane);
+		#if 1
+		if (g_sensor_version == OV13850_R1A) {
+        	result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_aRegDescription_fourlane_r1a);
+		} else{
+			result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_aRegDescription_fourlane_r2a);
+		}
+		#endif
+		//result = IsiRegDefaultsApply( pOV13850Ctx, OV13850_g_aRegDescription_fourlane_r1a);
     }
 	else if(pOV13850Ctx->IsiSensorMipiInfo.ucMipiLanes == SUPPORT_MIPI_TWO_LANE){
 		if (g_sensor_version == OV13850_R1A) {
@@ -2254,7 +2333,7 @@ RESULT OV13850_IsiSetGainIss
     // write new gain into sensor registers, do not write if nothing has changed
     if( (usGain != pOV13850Ctx->OldGain) )
     {
-        result = OV13850_IsiRegWriteIss( pOV13850Ctx, 0x350a, (usGain>>8)&0x03);
+        result = OV13850_IsiRegWriteIss( pOV13850Ctx, 0x350a, (usGain>>8)&0x07);
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
         result = OV13850_IsiRegWriteIss( pOV13850Ctx, 0x350b, (usGain&0xff));
         RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
@@ -2267,6 +2346,7 @@ RESULT OV13850_IsiSetGainIss
 
     //return current state
     *pSetGain = pOV13850Ctx->AecCurGain;
+    TRACE( OV13850_DEBUG, "-----------%s: psetgain=%f, NewGain=%f\n", __FUNCTION__, *pSetGain, NewGain);
 
     TRACE( OV13850_INFO, "%s: (exit)\n", __FUNCTION__);
 
@@ -4132,6 +4212,8 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiRegisterReadIss */
         0,                      /**< IsiSensor_t.pIsiRegisterWriteIss */
         0,                      /**< IsiSensor_t.pIsiIsEvenFieldIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorModeIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorFiledStatIss */
 
         0,                      /**< IsiSensor_t.pIsiExposureControlIss */
         0,                      /**< IsiSensor_t.pIsiGetGainLimitsIss */
@@ -4165,8 +4247,8 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiGetSensorMipiInfoIss */
 
         0,                      /**< IsiSensor_t.pIsiActivateTestPattern */
-        0,
-        0,						/**< IsiSensor_t.pIsiGetColorIss */
+        0,			/**< IsiSetSensorFrameRateLimitIss */
+        0,			/**< IsiSensor_t.pIsiGetColorIss */
     },
     OV13850_IsiGetSensorI2cInfo,
 };

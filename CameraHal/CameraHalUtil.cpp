@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -466,7 +466,10 @@ extern "C" int util_get_gralloc_buf_fd(buffer_handle_t handle,int* fd){
 #if defined(RK_DRM_GRALLOC)
 #include <RockchipRga.h>
 
-extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para)
+extern "C" int rga_nv12_scale_crop(
+		int src_width, int src_height, char *src_fd, short int *dst_fd, 
+		int dst_width,int dst_height,int zoom_val,bool mirror,
+		bool isNeedCrop,bool isDstNV21,int dst_stride,bool is_viraddr_valid)
 {
     int ret = 0;
 	rga_info_t src,dst;
@@ -477,21 +480,18 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para)
 	RockchipRga& rkRga(RockchipRga::get());
 	
 	memset(&src, 0, sizeof(rga_info_t));
-	if (rga_para->is_viraddr_valid) {
+	if (is_viraddr_valid) {
 		src.fd = -1;
-		src.virAddr = (void*)rga_para->src;
-	} else {
-		src.fd = (unsigned long)rga_para->src;
-	}
+		src.virAddr = (void*)src_fd;
+	} else
+		src.fd = (unsigned long)src_fd;
 	src.mmuFlag = ((2 & 0x3) << 4) | 1 | (1 << 8) | (1 << 10);
-
 	memset(&dst, 0, sizeof(rga_info_t));
-	if (rga_para->is_viraddr_valid ) {
+	if (is_viraddr_valid) {
 		dst.fd = -1;
-		dst.virAddr = (void*)rga_para->dst;
-	} else {
-		dst.fd = (unsigned long)rga_para->dst;
-	}
+		dst.virAddr = (void*)dst_fd;
+	} else
+		dst.fd = (unsigned long)dst_fd;
 	dst.mmuFlag = ((2 & 0x3) << 4) | 1 | (1 << 8) | (1 << 10);
 	
 	//src.hnd = NULL;
@@ -506,8 +506,8 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para)
 		}
 #endif
 	
-	if((rga_para->dst_width > RGA_VIRTUAL_W) || (rga_para->dst_height > RGA_VIRTUAL_H)){
-			LOGE("%s(%d):(rga_para->dst_width > RGA_VIRTUAL_W) || (rga_para->dst_height > RGA_VIRTUAL_H), switch to arm ",__FUNCTION__,__LINE__);
+	if((dst_width > RGA_VIRTUAL_W) || (dst_height > RGA_VIRTUAL_H)){
+			LOGE("%s(%d):(dst_width > RGA_VIRTUAL_W) || (dst_height > RGA_VIRTUAL_H), switch to arm ",__FUNCTION__,__LINE__);
 			ret = -1;
 			goto failed;
 	}
@@ -515,34 +515,29 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para)
 	//2) use rga
 
 	//need crop ? when cts FOV,don't crop
-	if(rga_para->isNeedCrop &&
-	   ((rga_para->src_width*100/rga_para->src_height) !=
-	   (rga_para->dst_width*100/rga_para->dst_height))) {
-		ratio = ((rga_para->src_width*100/rga_para->dst_width) >=
-			 (rga_para->src_height*100/rga_para->dst_height)) ?
-			 (rga_para->src_height*100/rga_para->dst_height) :
-			 (rga_para->src_width*100/rga_para->dst_width);
-
-		zoom_cropW = (ratio*rga_para->dst_width/100) & (~0x01);
-		zoom_cropH = (ratio*rga_para->dst_height/100) & (~0x01);
-		zoom_left_offset=((rga_para->src_width-zoom_cropW)>>1) & (~0x01);
-		zoom_top_offset=((rga_para->src_height-zoom_cropH)>>1) & (~0x01);
+	if(isNeedCrop && (src_width*100/src_height) != (dst_width*100/dst_height)){
+		ratio = ((src_width*100/dst_width) >= (src_height*100/dst_height))?(src_height*100/dst_height):(src_width*100/dst_width);
+		zoom_cropW = (ratio*dst_width/100) & (~0x01);
+		zoom_cropH = (ratio*dst_height/100) & (~0x01);
+		
+		zoom_left_offset=((src_width-zoom_cropW)>>1) & (~0x01);
+		zoom_top_offset=((src_height-zoom_cropH)>>1) & (~0x01);
 	}else{
-		zoom_cropW = rga_para->src_width;
-		zoom_cropH = rga_para->src_height;
+		zoom_cropW = src_width;
+		zoom_cropH = src_height;
 		zoom_left_offset=0;
 		zoom_top_offset=0;
 	}
 
-	if(rga_para->zoom_val > 100){
-		zoom_cropW = zoom_cropW*100/rga_para->zoom_val & (~0x01);
-		zoom_cropH = zoom_cropH*100/rga_para->zoom_val & (~0x01);
-		zoom_left_offset = ((rga_para->src_width-zoom_cropW)>>1) & (~0x01);
-		zoom_top_offset= ((rga_para->src_height-zoom_cropH)>>1) & (~0x01);
+	if(zoom_val > 100){
+		zoom_cropW = zoom_cropW*100/zoom_val & (~0x01);
+		zoom_cropH = zoom_cropH*100/zoom_val & (~0x01);
+		zoom_left_offset = ((src_width-zoom_cropW)>>1) & (~0x01);
+		zoom_top_offset= ((src_height-zoom_cropH)>>1) & (~0x01);
 	}
 
 	//usb camera height align to 16,the extra eight rows need to be croped.
-	if(1952 == rga_para->src_height || 1088 == rga_para->src_height || 608 == rga_para->src_height){
+	if(1952 == src_height || 1088 == src_height || 608 == src_height){
 		zoom_top_offset = zoom_top_offset & (~0x07);
 	}
 
@@ -551,30 +546,30 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para)
 		     zoom_top_offset,
 		     zoom_cropW,
 		     zoom_cropH,
-		     rga_para->src_width,
-		     rga_para->src_height,
+		     src_width,
+		     src_height,
 		     HAL_PIXEL_FORMAT_YCrCb_NV12);
 
-	if (rga_para->isDstNV21)
+	if (isDstNV21)
 		rga_set_rect(&dst.rect,
-			     rga_para->offset_x,
-			     rga_para->offset_y,
-			     rga_para->dst_width,
-			     rga_para->dst_height,
-			     rga_para->dst_vir_width ? rga_para->dst_vir_width : rga_para->dst_width,
-			     rga_para->dst_height,
-			     HAL_PIXEL_FORMAT_YCrCb_420_SP);
+		0,
+		0,
+		dst_width,
+		dst_height,
+		dst_stride ? dst_stride : dst_width,
+		dst_height,
+		HAL_PIXEL_FORMAT_YCrCb_420_SP);
 	else
 		rga_set_rect(&dst.rect,
-			     rga_para->offset_x,
-			     rga_para->offset_y,
-			     rga_para->dst_width,
-			     rga_para->dst_height,
-			     rga_para->dst_vir_width ? rga_para->dst_vir_width : rga_para->dst_width,
-			     rga_para->dst_height,
-			     HAL_PIXEL_FORMAT_YCrCb_NV12);
+		0,
+		0,
+		dst_width,
+		dst_height,
+		dst_stride ? dst_stride : dst_width,
+		dst_height,
+		HAL_PIXEL_FORMAT_YCrCb_NV12);
 
-	if (rga_para->mirror)
+	if (mirror)
 		src.rotation = DRM_RGA_TRANSFORM_FLIP_H;
 	//TODO:sina,cosa,scale_mode,render_mode
 	ret = rkRga.RkRgaBlit(&src, &dst, NULL);
@@ -588,7 +583,8 @@ failed:
 	return ret;
 }
 #else
-extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para )
+extern "C" int rga_nv12_scale_crop(int src_width, int src_height, char *src, short int *dst, 
+										int dst_width,int dst_height,int zoom_val,bool mirror,bool isNeedCrop,bool isDstNV21,bool is_viraddr_valid)
 {
     int rgafd = -1,ret = -1;
 	int scale_times_w = 0,scale_times_h = 0,h = 0,w = 0;
@@ -602,68 +598,69 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para )
 	/*rk3188 do not support yuv to yuv scale by rga*/
 	#if defined(TARGET_RK3188)
 	return arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12,
-			(rga_para->isDstNV21 ? V4L2_PIX_FMT_NV21:V4L2_PIX_FMT_NV12),
-			rga_para->src,
-			(char *)rga_para->dst,
-			rga_para->src_width,
-			rga_para->src_height,
-			rga_para->dst_width,
-			rga_para->dst_height,
-			rga_para->mirror,
-			rga_para->zoom_val);
+			(isDstNV21 ? V4L2_PIX_FMT_NV21:V4L2_PIX_FMT_NV12),
+			src,
+			(char *)dst,
+			src_width,
+			src_height,
+			dst_width,
+			dst_height,
+			mirror,
+			zoom_val);
 	#endif
 	
-	if((rga_para->dst_width > RGA_VIRTUAL_W) || (rga_para->dst_height > RGA_VIRTUAL_H)){
-		LOGE("%s(%d):(rga_para->dst_width > RGA_VIRTUAL_W) || (rga_para->dst_height > RGA_VIRTUAL_H), switch to arm ",__FUNCTION__,__LINE__);
+	if((dst_width > RGA_VIRTUAL_W) || (dst_height > RGA_VIRTUAL_H)){
+		LOGE("%s(%d):(dst_width > RGA_VIRTUAL_W) || (dst_height > RGA_VIRTUAL_H), switch to arm ",__FUNCTION__,__LINE__);
 		return arm_camera_yuv420_scale_arm(V4L2_PIX_FMT_NV12,
-				(rga_para->isDstNV21 ? V4L2_PIX_FMT_NV21:V4L2_PIX_FMT_NV12),
-				rga_para->src,
-				(char *)rga_para->dst,
-				rga_para->src_width,
-				rga_para->src_height,
-				rga_para->dst_width,
-				rga_para->dst_height,
-				rga_para->mirror,
-				rga_para->zoom_val);
+				(isDstNV21 ? V4L2_PIX_FMT_NV21:V4L2_PIX_FMT_NV12),
+				src,
+				(char *)dst,
+				src_width,
+				src_height,
+				dst_width,
+				dst_height,
+				mirror,
+				zoom_val);
 	}
 
 	//need crop ? when cts FOV,don't crop
-	if(rga_para->isNeedCrop &&
-	   ((rga_para->src_width*100/rga_para->src_height) !=
-	   (rga_para->dst_width*100/rga_para->dst_height))) {
-		ratio = ((rga_para->src_width*100/rga_para->dst_width) >=
-			 (rga_para->src_height*100/rga_para->dst_height)) ?
-			 (rga_para->src_height*100/rga_para->dst_height) :
-			 (rga_para->src_width*100/rga_para->dst_width);
+	if(isNeedCrop &&
+	   ((src_width*100/src_height) !=
+	   (dst_width*100/dst_height))) {
+		ratio = ((src_width*100/dst_width) >=
+			 (src_height*100/dst_height)) ?
+			 (src_height*100/dst_height) :
+			 (src_width*100/dst_width);
 
-		zoom_cropW = ratio*rga_para->dst_width/100;
-		zoom_cropH = ratio*rga_para->dst_height/100;
-		zoom_left_offset=((rga_para->src_width-zoom_cropW)>>1) & (~0x01);
-		zoom_top_offset=((rga_para->src_height-zoom_cropH)>>1) & (~0x01);
+		zoom_cropW = ratio*dst_width/100;
+		zoom_cropH = ratio*dst_height/100;
+		
+		zoom_left_offset=((src_width-zoom_cropW)>>1) & (~0x01);
+		zoom_top_offset=((src_height-zoom_cropH)>>1) & (~0x01);
 	}else{
-		zoom_cropW = rga_para->src_width;
-		zoom_cropH = rga_para->src_height;
+		zoom_cropW = src_width;
+		zoom_cropH = src_height;
 		zoom_left_offset=0;
 		zoom_top_offset=0;
 	}
 
-	if(rga_para->zoom_val > 100){
-		zoom_cropW = zoom_cropW*100/rga_para->zoom_val;
-		zoom_cropH = zoom_cropH*100/rga_para->zoom_val;
-		zoom_left_offset = ((rga_para->src_width-zoom_cropW)>>1) & (~0x01);
-		zoom_top_offset= ((rga_para->src_height-zoom_cropH)>>1) & (~0x01);
+	if(zoom_val > 100){
+		zoom_cropW = zoom_cropW*100/zoom_val;
+		zoom_cropH = zoom_cropH*100/zoom_val;
+		zoom_left_offset = ((src_width-zoom_cropW)>>1) & (~0x01);
+		zoom_top_offset= ((src_height-zoom_cropH)>>1) & (~0x01);
 	}
 
 		
-	if(rga_para->dst_width > RGA_ACTIVE_W){
-		scale_times_w = (rga_para->dst_width/RGA_ACTIVE_W);
+	if(dst_width > RGA_ACTIVE_W){
+		scale_times_w = (dst_width/RGA_ACTIVE_W);
 		scale_times_w++;
 	}else{
 		scale_times_w = 1;
 	}
 
-	if(rga_para->dst_height > RGA_ACTIVE_H){
-		scale_times_h = (rga_para->dst_height/RGA_ACTIVE_H);
+	if(dst_height > RGA_ACTIVE_H){
+		scale_times_h = (dst_height/RGA_ACTIVE_H);
 		scale_times_h++;
 	} else {
 		scale_times_h = 1;
@@ -678,8 +675,8 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para )
 	src_cropW = zoom_cropW/scale_times_w;
 	src_cropH = zoom_cropH/scale_times_h;
 	
-	dst_cropW = rga_para->dst_width/scale_times_w;
-	dst_cropH = rga_para->dst_height/scale_times_h;
+	dst_cropW = dst_width/scale_times_w;
+	dst_cropH = dst_height/scale_times_h;
 	
 	for(h = 0; h< scale_times_h; h++){
 		for(w = 0; w< scale_times_w; w++){
@@ -691,14 +688,14 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para )
 			dst_left_offset = w*dst_cropW;
 			dst_top_offset  = h*dst_cropH;
 
-			psY = (unsigned char*)(rga_para->src);
+			psY = (unsigned char*)(src);
 
 			#if defined(TARGET_RK3188)
 			Rga_Request.src.yrgb_addr =  (long)psY;
-			Rga_Request.src.uv_addr  = (long)psY + rga_para->src_width * rga_para->src_height;
+			Rga_Request.src.uv_addr  = (long)psY + src_width * src_height;
 			#else
 			#if (defined(TARGET_RK312x) || defined(TARGET_RK3328)) && defined(ANDROID_7_X)
-			if (rga_para->is_viraddr_valid) {
+			if (is_viraddr_valid) {
 				Rga_Request.src.yrgb_addr =  0;
 				Rga_Request.src.uv_addr  = (long)psY;
 			} else {
@@ -711,9 +708,9 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para )
 			#endif
 			#endif
 
-		    Rga_Request.src.v_addr   =  0;
-		    Rga_Request.src.vir_w =  rga_para->src_vir_width;
-		    Rga_Request.src.vir_h = rga_para->src_vir_height;
+		    Rga_Request.src.v_addr =  0;
+		    Rga_Request.src.vir_w = src_width;
+		    Rga_Request.src.vir_h = src_height;
 		    Rga_Request.src.format = RK_FORMAT_YCbCr_420_SP;
 		    Rga_Request.src.act_w = src_cropW & (~0x01);
 		    Rga_Request.src.act_h = src_cropH & (~0x01);
@@ -722,40 +719,40 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para )
 		    Rga_Request.src.y_offset = src_top_offset & (~0xf);
 #else
             //usb camera height align to 16,the extra eight rows need to be croped.
-            if(1952 == rga_para->src_height || 1088 == rga_para->src_height || 608 == rga_para->src_height){
+            if(1952 == src_height || 1088 == src_height || 608 == src_height){
                 src_top_offset = src_top_offset & (~0x07);
             }
 		    Rga_Request.src.x_offset = src_left_offset & (~0x01);
 		    Rga_Request.src.y_offset = src_top_offset & (~0x01);
 #endif
 		#if defined(TARGET_RK3188)
-		    Rga_Request.dst.yrgb_addr = (long)rga_para->dst;
-		    Rga_Request.dst.uv_addr  = (long)rga_para->dst + rga_para->dst_width*rga_para->dst_height;
+		    Rga_Request.dst.yrgb_addr = (long)dst;
+		    Rga_Request.dst.uv_addr  = (long)dst + dst_width*dst_height;
 		#else
         	#if (defined(TARGET_RK312x) || defined(TARGET_RK3328)) && defined(ANDROID_7_X)
-		if (rga_para->is_viraddr_valid) {
+		if (is_viraddr_valid) {
 			Rga_Request.dst.yrgb_addr = 0;
-			Rga_Request.dst.uv_addr  = (long)rga_para->dst;
+			Rga_Request.dst.uv_addr  = (long)dst;
 		} else {
-			Rga_Request.dst.yrgb_addr = (long)rga_para->dst;
+			Rga_Request.dst.yrgb_addr = (long)dst;
 			Rga_Request.dst.uv_addr  = 0;
 		}
 		#else
 		Rga_Request.dst.yrgb_addr = 0;
-		Rga_Request.dst.uv_addr  = (long)rga_para->dst;
+		Rga_Request.dst.uv_addr  = (long)dst;
 		#endif
 		#endif
 		    Rga_Request.dst.v_addr   = 0;
-		    Rga_Request.dst.vir_w = rga_para->dst_vir_width;
-		    Rga_Request.dst.vir_h = rga_para->dst_vir_height;
-		    if(rga_para->isDstNV21)
+		    Rga_Request.dst.vir_w = dst_width;
+		    Rga_Request.dst.vir_h = dst_height;
+		    if(isDstNV21) 
 		        Rga_Request.dst.format = RK_FORMAT_YCrCb_420_SP;
 		    else 
 		        Rga_Request.dst.format = RK_FORMAT_YCbCr_420_SP;
 		    Rga_Request.clip.xmin = 0;
-		    Rga_Request.clip.xmax = rga_para->dst_width - 1;
+		    Rga_Request.clip.xmax = dst_width - 1;
 		    Rga_Request.clip.ymin = 0;
-		    Rga_Request.clip.ymax = rga_para->dst_height - 1;
+		    Rga_Request.clip.ymax = dst_height - 1;
 		    Rga_Request.dst.act_w = dst_cropW;
 		    Rga_Request.dst.act_h = dst_cropH;
 		    Rga_Request.dst.x_offset = dst_left_offset;
@@ -770,19 +767,19 @@ extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para )
 
 			#if defined(TARGET_RK312x)
 				/* wrong operation of nv12 to nv21 ,not scale */
-				if(1/*(cropW != rga_para->dst_width) || ( cropH != rga_para->dst_height)*/){
+				if(1/*(cropW != dst_width) || ( cropH != dst_height)*/){
 			#else
-				if((src_cropW != rga_para->dst_width) || ( src_cropH != rga_para->dst_height)){
+				if((src_cropW != dst_width) || ( src_cropH != dst_height)){
 			#endif
 				Rga_Request.sina = 0;
 				Rga_Request.cosa = 0x10000;
 				Rga_Request.scale_mode = 1;
-				Rga_Request.rotate_mode = rga_para->mirror ? 2:1;
+		    	Rga_Request.rotate_mode = mirror ? 2:1;
 			}else{
 				Rga_Request.sina = 0;
 				Rga_Request.cosa =  0;
 				Rga_Request.scale_mode = 0;
-				Rga_Request.rotate_mode = rga_para->mirror ? 2:0;
+		    	Rga_Request.rotate_mode = mirror ? 2:0;
 				Rga_Request.render_mode = pre_scaling_mode;
 			}
 		    

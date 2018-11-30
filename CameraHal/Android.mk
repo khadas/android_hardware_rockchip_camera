@@ -1,7 +1,7 @@
 # Copyright (C) 201 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
 # BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
-# YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
-# TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+# YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+# TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
 # REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
 # OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
 # NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -19,7 +19,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(call all-subdir-makefiles)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libMFDenoise
+LOCAL_MODULE := libmfnr
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_STEM := $(LOCAL_MODULE)
@@ -43,7 +43,7 @@ endif
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libcameragl
+LOCAL_MODULE := libuvnr
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_STEM := $(LOCAL_MODULE)
@@ -110,8 +110,8 @@ LOCAL_SRC_FILES:=\
 	CameraHal_board_xml_parse.cpp\
 	CameraHal_Tracer.c\
 	CameraIspTunning.cpp \
-	SensorListener.cpp\
-	CameraDeinterlace.cpp
+	SensorListener.cpp \
+	CameraGLAdapter.cpp
 
 ifeq ($(strip $(BOARD_USE_DRM)), true)
 ifneq ($(filter rk3368 rk3399 rk3288 rk3366, $(strip $(TARGET_BOARD_PLATFORM))), )
@@ -173,21 +173,13 @@ LOCAL_SHARED_LIBRARIES:= \
     $(MY_ISP_LIB_NAME) \
     libexpat \
     libskia \
-    libhardware \
-    libcameragl \
-    libopencv_java3 \
-    libMFDenoise
+    libhardware
 #has no "external/stlport" from Android 6.0 on                         
 ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \< 6.0)))
 LOCAL_SHARED_LIBRARIES += \
     libstlport
 endif
 
-#LOCAL_STATIC_LIBRARIES :=  libisp_calibdb libtinyxml2 libisp_cam_calibdb libisp_ebase \
-#							libisp_oslayer libisp_common libisp_hal libisp_isi\
-#							libisp_cam_engine  libisp_version libisp_cameric_reg_drv  \
-
-#LOCAL_PREBUILT_LIBS := libisp_silicomimageisp_api.so
 endif
 ifeq ($(strip $(TARGET_BOARD_HARDWARE)),rk2928board)
 LOCAL_C_INCLUDES += \
@@ -262,7 +254,6 @@ LOCAL_CFLAGS += -DTARGET_RK29
 endif
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3288)
-#LOCAL_CFLAGS += -DTARGET_BOARD_PLATFORM_RK30XX
 LOCAL_CFLAGS += -DTARGET_RK3288
 LOCAL_CFLAGS += -DTARGET_RK32
 LOCAL_CFLAGS += -DHAL_MOCKUP
@@ -323,7 +314,6 @@ LOCAL_CFLAGS += -DHAL_MOCKUP
 endif
 
 ifneq ($(filter rk322x rk312x rk3126c rk3128 px3se, $(strip $(TARGET_BOARD_PLATFORM))), )
-#LOCAL_CFLAGS += -DTARGET_BOARD_PLATFORM_RK30XX
 LOCAL_CFLAGS += -DTARGET_RK312x
 LOCAL_CFLAGS += -DHAL_MOCKUP
 LOCAL_CFLAGS += -DHAVE_ARM_NEON
@@ -382,8 +372,9 @@ endif
 
 ifeq ($(strip $(BOARD_USE_DRM)), true)
 ifneq ($(filter rk3368 rk3399 rk3288 rk3366, $(strip $(TARGET_BOARD_PLATFORM))), )
-LOCAL_CFLAGS +=-DRK_DRM_GRALLOC=1
-endif
+LOCAL_CFLAGS +=-DRK_DRM_GRALLOC=1	
+# LOCAL_CFLAGS +=-DUSE_HWC2
+endif	
 endif
 
 #LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw

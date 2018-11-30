@@ -2,8 +2,8 @@
  *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd. All rights reserved.
  * BY DOWNLOADING, INSTALLING, COPYING, SAVING OR OTHERWISE USING THIS SOFTWARE,
- * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FORM ROCKCHIP IS PROVIDED
- * TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS ANY AND ALL WARRANTIES AND
+ * YOU ACKNOWLEDGE THAT YOU AGREE THE SOFTWARE RECEIVED FROM ROCKCHIP IS PROVIDED
+ * TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS ANY AND ALL WARRANTIES AND
  * REPRESENTATIONS WITH RESPECT TO SUCH FILE, WHETHER EXPRESS, IMPLIED, STATUTORY
  * OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE,
  * NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR
@@ -67,6 +67,12 @@ enum buffer_type_enum{
 	VIDEOENCBUFFER,
 
 };
+
+typedef enum buf_cache_enum{
+	BUF_WITH_CACHE,
+	BUF_NO_CACHE
+}buf_cache_t;
+
 struct bufferinfo_s{
 	unsigned int mNumBffers; //invaild if this value is 0
 	size_t mPerBuffersize;
@@ -76,6 +82,7 @@ struct bufferinfo_s{
 	unsigned long mShareFd;
 	buffer_type_enum mBufType;
 	bool        mIsForceIommuBuf;
+	buf_cache_t mCacheFlag;
 };
 
 typedef enum buffer_addr_e {

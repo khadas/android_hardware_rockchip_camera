@@ -121,6 +121,7 @@ CameraHal::CameraHal(int cameraId)
     mVideoBuf = new BufferProvider(mCamMemManager);
     mRawBuf = new BufferProvider(mCamMemManager);
     mJpegBuf = new BufferProvider(mCamMemManager);
+    mUvcBuf = new BufferProvider(mCamMemManager);
 
 	mPreviewBuf->is_cif_driver = false;
 	mVideoBuf->is_cif_driver = false;
@@ -149,7 +150,6 @@ CameraHal::CameraHal(int cameraId)
 	    else if(gCamInfos[cameraId].pcam_total_info->mHardInfo.mSensorInfo.mPhy.type == CamSys_Phy_Mipi){
 	        LOGD("it is a isp  camera");
 	        mCameraAdapter = new CameraIspAdapter(cameraId);
-	        mCameraDeinterlace = new CameraDeinterlace();
 	    }
 	    else{
 	        LOGD("it is a soc camera!");
@@ -199,6 +199,7 @@ CameraHal::CameraHal(int cameraId)
 	}
     updateParameters(mParameters);
     mCameraAdapter->setPreviewBufProvider(mPreviewBuf);
+    mCameraAdapter->setEncBufProvider(mUvcBuf);
     mCameraAdapter->setDisplayAdapterRef(*mDisplayAdapter);
     
     mDisplayAdapter->setFrameProvider(mCameraAdapter);
@@ -354,11 +355,6 @@ CameraHal::~CameraHal()
 			LOG1("exit command OK.");
    		mCommandThread->requestExitAndWait();
     	mCommandThread.clear();
-	}
-
-	if(mCameraDeinterlace){
-		delete mCameraDeinterlace;
-		mCameraDeinterlace =NULL;
 	}
 
     LOGD("CameraHal destory success");

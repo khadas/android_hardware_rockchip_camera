@@ -133,6 +133,8 @@ typedef struct AdpfConfig_s
             float                   fMin;               /**< upper bound for dynamic strength calculation */
             float                   fDiv;               /**< division factor for dynamic strength calculation */
             AdpfGains_t             NfGains;            /**< noise function gains */
+            uint16_t                nllCoeff[17];
+            uint8_t                 segmentation;
         } def;
 
         struct AdpfDatabaseConfig_s
@@ -435,7 +437,15 @@ RESULT AdpfGetUvnrPara
 
 );
 
+RESULT AdpfSetDpfProfile(AdpfHandle_t handle, CamDpfProfile_t *pDpfProfile);
 
+RESULT AdpfGetDpfProfile(AdpfHandle_t handle, CamDpfProfile_t *pDpfProfile);
+
+RESULT AdpfSetFltParams
+(
+    AdpfHandle_t           handle,
+	CamFltLevelRegConf_t   *fltLevelRegConf
+);
 
 #ifdef __cplusplus
 }

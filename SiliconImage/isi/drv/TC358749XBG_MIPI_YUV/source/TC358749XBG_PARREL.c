@@ -3494,6 +3494,50 @@ static RESULT TC358749XBG_IsiIsEvenFieldIss
 
 /*****************************************************************************/
 /**
+ *          TC358749XBG_IsiGetSensorModeIss
+ *
+ * @brief   grants user write access to the camera register
+ *
+ * @param   handle      pointer to sensor description struct
+ * @param   mode        sensor mode: filed/frame
+ *
+ * @return  Return the result of the function call.
+ * @retval  RET_SUCCESS
+ * @retval  RET_WRONG_HANDLE
+ *
+ *****************************************************************************/
+static RESULT TC358749XBG_IsiGetSensorModeIss
+(
+	IsiSensorHandle_t handle,
+	CamSensorMode_t *mode
+)
+{
+    RESULT result = RET_SUCCESS;
+	char *p;
+    char res_prop[PROPERTY_VALUE_MAX];
+
+    TRACE( TC358749XBG_INFO, "%s (enter)\n", __FUNCTION__);
+
+    if ( handle == NULL )
+    {
+        return ( RET_WRONG_HANDLE );
+    }
+
+    property_get("sys.hdmiin.resolution",res_prop, "false");
+
+    p = strcasestr(res_prop, "I");
+    if (p != NULL)
+        *mode = CAM_SENSOR_MODE_FILED;
+    else
+        *mode = CAM_SENSOR_MODE_FRAME;
+
+    TRACE( TC358749XBG_INFO, "%s Mode: %d\n", __FUNCTION__, *mode);
+
+    return ( result );
+}
+
+/*****************************************************************************/
+/**
  *          TC358749XBG_IsiGetSensorIss
  *
  * @brief   fills in the correct pointers for the sensor description struct
@@ -3519,7 +3563,7 @@ RESULT TC358749XBG_IsiGetSensorIss
         pIsiSensor->pszName                             = TC358749XBG_g_acName;
         pIsiSensor->pRegisterTable                      = TC358749XBG_g_aRegDescription;
         pIsiSensor->pIsiSensorCaps                      = &TC358749XBG_g_IsiSensorDefaultConfig;
-		pIsiSensor->pIsiGetSensorIsiVer					= TC358749XBG_IsiGetSensorIsiVersion;
+	pIsiSensor->pIsiGetSensorIsiVer					= TC358749XBG_IsiGetSensorIsiVersion;
 
         pIsiSensor->pIsiCreateSensorIss                 = TC358749XBG_IsiCreateSensorIss;
         pIsiSensor->pIsiReleaseSensorIss                = TC358749XBG_IsiReleaseSensorIss;
@@ -3533,7 +3577,9 @@ RESULT TC358749XBG_IsiGetSensorIss
         pIsiSensor->pIsiRegisterReadIss                 = TC358749XBG_IsiRegReadIss;
         pIsiSensor->pIsiRegisterWriteIss                = TC358749XBG_IsiRegWriteIss;
         pIsiSensor->pIsiGetResolutionIss                = TC358749XBG_IsiGetResolutionIss;
-        pIsiSensor->pIsiIsEvenFieldIss                  = TC358749XBG_IsiIsEvenFieldIss;
+	pIsiSensor->pIsiIsEvenFieldIss			= TC358749XBG_IsiIsEvenFieldIss; 
+        pIsiSensor->pIsiGetSensorModeIss                = TC358749XBG_IsiGetSensorModeIss;
+        pIsiSensor->pIsiGetSensorFiledStatIss           = NULL;
 
         /* AEC functions */
         pIsiSensor->pIsiExposureControlIss              = TC358749XBG_IsiExposureControlIss;
@@ -3765,7 +3811,9 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiGetSensorRevisionIss */
         0,                      /**< IsiSensor_t.pIsiRegisterReadIss */
         0,                      /**< IsiSensor_t.pIsiRegisterWriteIss */
-        0,                      /**< IsiSensor_t.pIsiIsEvenFieldIss */
+        0,			/**< IsiSensor_t.pIsiIsEvenFieldIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorModeIss */
+        0,                      /**< IsiSensor_t.pIsiGetSensorFiledStatIss */
 
         0,                      /**< IsiSensor_t.pIsiExposureControlIss */
         0,                      /**< IsiSensor_t.pIsiGetGainLimitsIss */
@@ -3799,6 +3847,8 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiGetSensorMipiInfoIss */
 
         0,                      /**< IsiSensor_t.pIsiActivateTestPattern */
+        0,			/**< IsiSetSensorFrameRateLimitIss */
+	0,			/**< IsiSensor_t.pIsiGetColorIss */
     },
     TC358749XBG_IsiGetSensorI2cInfo,
 };

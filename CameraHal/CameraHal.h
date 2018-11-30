@@ -1,31 +1,17 @@
-/*
+/******************************************************************************
+ *
  * Copyright (C) 2018 Fuzhou Rockchip Electronics Co., Ltd.
  * Modification based on code covered by the License (the "License").
  * You may not use this software except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP DISCLAIMS 
+ * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHIP DISCLAIMS 
  * ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH RESPECT TO SUCH SOFTWARE, 
  * WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, INCLUDING WITHOUT LIMITATION,
  * ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, SATISFACTROY
  * QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
+ * Rockchip shall not be liable to make any corrections to this software or to 
+ * provide any support or assistance with respect to it.
  *
- * Copyright (C) Texas Instruments - http://www.ti.com/
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- */
+ *****************************************************************************/
 #ifndef ANDROID_HARDWARE_CAMERA_HARDWARE_H
 #define ANDROID_HARDWARE_CAMERA_HARDWARE_H
 
@@ -135,43 +121,16 @@ extern "C" int cameraFormatConvert(int v4l2_fmt_src, int v4l2_fmt_dst, const cha
 							int src_w, int src_h, int srcbuf_w,
 							int dst_w, int dst_h, int dstbuf_w,
 							bool mirror);
-
-typedef struct mmerge_interface {
-	char *src;
-	int src_width;
-	int src_height;
-	short int *dst;
-	int dst_width;
-	int dst_height;
-	int zoom_val;
-	bool mirror;
-	bool isNeedCrop;
-	bool isDstNV21;
-	bool is_viraddr_valid;
-	bool is_even_field;
-} mmerge_interface_t;
-
-typedef struct mrga_interface {
-	char *src;
-	int offset_x;
-	int offset_y;
-	int src_vir_width;
-	int src_vir_height;
-	int src_width;
-	int src_height;
-	short int *dst;
-	int dst_vir_width;
-	int dst_vir_height;
-	int dst_width;
-	int dst_height;
-	int zoom_val;
-	bool mirror;
-	bool isNeedCrop;
-	bool isDstNV21;
-	bool is_viraddr_valid;
-} mrga_interface_t;
-
-extern "C" int rga_nv12_scale_crop(mrga_interface_t* rga_para );
+							
+extern "C" int rga_nv12_scale_crop(
+		int src_width, int src_height, char *src, short int *dst,
+		int dst_width,int dst_height,int zoom_val,
+		bool mirror,bool isNeedCrop,bool isDstNV21
+#if defined(RK_DRM_GRALLOC) 
+		,int dst_stride = 0
+		,bool vir_addr = false
+#endif
+		);
 extern "C" int rk_camera_zoom_ipp(int v4l2_fmt_src, int srcbuf, int src_w, int src_h,int dstbuf,int zoom_value);
 extern "C" void generateJPEG(uint8_t* data,int w, int h,unsigned char* outbuf,int* outSize);
 extern "C" int util_get_gralloc_buf_fd(buffer_handle_t handle,int* fd);
@@ -815,10 +774,53 @@ v1.0x51.1
     1) fix some memory leak because of The use of "malloc" and "free" are not paired.
     2) we should set buffer state to "0" when enqueue display buffer failed ,otherwise the buffer
        will be locked by camera disaplayAdaper,then the buffer producer can not unregister it.
+v2.0x0.0
+  1) merge from 58 server CameraHal00_Release version v2.0x0.0, include follow versions:
+	v1.0x60.0
+	  1) mPictureInfo.num do not decrease when take pictures.
+	  2) the is_interlace_resolution state is not properly.
+	  3) fix the compile err.
+	v1.0x61.0  
+	  1) Add flash white balcance.
+	      a) call flash white balance parameters by following coding :
+	             params.set(CameraParameters::KEY_WHITE_BALANCE, "flash");  
+	      b) ov8858.xml is a demo to add flash scene white balance parameters. flash scene white balance parameters can be disabled by set  matfile-sensor-AWB-illumination-size to [1 4] in ov8858.xml.  
+	      c) modify cam_board_rk3399.xml to support AWB_flash mode
+	v1.0x62.0
+	  1) Add get exposure\focus statics informations and parameter values interface.
+	v1.0x63.0
+	  1) Add flash aec conrol.
+	v1.0x64.0
+	  1) fix the bug switch manual wb to auto wb:get wb status before reset it and start it again.
+	v1.0x65.0
+	  1) fix memory leak, odd_even_field_merge pointer variable is not free.
+	v1.0x66.0
+	  1) when resolution is 1080p,it will be recognize vedio,so the exposure and afps will be error, fix this bug.
+	v1.0x67.0
+	  1) support IQ_Tool2.
+	v1.0x68.0
+	  1) merge v1.0x51.0 and v1.0x51.1
+	v1.0x69.0:
+	  1) implement camera pipline restart,needed by IQ_Tool2.
+	  2) camera output yuv fullrange only.
+	v1.0x6a.0:
+	  1) revert v1.0x58.0, even and odd field merged in mi.
+	v1.0x6b.0:
+	  1) add sensorMode called to v1.0x6a.0.
+	v1.0x6c.0
+	  new framwork of UVNR and MFNR.
+	v1.0x6d.0
+	  add property "sys.camera.uvc" use.
+	v1.0x6e.0
+	  UVNR and MFNR integration to PVR platform.
+	v1.0x6f.0:
+	  1) replace getPreferedSensorRes with selectResForDumpRaw in startPreviewEx interaface.
+	v2.0.0:
+	  1) upgrade version number.
 */
 
 
-#define CONFIG_CAMERAHAL_VERSION KERNEL_VERSION(1, 0x51, 0x1)
+#define CONFIG_CAMERAHAL_VERSION KERNEL_VERSION(2, 0x0, 0)
 
 
 /*  */
@@ -869,7 +871,6 @@ v1.0x51.1
 
 #define CONFIG_CAMERA_SCALE_CROP_ISP           0
 #define CONFIG_JPEG_BUFFER_DYNAMIC             1
-#define CONFIG_EVEN_ODD_MERGE                  1
 
 #define CAMERAHAL_VERSION_PROPERTY_KEY                  "sys_graphic.cam_hal.ver"
 #define CAMERAHAL_CAMSYS_VERSION_PROPERTY_KEY           "sys_graphic.cam_drv_camsys.ver"
@@ -990,7 +991,7 @@ typedef struct rk_buffer_info {
 
 class BufferProvider{
 public:
-    int createBuffer(int count,int perbufsize,buffer_type_enum buftype,bool is_cif_driver);
+    int createBuffer(int count,int perbufsize,buffer_type_enum buftype,bool is_cif_driver,buf_cache_t cache_flag=BUF_WITH_CACHE);
     int freeBuffer();
     virtual int setBufferStatus(int bufindex,int status,int cmd=0);
     virtual int getOneAvailableBuffer(long *buf_phy,long *buf_vir);
@@ -1011,7 +1012,7 @@ protected:
     MemManagerBase* mCamBuffer;
 };
 
-//preview buffer ¹ÜÀí
+//preview buffer 管理
 class PreviewBufferProvider:public BufferProvider
 {
 public:
@@ -1039,11 +1040,8 @@ public:
 
 class DisplayAdapter;
 class AppMsgNotifier;
-class CameraDeinterlace;
-extern CameraDeinterlace* mCameraDeinterlace;
-
 typedef struct cameraparam_info cameraparam_info_s;
-//diplay buffer ÓÉdisplay adapterÀà×ÔÐÐ¹ÜÀí¡£
+//diplay buffer 由display adapter类自行管理。
 
 /* mjpeg decoder interface in libvpu.*/
 typedef void* (*getMjpegDecoderFun)(void);
@@ -1067,7 +1065,7 @@ typedef struct mjpeg_interface {
 } mjpeg_interface_t;
 
 /*************************
-CameraAdapter ¸ºÔðÓëÇý¶¯Í¨ÐÅ£¬ÇÒÎªÖ¡Êý¾ÝµÄÌá¹©Õß£¬Îªdisplay¼°msgcallbackÌá¹©Êý¾Ý¡£
+CameraAdapter 负责与驱动通信，且为帧数据的提供者，为display及msgcallback提供数据。
 ***************************/
 class CameraAdapter:public FrameProvider
 {
@@ -1081,6 +1079,7 @@ public:
     void setDisplayAdapterRef(DisplayAdapter& refDisplayAdap);
     void setEventNotifierRef(AppMsgNotifier& refEventNotify);
     void setPreviewBufProvider(BufferProvider* bufprovider);
+    void setEncBufProvider(BufferProvider* bufprovider);
     CameraParameters & getParameters();
     virtual int getCurPreviewState(int *drv_w,int *drv_h);
 	virtual int getCurVideoSize(int *video_w, int *video_h);
@@ -1131,7 +1130,7 @@ protected:
 private:
     class CameraPreviewThread :public Thread
     {
-        //deque µ½Ö¡ºó¸ù¾ÝÐèÒª·Ö·¢¸øDisplayAdapterÀà¼°EventNotifierÀà¡£
+        //deque 到帧后根据需要分发给DisplayAdapter类及EventNotifier类。
         CameraAdapter* mPreivewCameraAdapter;
     public:
         CameraPreviewThread(CameraAdapter* adapter)
@@ -1175,6 +1174,7 @@ protected:
     int mPreviewRunning;
 	int mPictureRunning;
     BufferProvider* mPreviewBufProvider;
+    BufferProvider* mEncBufProvider;
     int mCamDrvWidth;
     int mCamDrvHeight;
     int mCamPreviewH ;
@@ -1333,7 +1333,7 @@ private:
 
 };
 /*************************
-DisplayAdapter ÎªÖ¡Êý¾ÝÏû·ÑÕß£¬´ÓCameraAdapter½ÓÊÕÖ¡Êý¾Ý²¢ÏÔÊ¾
+DisplayAdapter 为帧数据消费者，从CameraAdapter接收帧数据并显示
 ***************************/
 class DisplayAdapter//:public CameraHal_Tracer
 {
@@ -1422,24 +1422,10 @@ private:
 
     Mutex mDisplayLock;
     Condition mDisplayCond;
-    int mDisplayState;
-    bool mDisplayRgaEvenFrame;
+	int mDisplayState;
 
     MessageQueue    displayThreadCommandQ;
     sp<DisplayThread> mDisplayThread;
-};
-
-class CameraDeinterlace
-{
-public:
-	CameraDeinterlace();
-	~CameraDeinterlace();
-
-	bool is_interlace_resolution(void);
-	int odd_even_field_merge(mmerge_interface_t* merge_para ) ;
-
-private:
-	int cameraConfig(const CameraParameters &tmpparams,bool isInit,bool &isRestartValue);
 };
 
 typedef struct cameraparam_info{
@@ -1504,12 +1490,6 @@ struct CamCaptureInfo_s
     int output_buflen;
 };
 
-//even frame and odd frame informations
-struct EvenOddInfo_s{
-	int Video_index;
-	bool Newframe_flag;
-};
-
 typedef void (*FaceDetector_start_func)(void *context,int width, int height, int format);
 typedef void (*FaceDetector_stop_func)(void *context);
 typedef int (*FaceDetector_prepare_func)(void *context, void* src);
@@ -1529,7 +1509,7 @@ struct face_detector_func_s{
 };
 
 /**************************************
-EventNotifier   ¸ºÔð´¦Àímsg µÄ»Øµ÷£¬ÅÄÕÕ»òÕßÂ¼Ó°Ê±Ò²×÷ÎªÖ¡Êý¾ÝµÄÏû·ÑÕß¡£
+EventNotifier   负责处理msg 的回调，拍照或者录影时也作为帧数据的消费者。
 **************************************/
 class AppMsgNotifier
 {
@@ -1579,7 +1559,7 @@ private:
     } rk_videobuf_info_t;
 
 	
-    //´¦Àípreview data cb¼°video enc
+    //处理preview data cb及video enc
     class CameraAppMsgThread :public Thread
     {
     public:
@@ -1602,7 +1582,7 @@ private:
 		}
     };
 
-    //´¦Àí face detection
+    //处理 face detection
     class CameraAppFaceDetThread :public Thread
     {
     public:
@@ -1624,7 +1604,7 @@ private:
 		}
     };
 
-    //´¦Àípicture
+    //处理picture
 	class EncProcessThread : public Thread {
 	public:
 	    enum ENC_THREAD_CMD{
@@ -1820,7 +1800,6 @@ private:
     bool mDataCbFrontMirror;
     bool mDataCbFrontFlip;
     int mPicSize;
-    EvenOddInfo_s mEvenOddInfo;
     camera_memory_t* mPicture;
     face_detector_func_s mFaceDetectorFun;
     FaceDector_nofity_func mFaceDectNotify;
@@ -1832,8 +1811,8 @@ private:
 
 
 /***********************
-CameraHalÀà¸ºÔðÓëcameraserviceÁªÏµ£¬ÊµÏÖ
-cameraserviceÒªÇóÊµÏÖµÄ½Ó¿Ú¡£´ËÀàÖ»¸ºÔð¹«¹²×ÊÔ´µÄÉêÇë£¬ÒÔ¼°ÈÎÎñµÄ·Ö·¢¡£
+CameraHal类负责与cameraservice联系，实现
+cameraservice要求实现的接口。此类只负责公共资源的申请，以及任务的分发。
 ***********************/
 class CameraHal
 {
@@ -2041,6 +2020,7 @@ public:
     BufferProvider* mVideoBuf;
     BufferProvider* mRawBuf;
     BufferProvider* mJpegBuf;
+    BufferProvider* mUvcBuf;
     MemManagerBase* mCamMemManager;
 public:
 	bool mInitState;

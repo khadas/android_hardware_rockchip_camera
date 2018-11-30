@@ -141,6 +141,23 @@ static inline void SetCamerIcWindow
     }
 }
 
+static inline void GetCamerIcWindow
+( 
+    CamerIcWindow_t *pWnd,
+    uint16_t  *hOffset,
+    uint16_t  *vOffset,
+    uint16_t  *height,
+    uint16_t  *width
+)
+{
+    if ( pWnd != NULL )
+    {
+        *hOffset = pWnd->hOffset;
+        *vOffset = pWnd->vOffset;
+        *height = pWnd->height;
+        *width = pWnd->width;
+    }
+}
 
 
 #ifdef __cplusplus
