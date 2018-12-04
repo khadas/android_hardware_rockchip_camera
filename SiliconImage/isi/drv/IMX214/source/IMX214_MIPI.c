@@ -1,17 +1,12 @@
+
 /******************************************************************************
  *
- * The copyright in this software is owned by Rockchip and/or its licensors.
- * This software is made available subject to the conditions of the license 
- * terms to be determined and negotiated by Rockchip and you.
- * THIS SOFTWARE IS PROVIDED TO YOU ON AN "AS IS" BASIS and ROCKCHP AND/OR 
- * ITS LICENSORS DISCLAIMS ANY AND ALL WARRANTIES AND REPRESENTATIONS WITH 
- * RESPECT TO SUCH SOFTWARE, WHETHER EXPRESS,IMPLIED, STATUTORY OR OTHERWISE, 
- * INCLUDING WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF TITLE, NON-INFRINGEMENT, 
- * MERCHANTABILITY, SATISFACTROY QUALITY, ACCURACY OR FITNESS FOR A PARTICULAR PURPOSE. 
- * Except as expressively authorized by Rockchip and/or its licensors, you may not 
- * (a) disclose, distribute, sell, sub-license, or transfer this software to any third party, 
- * in whole or part; (b) modify this software, in whole or part; (c) decompile, reverse-engineer, 
- * dissemble, or attempt to derive any source code from the software.
+ * Copyright 2010, Dream Chip Technologies GmbH. All rights reserved.
+ * No part of this work may be reproduced, modified, distributed, transmitted,
+ * transcribed, or translated into any language or computer format, in any form
+ * or by any means without written permission of:
+ * Dream Chip Technologies GmbH, Steinriede 10, 30827 Garbsen / Berenbostel,
+ * Germany
  *
  *****************************************************************************/
 /**
@@ -140,7 +135,7 @@ const IsiSensorCaps_t Sensor_g_IsiSensorDefaultConfig;
 static uint16_t g_suppoted_mipi_lanenum_type = SUPPORT_MIPI_TWO_LANE;//SUPPORT_MIPI_ONE_LANE|SUPPORT_MIPI_TWO_LANE|SUPPORT_MIPI_FOUR_LANE;
 #define DEFAULT_NUM_LANES SUPPORT_MIPI_TWO_LANE
 
-
+uint32_t vcm_pos;
 
 /******************************************************************************
  * local function prototypes
@@ -259,7 +254,7 @@ static RESULT Sensor_IsiCreateSensorIss
 
     pSensorCtx->IsiCtx.I2cAfBusNum            = pConfig->I2cAfBusNum;
     pSensorCtx->IsiCtx.SlaveAfAddress         = ( pConfig->SlaveAfAddr == 0 ) ? Sensor_SLAVE_AF_ADDR : pConfig->SlaveAfAddr;
-    pSensorCtx->IsiCtx.NrOfAfAddressBytes     = 1U;
+    pSensorCtx->IsiCtx.NrOfAfAddressBytes     = 0U;
 
     pSensorCtx->IsiCtx.pSensor                = pConfig->pSensor;
 
@@ -3779,22 +3774,22 @@ static RESULT Sensor_IsiMdiInitMotoDriveMds
     IsiSensorHandle_t   handle
 )
 {
-    Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
+	Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
 
-    RESULT result = RET_SUCCESS;
+	RESULT result = RET_SUCCESS;
 
-    #if 1
-    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+#if 1
+	TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
-    if ( pSensorCtx == NULL )
-    {
-        return ( RET_WRONG_HANDLE );
-    }
+	if ( pSensorCtx == NULL )
+	{
+		return ( RET_WRONG_HANDLE );
+	}
 
-    TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
-    #endif
-    
-    return ( result );
+	TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
+#endif
+
+	return ( result );
 }
 
 
@@ -3821,71 +3816,95 @@ static RESULT Sensor_IsiMdiSetupMotoDrive
     uint32_t            *pMaxStep
 )
 {
-    Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
+	Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
 	uint32_t vcm_movefull_t;
-    RESULT result = RET_SUCCESS;
-	uint8_t data = 0;
-	
-    #if 1
-    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+	RESULT result = RET_SUCCESS;
+	uint32_t			*pAbsStep;
+	uint8_t  data[2] = { 0, 0 };
 
-    if ( pSensorCtx == NULL )
-    {
-        return ( RET_WRONG_HANDLE );
-    }
+	TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
-    if ( pMaxStep == NULL )
-    {
-        return ( RET_NULL_POINTER );
-    }
+	if ( pSensorCtx == NULL )
+	{
+		return ( RET_WRONG_HANDLE );
+	}
 
-	//dw9718s
-	data = 0x00;
+	if ( pMaxStep == NULL )
+	{
+		return ( RET_NULL_POINTER );
+	}
+
+	if ((pSensorCtx->VcmInfo.StepMode & 0x0c) != 0) {
+		vcm_movefull_t = 64* (1<<(pSensorCtx->VcmInfo.StepMode & 0x03)) *1024/((1 << (((pSensorCtx->VcmInfo.StepMode & 0x0c)>>2)-1))*1000);
+	}else{
+		vcm_movefull_t =64*1023/1000;
+		TRACE( Sensor_ERROR, "%s: (---NO SRC---)\n", __FUNCTION__);
+	}
+
+	TRACE( Sensor_ERROR, "%s: (%d) AF\n", __FUNCTION__,__LINE__);
+
+	//*pMaxStep = (MAX_LOG|(vcm_movefull_t<<16));
+	*pMaxStep = MAX_LOG;
+
+	data[0] = (uint8_t)(0xec);
+	data[1] = (uint8_t)(0xa3);
 	result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
-                             pSensorCtx->IsiCtx.I2cAfBusNum,
-                             pSensorCtx->IsiCtx.SlaveAfAddress,
-                             0x00,
-                             pSensorCtx->IsiCtx.NrOfAfAddressBytes,
-                             &data,
-                             1U );
-    RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
-	
+							pSensorCtx->IsiCtx.I2cAfBusNum,
+							pSensorCtx->IsiCtx.SlaveAfAddress,
+							0,//&data[0],
+							pSensorCtx->IsiCtx.NrOfAfAddressBytes,
+							data,//&data[1],
+							2U );
+
+	RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
 	usleep(100);
-	
-	data = 0x39;
+
+#if 0
+	data[0] = (uint8_t)(0xa1);
+	data[1] = (uint8_t)(0x0d);
 	result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
-                             pSensorCtx->IsiCtx.I2cAfBusNum,
-                             pSensorCtx->IsiCtx.SlaveAfAddress,
-                             0x01,
-                             pSensorCtx->IsiCtx.NrOfAfAddressBytes,
-                             &data,
-                             1U );
-    RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+	pSensorCtx->IsiCtx.I2cAfBusNum,
+	pSensorCtx->IsiCtx.SlaveAfAddress,
+	0,//&data[0],
+	0,//pSensorCtx->IsiCtx.NrOfAfAddressBytes,
+	data,//&data[1],
+	2U );
+	RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+	usleep(100);
+#endif
 
-
-	data = 0x65;
+	data[0] = (uint8_t)(0xf2);
+	data[1] = (uint8_t)(0x00);
 	result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
-                             pSensorCtx->IsiCtx.I2cAfBusNum,
-                             pSensorCtx->IsiCtx.SlaveAfAddress,
-                             0x05,
-                             pSensorCtx->IsiCtx.NrOfAfAddressBytes,
-                             &data,
-                             1U );
-    RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
-	usleep(500);
-	
-	result = Sensor_IsiMdiFocusSet( handle, MAX_LOG);	
-	vcm_movefull_t = 50;
-	*pMaxStep = (MAX_LOG|(vcm_movefull_t<<16));
+							pSensorCtx->IsiCtx.I2cAfBusNum,
+							pSensorCtx->IsiCtx.SlaveAfAddress,
+							0,//&data[0],
+							pSensorCtx->IsiCtx.NrOfAfAddressBytes,
+							data,//&data[1],
+							2U );
 
-    #endif
+	RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+	usleep(100);
 
+	data[0] = (uint8_t)(0xdc);
+	data[1] = (uint8_t)(0x51);
+	result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
+							pSensorCtx->IsiCtx.I2cAfBusNum,
+							pSensorCtx->IsiCtx.SlaveAfAddress,
+							0,//&data[0],
+							pSensorCtx->IsiCtx.NrOfAfAddressBytes,
+							data,//&data[1],
+							2U );
 
+	RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+	usleep(100);
+
+	result = Sensor_IsiMdiFocusSet( handle, MAX_LOG );
+
+	//usleep(100);
     
-    return ( result );
+	return ( result );
 }
-
-
 
 /*****************************************************************************/
 /**
@@ -3909,59 +3928,52 @@ static RESULT Sensor_IsiMdiFocusSet
 )
 {
 	Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
+	uint32_t			*pAbsStep;
 
-    RESULT result = RET_SUCCESS;
+	RESULT result = RET_SUCCESS;
 
-    
-    #if 1
-    uint32_t nPosition;
-    uint8_t  data[2] = { 0, 0 };
+	uint32_t nPosition;
+	uint8_t  data[2] = { 0, 0 };
 
-    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+	if ( pSensorCtx == NULL )
+	{
+		TRACE( Sensor_ERROR, "%s: pSensorCtx IS NULL\n", __FUNCTION__);
+		return ( RET_WRONG_HANDLE );
+	}
 
-    if ( pSensorCtx == NULL )
-    {
-    	TRACE( Sensor_ERROR, "%s: pSensorCtx IS NULL\n", __FUNCTION__);
-        return ( RET_WRONG_HANDLE );
-    }
-
-	//TRACE( Sensor_ERROR, "%s: pSensorCtx Position (%d) max_position(%d)\n", __FUNCTION__,Position, MAX_LOG);
-    /* map 64 to 0 -> infinity */
-    //nPosition = ( Position >= MAX_LOG ) ? 0 : ( MAX_REG - (Position * 16U) );
 	if( Position > MAX_LOG ){
 		TRACE( Sensor_ERROR, "%s: pSensorCtx Position (%d) max_position(%d)\n", __FUNCTION__,Position, MAX_LOG);
 		//Position = MAX_LOG;
 	}
 	/* ddl@rock-chips.com: v0.3.0 */
-    if ( Position >= MAX_LOG )
-        nPosition = pSensorCtx->VcmInfo.StartCurrent;
-    else 
-        nPosition = pSensorCtx->VcmInfo.StartCurrent + (pSensorCtx->VcmInfo.Step*(MAX_LOG-Position));
-    /* ddl@rock-chips.com: v0.6.0 */
-    if (nPosition > MAX_VCMDRV_REG)  
-        nPosition = MAX_VCMDRV_REG;
-    
-	data[0] = (uint8_t)(0x00U | (( nPosition & 0xF00U ) >> 8U));                 
-	data[1] = (uint8_t)( nPosition & 0xFFU );
+	if ( Position >= MAX_LOG )
+		nPosition = pSensorCtx->VcmInfo.StartCurrent;
+	else
+		nPosition = pSensorCtx->VcmInfo.StartCurrent + (pSensorCtx->VcmInfo.Step*(MAX_LOG-Position));
 
-    //TRACE( Sensor_ERROR, "%s:  dw9718s value = %d, 0x%02x 0x%02x af_addr(0x%x) bus(%d)\n", __FUNCTION__, nPosition, data[0], data[1],pSensorCtx->IsiCtx.SlaveAfAddress,pSensorCtx->IsiCtx.I2cAfBusNum );
 
-    result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
-                             pSensorCtx->IsiCtx.I2cAfBusNum,
-                             pSensorCtx->IsiCtx.SlaveAfAddress,
-                             0x02,
-                             pSensorCtx->IsiCtx.NrOfAfAddressBytes,
-                             data,
-                             2U );
+	/* ddl@rock-chips.com: v0.6.0 */
+	if (nPosition > MAX_VCMDRV_REG)
+		nPosition = MAX_VCMDRV_REG;
+
+	data[0] = (uint8_t)(0x00U | (( nPosition & 0x3F0U ) >> 4U));
+	data[1] = (uint8_t)(((nPosition & 0x0FU) << 4U) | 0x0F);
+
+	result = HalWriteI2CMem( pSensorCtx->IsiCtx.HalHandle,
+							pSensorCtx->IsiCtx.I2cAfBusNum,
+							pSensorCtx->IsiCtx.SlaveAfAddress,
+							0,//&data[0],
+							pSensorCtx->IsiCtx.NrOfAfAddressBytes,
+							data,//&data[1],
+							2U );
+
+	vcm_pos = Position;
+
 	RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+	usleep(500);
 
-    TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
-    #endif
-    
-    return ( result );
+	return ( result );
 }
-
-
 
 /*****************************************************************************/
 /**
@@ -3985,65 +3997,55 @@ static RESULT Sensor_IsiMdiFocusGet
     uint32_t            *pAbsStep
 )
 {
-    Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
+	Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
 
-    RESULT result = RET_SUCCESS;
-    uint8_t  data[2] = { 0, 0 };
+	RESULT result = RET_SUCCESS;
+	uint8_t  data[2] = { 0, 0 };
 
-    #if 1
-    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+	TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
-    if ( pSensorCtx == NULL )
-    {
-        return ( RET_WRONG_HANDLE );
-    }
+	if ( pSensorCtx == NULL )
+	{
+		return ( RET_WRONG_HANDLE );
+	}
 
-    if ( pAbsStep == NULL )
-    {
-        return ( RET_NULL_POINTER );
-    }
+	if ( pAbsStep == NULL )
+	{
+		return ( RET_NULL_POINTER );
+	}
 
+#if 0 //VCM i2c address conflict with front camera, skip read
 	result = HalReadI2CMem( pSensorCtx->IsiCtx.HalHandle,
-					 pSensorCtx->IsiCtx.I2cAfBusNum,
-					 pSensorCtx->IsiCtx.SlaveAfAddress,
-					 0x02,
-					 pSensorCtx->IsiCtx.NrOfAfAddressBytes,
-					 &data[0],
-					 1U );
-    RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
+							pSensorCtx->IsiCtx.I2cAfBusNum,
+							pSensorCtx->IsiCtx.SlaveAfAddress,
+							0,
+							0,
+							data,
+							2U );
 
-
-	result = HalReadI2CMem( pSensorCtx->IsiCtx.HalHandle,
-						 pSensorCtx->IsiCtx.I2cAfBusNum,
-						 pSensorCtx->IsiCtx.SlaveAfAddress,
-						 0x03,
-						 pSensorCtx->IsiCtx.NrOfAfAddressBytes,
-						 &data[1],
-						 1U );
 	RETURN_RESULT_IF_DIFFERENT( RET_SUCCESS, result );
-	
-	*pAbsStep = ( ((uint32_t)(data[0] & 0x0F)) << 8U ) | ( ((uint32_t)data[1]) & 0xff);
-	TRACE( Sensor_ERROR, "%s: dw9718s value = 0x%02x 0x%02x\n", __FUNCTION__, data[0], data[1]);
+	/* Data[0] = PD,  1, D9..D4, see DW datasheet */
+	/* Data[1] = D3..D0, S3..S0 */
+	*pAbsStep = ( ((uint32_t)(data[0] & 0x3FU)) << 4U ) | ( ((uint32_t)data[1]) >> 4U );
+#else
+	*pAbsStep = vcm_pos;
+#endif
 
+	/* map 0 to 64 -> infinity */	 /* ddl@rock-chips.com: v0.3.0 */
+	if( *pAbsStep <= pSensorCtx->VcmInfo.StartCurrent)
+	{
+		*pAbsStep = MAX_LOG;
+	}
+	else if((*pAbsStep>pSensorCtx->VcmInfo.StartCurrent) && (*pAbsStep<=pSensorCtx->VcmInfo.RatedCurrent))
+	{
+		*pAbsStep = (pSensorCtx->VcmInfo.RatedCurrent - *pAbsStep ) / pSensorCtx->VcmInfo.Step;
+	}
+	else
+	{
+		*pAbsStep = 0;
+	}
 
-    /* map 0 to 64 -> infinity */	 /* ddl@rock-chips.com: v0.3.0 */
-	 if( *pAbsStep <= pSensorCtx->VcmInfo.StartCurrent)
-	 {
-		 *pAbsStep = MAX_LOG;
-	 }
-	 else if((*pAbsStep>pSensorCtx->VcmInfo.StartCurrent) && (*pAbsStep<=pSensorCtx->VcmInfo.RatedCurrent))
-	 {
-		 *pAbsStep = (pSensorCtx->VcmInfo.RatedCurrent - *pAbsStep ) / pSensorCtx->VcmInfo.Step;
-	 }
-	 else
-	 {
-		 *pAbsStep = 0;
-	 }
-	 
-    TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
-
-    #endif
-    return ( result );
+	return ( result );
 }
 
 
@@ -4067,22 +4069,22 @@ static RESULT Sensor_IsiMdiFocusCalibrate
     IsiSensorHandle_t   handle
 )
 {
-    Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
+	Sensor_Context_t *pSensorCtx = (Sensor_Context_t *)handle;
 
-    RESULT result = RET_SUCCESS;
+	RESULT result = RET_SUCCESS;
 
-    #if 1
-    TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
+#if 1
+	TRACE( Sensor_INFO, "%s: (enter)\n", __FUNCTION__);
 
-    if ( pSensorCtx == NULL )
-    {
-        return ( RET_WRONG_HANDLE );
-    }
+	if ( pSensorCtx == NULL )
+	{
+		return ( RET_WRONG_HANDLE );
+	}
 
-    TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
-    #endif
-    
-    return ( result );
+	TRACE( Sensor_INFO, "%s: (exit)\n", __FUNCTION__);
+#endif
+
+	return ( result );
 }
 
 
@@ -4479,7 +4481,6 @@ IsiCamDrvConfig_t IsiCamDrvConfig =
         0,                      /**< IsiSensor_t.pIsiRegisterReadIss */
         0,                      /**< IsiSensor_t.pIsiRegisterWriteIss */
         0,                      /**< IsiSensor_t.pIsiIsEvenFieldIss */
-
         0,                      /**< IsiSensor_t.pIsiExposureControlIss */
         0,                      /**< IsiSensor_t.pIsiGetGainLimitsIss */
         0,                      /**< IsiSensor_t.pIsiGetIntegrationTimeLimitsIss */
