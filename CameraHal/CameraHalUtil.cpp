@@ -469,7 +469,7 @@ extern "C" int util_get_gralloc_buf_fd(buffer_handle_t handle,int* fd){
 extern "C" int rga_nv12_scale_crop(
 		int src_width, int src_height, char *src_fd, short int *dst_fd, 
 		int dst_width,int dst_height,int zoom_val,bool mirror,
-		bool isNeedCrop,bool isDstNV21,int dst_stride,bool is_viraddr_valid)
+		bool isNeedCrop, bool isDstNV21, bool is_viraddr_valid, int dst_stride)
 {
     int ret = 0;
 	rga_info_t src,dst;

@@ -126,9 +126,9 @@ extern "C" int rga_nv12_scale_crop(
 		int src_width, int src_height, char *src, short int *dst,
 		int dst_width,int dst_height,int zoom_val,
 		bool mirror,bool isNeedCrop,bool isDstNV21
+		,bool vir_addr = false
 #if defined(RK_DRM_GRALLOC) 
 		,int dst_stride = 0
-		,bool vir_addr = false
 #endif
 		);
 extern "C" int rk_camera_zoom_ipp(int v4l2_fmt_src, int srcbuf, int src_w, int src_h,int dstbuf,int zoom_value);

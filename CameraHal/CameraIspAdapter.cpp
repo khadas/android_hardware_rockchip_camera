@@ -3149,18 +3149,18 @@ int CameraIspAdapter::ispUvcThread(void)
 
                 #if defined(RK_DRM_GRALLOC)
     				if (frame->vir_addr_valid){
-    		            rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-    		                                (char*)(frame->vir_addr), (short int *)mPreviewBufProvider->getBufVirAddr(0),
-    		                                width,height,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
+                        rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
+                                (char*)(frame->vir_addr), (short int *)mPreviewBufProvider->getBufVirAddr(0),
+                                width,height,frame->zoom_value,false,true,false,frame->vir_addr_valid,0);
     	            } else{
-    					rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-    										(char*)(frame->phy_addr), (short int *)(long)mPreviewBufProvider->getBufShareFd(0),
-    										width,height,frame->zoom_value,false,true,false,0,frame->vir_addr_valid);
+                        rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
+                                (char*)(frame->phy_addr), (short int *)(long)mPreviewBufProvider->getBufShareFd(0),
+                                width,height,frame->zoom_value,false,true,false,frame->vir_addr_valid,0);
     	            }
                 #else
-    	            rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
-    	                                (char*)(frame->vir_addr), (short int *)mPreviewBufProvider->getBufVirAddr(0),
-    	                                width,height,frame->zoom_value,false,true,false);
+                    rga_nv12_scale_crop(frame->frame_width, frame->frame_height,
+                            (char*)(frame->vir_addr), (short int *)mPreviewBufProvider->getBufVirAddr(0),
+                            width,height,frame->zoom_value,false,true,false,true);
                 #endif
                 adapterReturnFrame(frame->frame_index, frame->used_flag);
 

@@ -188,13 +188,15 @@ buffer_handle_t bufferHandleAlloc(native_handle_bundle *bundle) {
 		return &hnd->base;
 #else
 
-	GRAPHIC_BUFFER_NATIVE_HANDLE *hnd = new GRAPHIC_BUFFER_NATIVE_HANDLE( private_handle_t::PRIV_FLAGS_USES_ION, usage, w*h*4, mBufferAddr,
-													  private_handle_t::LOCK_STATE_MAPPED );
-	hnd->share_fd = shareFd;
-	hnd->ion_hnd = ionHandle;
+	GRAPHIC_BUFFER_NATIVE_HANDLE *hnd = new GRAPHIC_BUFFER_NATIVE_HANDLE(
+                        private_handle_t::PRIV_FLAGS_USES_ION, bundle->usage,
+                        bundle->w*bundle->h*4, (void*)bundle->nativeHandle,
+                        private_handle_t::LOCK_STATE_MAPPED );
+	hnd->share_fd = bundle->shareFd;
+	hnd->ion_hnd = bundle->ionHandle;
 	hnd->type = 1;
 
-    int private_usage = usage & (GRALLOC_USAGE_PRIVATE_0 |
+    int private_usage = bundle->usage & (GRALLOC_USAGE_PRIVATE_0 |
                                  GRALLOC_USAGE_PRIVATE_1);
     switch (private_usage)
     {
@@ -211,15 +213,16 @@ buffer_handle_t bufferHandleAlloc(native_handle_bundle *bundle) {
             hnd->yuv_info = MALI_YUV_BT709_WIDE;
             break;
     }
-
-    hnd->req_format = format;
+/*
+    hnd->req_format = bundle->format;
     hnd->byte_stride = byte_stride;
-    hnd->internal_format = format;
+    hnd->internal_format = bundle->format;
     hnd->video_width = 0;
     hnd->video_height = 0;
-    hnd->format = format;
-    hnd->width = w;
-    hnd->height = h;
+*/
+    hnd->format = bundle->format;
+    hnd->width = bundle->w;
+    hnd->height = bundle->h;
     hnd->stride = pixel_stride;
 
 	return hnd;
