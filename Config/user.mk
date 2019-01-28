@@ -17,7 +17,7 @@
 # patent, or trademark statement or notices contained in the Software.
 ifeq ($(filter box vr stbvr, $(strip $(TARGET_BOARD_PLATFORM_PRODUCT))), )
 
-ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3399)
+ifneq ($(filter rk3399 rk3399pro, $(strip $(TARGET_BOARD_PLATFORM))), )
 PRODUCT_PACKAGES += \
     libisp_isi_drv_OV2659 \
 	libisp_isi_drv_OV8825 \

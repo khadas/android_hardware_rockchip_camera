@@ -27,7 +27,7 @@ endif
 
 ifeq ($(filter box vr stbvr, $(strip $(TARGET_BOARD_PLATFORM_PRODUCT))), )
 
-ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk3399)
+ifneq ($(filter rk3399 rk3399pro, $(strip $(TARGET_BOARD_PLATFORM))), )
 
 PRODUCT_PACKAGES += \
     $(MY_ISP_LIB_NAME)

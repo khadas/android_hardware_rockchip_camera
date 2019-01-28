@@ -114,7 +114,7 @@ LOCAL_SRC_FILES:=\
 	CameraGLAdapter.cpp
 
 ifeq ($(strip $(BOARD_USE_DRM)), true)
-ifneq ($(filter rk3368 rk3399 rk3288 rk3366, $(strip $(TARGET_BOARD_PLATFORM))), )
+ifneq ($(filter rk3368 rk3399 rk3288 rk3366 rk3399pro, $(strip $(TARGET_BOARD_PLATFORM))), )
 LOCAL_SRC_FILES += \
 	camera_mem_gralloc.cpp\
 	camera_mem.cpp
@@ -276,7 +276,7 @@ LOCAL_CFLAGS += -DMALI_PRODUCT_ID_T86X=1
 LOCAL_CFLAGS += -DMALI_AFBC_GRALLOC=1
 endif
 
-ifneq ($(filter rk3399, $(strip $(TARGET_BOARD_PLATFORM))), )
+ifneq ($(filter rk3399 rk3399pro, $(strip $(TARGET_BOARD_PLATFORM))), )
 LOCAL_CFLAGS += -DTARGET_RK3399
 ifeq ($(strip $(TARGET_2ND_ARCH)), )
 LOCAL_CFLAGS += -DHAVE_ARM_NEON
@@ -371,7 +371,7 @@ LOCAL_CFLAGS += -DANDROID_7_X
 endif
 
 ifeq ($(strip $(BOARD_USE_DRM)), true)
-ifneq ($(filter rk3368 rk3399 rk3288 rk3366, $(strip $(TARGET_BOARD_PLATFORM))), )
+ifneq ($(filter rk3368 rk3399 rk3288 rk3366 rk3399pro, $(strip $(TARGET_BOARD_PLATFORM))), )
 LOCAL_CFLAGS +=-DRK_DRM_GRALLOC=1	
 # LOCAL_CFLAGS +=-DUSE_HWC2
 endif	

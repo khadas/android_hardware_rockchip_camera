@@ -38,7 +38,7 @@ LOCAL_SRC_FILES_arm64 := $(LOCAL_MODULE)_5x_64bit.so
 endif
 endif
 
-ifneq ($(filter rk3366 rk3399 rk3328, $(strip $(TARGET_BOARD_PLATFORM))), )
+ifneq ($(filter rk3366 rk3399 rk3328 rk3399pro, $(strip $(TARGET_BOARD_PLATFORM))), )
 #include $(CLEAR_VARS)
 ifneq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 5.0)))
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
