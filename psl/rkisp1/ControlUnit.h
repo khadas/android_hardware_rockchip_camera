@@ -63,7 +63,7 @@ public:
     virtual ~ControlUnit();
 
     status_t init();
-    status_t configStreams(bool configChanged);
+    status_t configStreams(std::vector<camera3_stream_t*> &activeStreams, bool configChanged);
 
     status_t processRequest(Camera3Request* request,
                             std::shared_ptr<GraphConfig> graphConfig);
@@ -170,6 +170,7 @@ private:  /* Members */
 
     ImguUnit       *mImguUnit; /* ControlUnit doesn't own ImguUnit */
     RkCtrlLoop     *mCtrlLoop;
+    bool            mEnable3A;
     int             mCameraId;
 
     std::shared_ptr<MediaController>             mMediaCtl;

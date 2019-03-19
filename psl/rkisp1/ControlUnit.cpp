@@ -47,6 +47,7 @@ ControlUnit::ControlUnit(ImguUnit *thePU,
         mLatestRequestId(-1),
         mImguUnit(thePU),
         mCtrlLoop(nullptr),
+        mEnable3A(true),
         mCameraId(cameraId),
         mMediaCtl(mc),
         mThreadRunning(false),
@@ -378,7 +379,7 @@ ControlUnit::~ControlUnit()
 }
 
 status_t
-ControlUnit::configStreams(bool configChanged)
+ControlUnit::configStreams(std::vector<camera3_stream_t*> &activeStreams, bool configChanged)
 {
     PERFORMANCE_ATRACE_NAME("ControlUnit::configStreams");
     LOGI("@%s %d: configChanged :%d", __FUNCTION__, __LINE__, configChanged);
@@ -427,7 +428,17 @@ ControlUnit::configStreams(bool configChanged)
             }
         }
 
-        if (mCtrlLoop) {
+        mEnable3A = true;
+        for (auto it = activeStreams.begin(); it != activeStreams.end(); ++it) {
+            if((*it)->format == HAL_PIXEL_FORMAT_RAW_OPAQUE &&
+               !PlatformData::getCameraHWInfo()->isIspSupportRawPath()) {
+                mEnable3A = false;
+                break;
+            }
+        }
+        LOGD("@%s : mEnable3A :%d", __FUNCTION__, mEnable3A);
+
+        if (mCtrlLoop && mEnable3A ) {
             status = mCtrlLoop->start(prepareParams);
             if (CC_UNLIKELY(status != OK)) {
                 LOGE("Failed to start 3a control loop!");
@@ -660,7 +671,7 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
 
     // if this request is a reprocess request, no need to setFrameParam to CL.
     if (reqState->request->getNumberInputBufs() == 0) {
-        if (mCtrlLoop) {
+        if (mCtrlLoop && mEnable3A) {
             const CameraMetadata *settings = reqState->request->getSettings();
             rkisp_cl_frame_metadata_s frame_metas;
             frame_metas.metas = settings->getAndLock();
@@ -774,7 +785,7 @@ status_t ControlUnit::fillMetadata(std::shared_ptr<RequestCtrlState> &reqState)
     reqState->ctrlUnitResult->update(ANDROID_REQUEST_PIPELINE_DEPTH,
                                      &pipelineDepth, 1);
     // for soc camera
-    if (!mCtrlLoop) {
+    if (!mCtrlLoop || !mEnable3A) {
         uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
         ctrlUnitResult->update(ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
         uint8_t awbState = ANDROID_CONTROL_AWB_STATE_CONVERGED;
@@ -938,7 +949,7 @@ ControlUnit::handleMessageFlush(Message &msg)
     if (CC_UNLIKELY(status != OK)) {
         LOGE("Failed to stop 3a control loop!");
     }
-    if(msg.configChanged && mCtrlLoop)
+    if(msg.configChanged && mCtrlLoop && mEnable3A)
         mCtrlLoop->stop();
 
     mImguUnit->flush();

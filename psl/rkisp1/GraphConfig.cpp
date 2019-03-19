@@ -55,7 +55,8 @@ namespace gcu = graphconfig::utils;
 #define MEDIACTL_PAD_PV_NUM 4
 #define SCALING_FACTOR 1
 
-#define ISP_DEFAULT_OUTPUT_FORMAT V4L2_PIX_FMT_NV12
+#define ISP_DEFAULT_OUTPUT_FORMAT MEDIA_BUS_FMT_YUYV8_2X8
+#define VIDEO_DEFAULT_OUTPUT_FORMAT V4L2_PIX_FMT_NV12
 
 const string csi2_without_port = "rockchip-mipi-dphy-rx";
 
@@ -2250,18 +2251,27 @@ void GraphConfig::cal_crop(uint32_t &src_w, uint32_t &src_h, uint32_t &dst_w, ui
 }
 
 status_t GraphConfig::selectSensorOutputFormat(int32_t cameraId, int &w, int &h, uint32_t &format) {
-    camera3_stream_t* mpStream;
+    camera3_stream_t* stream = NULL;
     w = h = 0;
 
-    //get app stream size that map to mp stream
     for (auto it = mStreamToSinkIdMap.begin(); it != mStreamToSinkIdMap.end(); ++it) {
-        if (it->second == GCSS_KEY_IMGU_VIDEO) {
-            mpStream = it->first;
+        //dump raw case: sensor output should satisfy rawStream first
+        if (it->second == GCSS_KEY_IMGU_RAW) {
+            stream = it->first;
+            // setprop persist.vendor.camera.dump 16 will produce this case
+            if(stream->width == 0 || stream->height == 0)
+                continue;
             break;
         }
+
+        //normal case: get the app stream which map to mp, this stream size decide the
+        //sensor output
+        if (it->second == GCSS_KEY_IMGU_VIDEO) {
+            stream = it->first;
+        }
     }
-    if (!mpStream) {
-        LOGE("@%s : mp stream is null", __FUNCTION__);
+    if (!stream) {
+        LOGE("@%s : App stream is Null", __FUNCTION__);
         return UNKNOWN_ERROR;
     }
 
@@ -2280,8 +2290,8 @@ status_t GraphConfig::selectSensorOutputFormat(int32_t cameraId, int &w, int &h,
     std::vector<struct SensorFrameSize> &frameSize = mAvailableSensorFormat[format];
     // travel the frameSize from small to large to get the suitable sensor output
     for (auto it = frameSize.begin(); it != frameSize.end(); ++it) {
-        if((*it).max_width >= mpStream->width &&
-           (*it).max_height >= mpStream->height) {
+        if((*it).max_width >= stream->width &&
+           (*it).max_height >= stream->height) {
             //for SOC Sensor
             if(cap->sensorType() == SENSOR_TYPE_SOC) {
                 w = (*it).max_width;
@@ -2312,10 +2322,10 @@ status_t GraphConfig::selectSensorOutputFormat(int32_t cameraId, int &w, int &h,
         }
     }
 
-    if(frameSize.back().max_width < mpStream->width ||
-       frameSize.back().max_height < mpStream->height) {
+    if(frameSize.back().max_width < stream->width ||
+       frameSize.back().max_height < stream->height) {
         LOGE("@%s : App stream size(%dx%d) larger than Sensor full size(%dx%d), Check camera3_profiles.xml",
-             __FUNCTION__, mpStream->width, mpStream->height, frameSize.back().max_width, frameSize.back().max_height);
+             __FUNCTION__, stream->width, stream->height, frameSize.back().max_width, frameSize.back().max_height);
         return UNKNOWN_ERROR;
     }
     if((w == 0 || h == 0) && frameSize.size() != 0) {
@@ -2467,11 +2477,13 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
     LOGD("%s: paramName = %s", __FUNCTION__, paramName.c_str());
 
     int ispOutWidth, ispInWidth ,ispOutHeight, ispInHeight;
-    uint32_t ispOutFormat ,ispInFormat;
+    uint32_t ispOutFormat ,ispInFormat, videoOutFormat;
     ispOutWidth = ispInWidth = mCurSensorFormat.width;
     ispOutHeight = ispInHeight = mCurSensorFormat.height;
     ispInFormat = mCurSensorFormat.formatCode;
     ispOutFormat = ISP_DEFAULT_OUTPUT_FORMAT;
+    videoOutFormat = VIDEO_DEFAULT_OUTPUT_FORMAT;
+    mMpOutputRaw = false;
 
     camera3_stream_t* mpStream = NULL;
     camera3_stream_t* spStream = NULL;
@@ -2500,9 +2512,11 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
     }
 
     // if mainPath output raw, ispOutput format should be set to raw format
-    if(mMpOutputRaw)
+    if(mMpOutputRaw) {
         // conversion between V4L2_MBUS_FMT_xx formats and V4L2_PIX_FMT_xx formats
-        ispOutFormat = gcu::getV4L2Format(gcu::pixelCode2fourcc(mCurSensorFormat.formatCode));
+        ispOutFormat = mCurSensorFormat.formatCode;
+        videoOutFormat = gcu::getV4L2Format(gcu::pixelCode2fourcc(mCurSensorFormat.formatCode));
+    }
     // isp output pad format and selection config
     addFormatParams(IspName, ispOutWidth, ispOutHeight, ispSrcPad, ispOutFormat, 0, 0, mediaCtlConfig);
     addSelectionParams(IspName, ispOutWidth, ispOutHeight, 0, 0, V4L2_SEL_TGT_CROP, ispSrcPad, mediaCtlConfig);
@@ -2515,27 +2529,36 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
     CLEAR(select);
     if(mpStream) {
         /* videodev2.h says don't use *_MPLAEN */
-        uint32_t mpWidth = ispOutWidth;
-        uint32_t mpHeight = ispOutHeight;
+        uint32_t mpInWidth = ispOutWidth;
+        uint32_t mpInHeight = ispOutHeight;
         if(mpStream->width > MP_MAX_WIDTH && mpStream->height > MP_MAX_HEIGHT) {
             LOGE("@%s APP Stream size(%dx%d) can't beyond MP cap(%dx%d)", __FUNCTION__,
                  mpStream->width, mpStream->height, MP_MAX_WIDTH, MP_MAX_HEIGHT);
             return UNKNOWN_ERROR;
         }
-        cal_crop(mpWidth, mpHeight, mpStream->width, mpStream->height);
+        cal_crop(mpInWidth, mpInHeight, mpStream->width, mpStream->height);
 
         select.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         select.target = V4L2_SEL_TGT_CROP;
         select.flags = 0;
-        select.r.left = (ispOutWidth - mpWidth) / 2;
-        select.r.top = (ispOutHeight - mpHeight) / 2;
-        select.r.width = mpWidth;
-        select.r.height = mpHeight;
+        select.r.left = (ispOutWidth - mpInWidth) / 2;
+        select.r.top = (ispOutHeight - mpInHeight) / 2;
+        select.r.width = mpInWidth;
+        select.r.height = mpInHeight;
         if(!mMpOutputRaw) {
-            addFormatParams(mpName, mpStream->width, mpStream->height, mpSinkPad, ispOutFormat, 0, 0, mediaCtlConfig);
+            //for the case: isp output size < app stream size, select isp output
+            //size as the vidoe node out output size, may happen in tuning dump raw case
+            uint32_t videoWidth = mpStream->width > mpInWidth ? mpInWidth : mpStream->width ;
+            uint32_t videoHeight = mpStream->height > mpInHeight ? mpInHeight : mpStream->height ;
+            addFormatParams(mpName, videoWidth, videoHeight, mpSinkPad, videoOutFormat, 0, 0, mediaCtlConfig);
             addSelectionVideoParams(mpName, select, mediaCtlConfig);
         } else {
-            addFormatParams(mpName, ispOutWidth, ispOutHeight, mpSinkPad, ispOutFormat, 0, 0, mediaCtlConfig);
+            select.r.left = 0;
+            select.r.top = 0;
+            select.r.width = ispOutWidth;
+            select.r.height = ispOutHeight;
+            addFormatParams(mpName, ispOutWidth, ispOutHeight, mpSinkPad, videoOutFormat, 0, 0, mediaCtlConfig);
+            addSelectionVideoParams(mpName, select, mediaCtlConfig);
         }
         addImguVideoNode(IMGU_NODE_VIDEO, mpName, mediaCtlConfig);
         addLinkParams(IspName, ispSrcPad, mpName,  mpSinkPad,  1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
@@ -2546,23 +2569,27 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
 
     //if mainPath is used to output raw, disable selfPath
     if(spStream && spName != "none" && !mMpOutputRaw) {
-        uint32_t spWidth = ispOutWidth;
-        uint32_t spHeight = ispOutHeight;
+        uint32_t spInWidth = ispOutWidth;
+        uint32_t spInHeight = ispOutHeight;
         // if SP output size beyond its capacity, the out frame is bad
         if(spStream->width > SP_MAX_WIDTH && spStream->height > SP_MAX_HEIGHT) {
             LOGW("@%s Stream %p size(%dx%d) beyond SP cap(%dx%d), should attach to MP", __FUNCTION__,
                  spStream, spStream->width, spStream->height, SP_MAX_WIDTH, SP_MAX_HEIGHT);
         } else {
-            cal_crop(spWidth, spHeight, spStream->width, spStream->height);
+            cal_crop(spInWidth, spInHeight, spStream->width, spStream->height);
 
             select.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             select.target = V4L2_SEL_TGT_CROP;
             select.flags = 0;
-            select.r.left = (ispOutWidth - spWidth) / 2;
-            select.r.top = (ispOutHeight - spHeight) / 2;
-            select.r.width = spWidth;
-            select.r.height = spHeight;
-            addFormatParams(spName, spStream->width, spStream->height, spSinkPad, ispOutFormat, 0, 0, mediaCtlConfig);
+            select.r.left = (ispOutWidth - spInWidth) / 2;
+            select.r.top = (ispOutHeight - spInHeight) / 2;
+            select.r.width = spInWidth;
+            select.r.height = spInHeight;
+            //for the case: isp output size < app stream size, select isp output
+            //size as the vidoe node out output size, may happen in tuning dump raw case
+            uint32_t videoWidth = spStream->width > spInWidth ? spInWidth : spStream->width ;
+            uint32_t videoHeight = spStream->height > spInHeight ? spInHeight : spStream->height ;
+            addFormatParams(spName, videoWidth, videoHeight, spSinkPad, videoOutFormat, 0, 0, mediaCtlConfig);
             addSelectionVideoParams(spName, select, mediaCtlConfig);
             addImguVideoNode(IMGU_NODE_VF_PREVIEW, spName, mediaCtlConfig);
             addLinkParams(IspName, ispSrcPad, spName,  spSinkPad,  1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);

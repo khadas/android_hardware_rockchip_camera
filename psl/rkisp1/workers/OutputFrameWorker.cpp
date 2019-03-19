@@ -116,7 +116,9 @@ OutputFrameWorker::notifyNewFrame(const std::shared_ptr<PostProcBuffer>& buf,
 void OutputFrameWorker::addListener(camera3_stream_t* stream)
 {
     if (stream != nullptr) {
-        LOGI("%s, stream %p has listener %p", mName.c_str(), mStream, stream);
+        LOGI("@%s, %s: stream %p has listener %p (%dx%d, fmt %s)", __FUNCTION__,
+             mName.c_str(), mStream, stream, stream->width, stream->height,
+             METAID2STR(android_scaler_availableFormats_values, stream->format));
         mListeners.push_back(stream);
     }
 }
@@ -124,7 +126,7 @@ void OutputFrameWorker::addListener(camera3_stream_t* stream)
 void OutputFrameWorker::attachStream(camera3_stream_t* stream)
 {
     if (stream != nullptr) {
-        LOGI("@%s, %s attach to stream(%p): %dx%d, type %d, fmt %s,", __FUNCTION__,
+        LOGI("@%s, %s attach to stream(%p): %dx%d, type %d, fmt %s", __FUNCTION__,
              mName.c_str(), stream, stream->width, stream->height, stream->stream_type,
              METAID2STR(android_scaler_availableFormats_values, stream->format));
         mStream = stream;
@@ -254,8 +256,7 @@ status_t OutputFrameWorker::prepareRun(std::shared_ptr<DeviceMessage> msg)
              __FUNCTION__, mStream, request->getId());
         mPollMe = true;
     // if dump raw, need to poll raw video node
-    } else if ((mName == "RawWork") &&
-               (LogHelper::isDumpTypeEnable(CAMERA_DUMP_RAW))){
+    } else if ((mName == "RawWork") && mStream) {
         LOGI("@%s : Dump raw enabled", __FUNCTION__);
         mPollMe = true;
     } else {

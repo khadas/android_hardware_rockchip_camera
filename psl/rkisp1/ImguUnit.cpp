@@ -213,6 +213,9 @@ ImguUnit::configStreams(std::vector<camera3_stream_t*> &activeStreams, bool conf
              // 3 stream case, IMPL is prefered to use for preview
              mActiveStreams.yuvStreams.insert(mActiveStreams.yuvStreams.begin(), activeStreams.at(i));
              break;
+        case HAL_PIXEL_FORMAT_RAW_OPAQUE:
+             mActiveStreams.rawStreams.push_back(activeStreams.at(i));
+             break;
         default:
             LOGW("Unsupported stream format %d",
                  activeStreams.at(i)->format);
@@ -380,7 +383,7 @@ status_t ImguUnit::mapStreamWithDeviceNode(int phyStreamsNum)
                 if (i != videoIdx) {
                     std::pair<int, NodeTypes> listener;
                     listener.first = i;
-		    listener.second = IMGU_NODE_VIDEO;
+                    listener.second = IMGU_NODE_VIDEO;
                     listeners.push_back(listener);
                 }
            }
@@ -416,11 +419,13 @@ status_t ImguUnit::mapStreamWithDeviceNode(int phyStreamsNum)
              availableStreams[iter.first]->format, availableStreams[iter.first], iter.second);
     }
 
-    if(PlatformData::getCameraHWInfo()->isIspSupportRawPath()) {
-        mRawStream.width = 0;
-        mRawStream.height = 0;
-        mRawStream.format = HAL_PIXEL_FORMAT_RAW_OPAQUE;
-        mStreamNodeMapping[IMGU_NODE_RAW] = &mRawStream;
+    if(mActiveStreams.rawStreams.size() != 0) {
+        //raw stream listen to mp if mp output raw or mapping to rawWork
+        if(!PlatformData::getCameraHWInfo()->isIspSupportRawPath())
+            mStreamListenerMapping[mActiveStreams.rawStreams[0]] = IMGU_NODE_VIDEO;
+        else
+            mStreamNodeMapping[IMGU_NODE_RAW] = mActiveStreams.rawStreams[0];
+
     }
 
     return OK;
@@ -619,10 +624,6 @@ ImguUnit::createProcessingTasks(std::shared_ptr<GraphConfig> graphConfig)
 
     status_t ret = OK;
     for (const auto &it : mCurPipeConfig->deviceWorkers) {
-        if(OutputFrameWorker *work = static_cast<OutputFrameWorker *>(it.get()))
-            if(work == mRawOutWorker.get())
-                continue;
-
         ret = (*it).configure(mConfigChanged);
         if (ret != OK) {
             LOGE("Failed to configure workers.");
@@ -819,31 +820,6 @@ status_t ImguUnit::processNextRequest()
     return status;
 }
 
-// this function is an async interface that can be called
-// at the time after kickstart.
-// tuning tool will asnyc call this function to streamon rawPath
-status_t
-ImguUnit::startRawWork()
-{
-    HAL_TRACE_CALL(CAM_GLBL_DBG_HIGH);
-    status_t status = OK;
-
-    if(!PlatformData::getCameraHWInfo()->isIspSupportRawPath()) {
-        LOGE("@%s : Isp hardware dont't support raw path", __FUNCTION__);
-        return OK;
-    }
-
-    status = mRawOutWorker->configure(true);
-    CheckError(status != OK, status, "@%s, Failed to configure RawWork",
-                   __FUNCTION__);
-
-    status = mRawOutWorker->startWorker();
-    CheckError(status != OK, status, "@%s, Failed to start RawWork",
-                   __FUNCTION__);
-
-    return status;
-}
-
 status_t
 ImguUnit::kickstart()
 {
@@ -851,21 +827,11 @@ ImguUnit::kickstart()
     status_t status = OK;
 
     for (const auto &it : mCurPipeConfig->deviceWorkers) {
-        // RawWork should start in the cases:
-        // 1. enable dump Raw by cmd: $ setprop persist.vendor.camera.dump 16
-        // 2. tuning tool call the function startRawWork directorly
-        if(OutputFrameWorker *work = static_cast<OutputFrameWorker *>(it.get()))
-            if(work == mRawOutWorker.get())
-                continue;
         status = (*it).startWorker();
         if (status != OK) {
             LOGE("Failed to start workers.");
             return status;
         }
-    }
-    if(LogHelper::isDumpTypeEnable(CAMERA_DUMP_RAW)) {
-        LOGD("@%s : Dump raw enabled, start RawWork", __FUNCTION__);
-        status = startRawWork();
     }
 
     mFirstRequest = false;

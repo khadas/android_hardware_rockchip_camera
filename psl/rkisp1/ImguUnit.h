@@ -77,8 +77,6 @@ private:
     status_t createProcessingTasks(std::shared_ptr<GraphConfig> graphConfig);
     void setStreamListeners(NodeTypes nodeName,
                             std::shared_ptr<OutputFrameWorker>& source);
-    // RawWork start only when dump raw enabled
-    status_t startRawWork();
     status_t kickstart();
     status_t stopAllWorkers();
     void clearWorkers();
@@ -140,7 +138,6 @@ private:
 
     std::map<NodeTypes, camera3_stream_t *> mStreamNodeMapping; /* mStreamNodeMapping doesn't own camera3_stream_t objects */
     std::map<camera3_stream_t*, NodeTypes> mStreamListenerMapping;
-    camera3_stream_t mRawStream;
 
     std::map<unsigned int, std::vector<std::shared_ptr<IDeviceWorker>>> mRequestToWorkMap;
 

@@ -27,6 +27,7 @@
 #include "CommonUtilMacros.h"
 #include "LogHelperAndroid.h"
 #include "EnumPrinthelper.h"
+#include <cutils/properties.h>
 
 NAMESPACE_DECLARATION {
 /**

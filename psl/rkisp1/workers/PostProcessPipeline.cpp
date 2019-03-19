@@ -577,6 +577,7 @@ PostProcessPipeLine::prepare(const FrameInfo& in,
     for (auto stream : streams) {
         int stream_process_type = 0;
         if(IsRawStream(stream)) {
+            LOGD("@%s %d: add Raw unit for rawStream", __FUNCTION__, __LINE__);
             streams_post_proc.push_back(std::map<camera3_stream_t*, int> {{stream, kPostProcessTypeRaw}});
             continue;
         }

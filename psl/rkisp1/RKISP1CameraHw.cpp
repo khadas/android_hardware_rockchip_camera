@@ -108,6 +108,11 @@ RKISP1CameraHw::init()
         return status;
     }
 
+    mFakeRawStream.width = 0;
+    mFakeRawStream.height = 0;
+    mFakeRawStream.stream_type = CAMERA3_STREAM_OUTPUT;
+    mFakeRawStream.format = HAL_PIXEL_FORMAT_RAW_OPAQUE;
+
     return status;
 }
 
@@ -296,10 +301,17 @@ RKISP1CameraHw::findStreamForStillCapture(const std::vector<camera3_stream_t*>& 
 }
 
 void
-RKISP1CameraHw::checkNeedReconfig(std::vector<camera3_stream_t*> &activeStreams)
+RKISP1CameraHw::checkNeedReconfig(UseCase newUseCase, std::vector<camera3_stream_t*> &activeStreams)
 {
     uint32_t lastPathSize = 0, pathSize = 0;
     uint32_t lastSensorSize = 0, sensorSize = 0;
+
+    // must switch sensor output when switch between tunging case and others
+    if(newUseCase == USECASE_TUNING || mUseCase != newUseCase) {
+        mConfigChanged = true;
+        return ;
+    }
+
     //pipeline should reconfig when Sensor out put size changed
     mGCM.getSensorOutputSize(sensorSize);
     mImguUnit->getConfigedSensorOutputSize(lastSensorSize);
@@ -379,6 +391,8 @@ RKISP1CameraHw::configStreams(std::vector<camera3_stream_t*> &activeStreams,
         mUseCase = USECASE_STILL;
     }
 
+    LOGI("%s: select usecase: %s, video/still stream num: %zu/%zu", __FUNCTION__,
+            mUseCase ? "USECASE_VIDEO" : "USECASE_STILL", mStreamsVideo.size(), mStreamsStill.size());
     status = doConfigureStreams(mUseCase, operation_mode, ANDROID_SENSOR_TEST_PATTERN_MODE_OFF);
 
     return status;
@@ -423,7 +437,8 @@ RKISP1CameraHw::processRequest(Camera3Request* request, int inFlightCount)
         CheckError(status != NO_ERROR, status, "@%s: failed to get test pattern mode", __FUNCTION__);
     }
 
-    if (newUseCase != mUseCase || testPatternMode != mTestPatternMode) {
+    if (newUseCase != mUseCase || testPatternMode != mTestPatternMode ||
+        (newUseCase == USECASE_TUNING && mTuningSizeChanged)) {
         LOGI("%s: request %d need reconfigure, infilght %d, usecase %d -> %d", __FUNCTION__,
                 request->getId(), inFlightCount, mUseCase, newUseCase);
         if (inFlightCount > 1) {
@@ -440,8 +455,52 @@ RKISP1CameraHw::processRequest(Camera3Request* request, int inFlightCount)
     return status;
 }
 
-RKISP1CameraHw::UseCase RKISP1CameraHw::checkUseCase(Camera3Request* request) const
+void RKISP1CameraHw::sendTuningDumpCmd(int w, int h)
 {
+    if(w != mFakeRawStream.width || h != mFakeRawStream.height)
+        mTuningSizeChanged = true;
+    mFakeRawStream.width = w;
+    mFakeRawStream.height = h;
+}
+
+RKISP1CameraHw::UseCase RKISP1CameraHw::checkUseCase(Camera3Request* request)
+{
+#if 0
+    ////////////////////////////////////////////////////////
+    // tuning tools demo
+    // setprop persist.vendor.camera.tuning 1  to dump full raw
+    // setprop persist.vendor.camera.tuning 2  to dump bining raw
+    int pixel_width = 0;
+    int pixel_height = 0;
+
+    CameraMetadata staticMeta;
+    staticMeta = PlatformData::getStaticMetadata(mCameraId);
+    camera_metadata_entry entry = staticMeta.find(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE);
+    if(entry.count == 2) {
+        pixel_width = entry.data.i32[0];
+        pixel_height = entry.data.i32[1];
+    }
+
+    char property_value[PROPERTY_VALUE_MAX] = {0};
+    property_get("persist.vendor.camera.tuning", property_value, "0");
+    if(strcmp(property_value, "1") == 0) {
+        LOGD("@%s : dump full raw, return USECASE_TUNING", __FUNCTION__);
+        sendTuningDumpCmd(pixel_width, pixel_height);
+
+    } else if(strcmp(property_value, "2") == 0) {
+        LOGD("@%s : dump binning raw, return USECASE_TUNING", __FUNCTION__);
+            sendTuningDumpCmd(pixel_width / 2, pixel_height / 2);
+    } else {
+        sendTuningDumpCmd(0, 0);
+    }
+    // tuning demo end
+    ////////////////////////////////////////////////////////
+#endif
+
+    if(mFakeRawStream.width && mFakeRawStream.height) {
+        return USECASE_TUNING;
+    }
+
     if (mStreamsStill.size() == mStreamsVideo.size()) {
         return USECASE_VIDEO;
     }
@@ -451,6 +510,7 @@ RKISP1CameraHw::UseCase RKISP1CameraHw::checkUseCase(Camera3Request* request) co
             return USECASE_STILL;
         }
     }
+
     return USECASE_VIDEO;
 }
 
@@ -478,20 +538,33 @@ status_t RKISP1CameraHw::doConfigureStreams(UseCase newUseCase,
                                   uint32_t operation_mode, int32_t testPatternMode)
 {
     PERFORMANCE_ATRACE_CALL();
-    mUseCase = newUseCase;
     mTestPatternMode = testPatternMode;
-    std::vector<camera3_stream_t*>& streams = (mUseCase == USECASE_STILL) ?
+    std::vector<camera3_stream_t*> streams = (newUseCase == USECASE_STILL) ?
                                               mStreamsStill : mStreamsVideo;
+    mTuningSizeChanged = false;
 
-    LOGI("%s: select usecase: %s, video/still stream num: %zu/%zu", __FUNCTION__,
-            mUseCase ? "USECASE_VIDEO" : "USECASE_STILL", mStreamsVideo.size(), mStreamsStill.size());
+    // consider USECASE_TUNING first
+    if(newUseCase == USECASE_TUNING) {
+        streams.push_back(&mFakeRawStream);
+    } else if(LogHelper::isDumpTypeEnable(CAMERA_DUMP_RAW)){
+        // fake raw stream for dump raw
+        mFakeRawStream.width = 0;
+        mFakeRawStream.height = 0;
+        streams.push_back(&mFakeRawStream);
+    }
+
+    LOGI("%s: select usecase: %s, stream nums: %zu", __FUNCTION__,
+            newUseCase == USECASE_VIDEO ? "USECASE_VIDEO" :
+            newUseCase == USECASE_STILL ? "USECASE_STILL" : "USECASE_TUNING",
+            streams.size());
 
     status_t status = mGCM.configStreams(streams, operation_mode, testPatternMode);
     if (status != NO_ERROR) {
         LOGE("Unable to configure stream: No matching graph config found! BUG");
         return status;
     }
-    checkNeedReconfig(streams);
+    checkNeedReconfig(newUseCase, streams);
+    mUseCase = newUseCase;
 
     /* Flush to make sure we return all graph config objects to the pool before
        next stream config. */
@@ -505,7 +578,7 @@ status_t RKISP1CameraHw::doConfigureStreams(UseCase newUseCase,
         return status;
     }
 
-    status = mControlUnit->configStreams(mConfigChanged);
+    status = mControlUnit->configStreams(streams, mConfigChanged);
     if (status != NO_ERROR) {
         LOGE("Unable to configure stream for controlunit");
         return status;

@@ -76,6 +76,7 @@ status_t GraphConfigManager::mapStreamToKey(const std::vector<camera3_stream_t*>
     // Keep streams in order: BLOB, IMPL, YUV...
     std::vector<camera3_stream_t *> availableStreams;
     camera3_stream_t * blobStream = nullptr;
+    camera3_stream_t * rawStream = nullptr;
     int yuvNum = 0;
     int blobNum = 0;
     for (int i = 0; i < streams.size(); i++) {
@@ -94,6 +95,9 @@ status_t GraphConfigManager::mapStreamToKey(const std::vector<camera3_stream_t*>
             case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
                 yuvNum++;
                 availableStreams.insert(availableStreams.begin(), streams[i]);
+                break;
+            case HAL_PIXEL_FORMAT_RAW_OPAQUE:
+                rawStream = streams[i];
                 break;
             default:
                 LOGE("Unsupported stream format %d", streams.at(i)->format);
@@ -150,6 +154,9 @@ status_t GraphConfigManager::mapStreamToKey(const std::vector<camera3_stream_t*>
     mStreamToSinkIdMap[availableStreams[mainOutputIndex]] = GCSS_KEY_IMGU_VIDEO;
     if (secondaryOutputIndex >= 0)
         mStreamToSinkIdMap[availableStreams[secondaryOutputIndex]] = GCSS_KEY_IMGU_PREVIEW;
+
+    if(rawStream)
+        mStreamToSinkIdMap[rawStream] = GCSS_KEY_IMGU_RAW;
 
     return OK;
 }

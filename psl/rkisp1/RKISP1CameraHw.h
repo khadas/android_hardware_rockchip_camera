@@ -56,11 +56,13 @@ class RKISP1CameraHw: public ICameraHw {
     virtual void registerErrorCallback(IErrorCallback* errCb);
     virtual status_t flush();
     virtual void dump(int fd);
+    void sendTuningDumpCmd(int w, int h);
 
  private:
     enum UseCase {
         USECASE_STILL,
-        USECASE_VIDEO
+        USECASE_VIDEO,
+        USECASE_TUNING
     };
  // prevent copy constructor and assignment operator
  private:
@@ -73,14 +75,19 @@ class RKISP1CameraHw: public ICameraHw {
     status_t checkStreamRotation(const std::vector<camera3_stream_t*> activeStreams);
     camera3_stream_t* findStreamForStillCapture(const std::vector<camera3_stream_t*>& streams);
 
-    void checkNeedReconfig(std::vector<camera3_stream_t*> &activeStreams);
-    UseCase checkUseCase(Camera3Request* request) const;
+    void checkNeedReconfig(UseCase newUseCase, std::vector<camera3_stream_t*> &activeStreams);
+    UseCase checkUseCase(Camera3Request* request);
     int64_t getMinFrameDurationNs(camera3_stream_t* stream);
     status_t doConfigureStreams(UseCase newUseCase, uint32_t operation_mode, int32_t testPatternMode);
 
  private:  //members
     int mCameraId;
     bool mConfigChanged;
+    /////////////////////////////////////////////////////////////////////
+    // for tuning tool
+    camera3_stream_t mFakeRawStream;   //fake tuning stream
+    bool mTuningSizeChanged;
+    /////////////////////////////////////////////////////////////////////
 
     CameraMetadata* mStaticMeta;
     /**
