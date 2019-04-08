@@ -127,13 +127,19 @@ RKISP1CameraHw::deInit()
 
     if (mControlUnit) {
         mControlUnit->flush();
-        delete mControlUnit;
-        mControlUnit = nullptr;
     }
 
     if (mImguUnit) {
         delete mImguUnit;
         mImguUnit = nullptr;
+    }
+
+    //ControlUnit destruct function will release ProcUnitSettingsPool
+    //and there are still ~shared_ptr<ProcUnitSettings> in ImguUnit destruct
+    //function and it will cause crash, so delete ControlUnit after ImguUnit
+    if (mControlUnit) {
+        delete mControlUnit;
+        mControlUnit = nullptr;
     }
 
     if(mStaticMeta) {
@@ -435,6 +441,15 @@ RKISP1CameraHw::processRequest(Camera3Request* request, int inFlightCount)
     if(entry.count == 1) {
         status = getTestPatternMode(request, &testPatternMode);
         CheckError(status != NO_ERROR, status, "@%s: failed to get test pattern mode", __FUNCTION__);
+    }
+
+    // in USECASE_STILL, inFlightCount should be one for there are only one
+    // mmap buffer in this case.
+    if(newUseCase == USECASE_STILL && mUseCase == USECASE_STILL) {
+        if (inFlightCount > 1) {
+            LOGD("@%s : request %d, continuous still capture case", __FUNCTION__, request->getId());
+            return RequestThread::REQBLK_WAIT_ALL_PREVIOUS_COMPLETED;
+        }
     }
 
     if (newUseCase != mUseCase || testPatternMode != mTestPatternMode ||

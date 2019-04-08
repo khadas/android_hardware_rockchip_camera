@@ -163,6 +163,20 @@ status_t OutputFrameWorker::configure(bool configChanged)
 
     LOGI("@%s %s: configChanged:%d", __FUNCTION__, mName.c_str(), configChanged);
     if(configChanged) {
+        if(mOutputBuffers.size() != mPipelineDepth) {
+            mPostProcItemsPool.deInit();
+            mPostProcItemsPool.init(mPipelineDepth, PostProcBuffer::reset);
+            for (size_t i = 0; i < mPipelineDepth; i++)
+            {
+                std::shared_ptr<PostProcBuffer> buffer= nullptr;
+                mPostProcItemsPool.acquireItem(buffer);
+                if (buffer.get() == nullptr) {
+                    LOGE("No memory, fix me!");
+                }
+                buffer->index = i;
+            }
+        }
+
         ret = mNode->getFormat(mFormat);
         if (ret != OK)
             return ret;

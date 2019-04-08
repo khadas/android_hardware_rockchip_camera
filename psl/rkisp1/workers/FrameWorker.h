@@ -38,6 +38,7 @@ public:
     virtual status_t prepareRun(std::shared_ptr<DeviceMessage> msg) = 0;
 
     virtual status_t attachNode(std::shared_ptr<V4L2VideoNode> node);
+    virtual void setPipelineDepth(size_t depth) { mPipelineDepth = depth; };
 
     // Restore the mMsg and mPollMe after async polled
     virtual status_t asyncPollDone(std::shared_ptr<DeviceMessage> msg, bool polled)
