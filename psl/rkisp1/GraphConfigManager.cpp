@@ -44,6 +44,7 @@ GraphConfigNodes::~GraphConfigNodes()
 GraphConfigManager::GraphConfigManager(int32_t camId,
                                        GraphConfigNodes *testNodes) :
     mCameraId(camId),
+    mIsOnlyEnableMp(false),
     mGraphConfigPool("GraphConfig")
 {
 
@@ -148,6 +149,12 @@ status_t GraphConfigManager::mapStreamToKey(const std::vector<camera3_stream_t*>
                     secondaryOutputIndex = i;
             }
         }
+    }
+
+    //in stillcapture case, only enable one path can optimize performance
+    if(mIsOnlyEnableMp) {
+        secondaryOutputIndex = -1;
+        LOGI("@%s : only enable mainpath for some special cases", __FUNCTION__);
     }
 
     LOGD("@%s, mainOutputIndex %d, secondaryOutputIndex %d ", __FUNCTION__, mainOutputIndex, secondaryOutputIndex);

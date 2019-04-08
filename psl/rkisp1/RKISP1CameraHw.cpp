@@ -558,6 +558,8 @@ status_t RKISP1CameraHw::doConfigureStreams(UseCase newUseCase,
             newUseCase == USECASE_STILL ? "USECASE_STILL" : "USECASE_TUNING",
             streams.size());
 
+    mGCM.enableMainPathOnly(mUseCase == USECASE_STILL ? true : false);
+
     status_t status = mGCM.configStreams(streams, operation_mode, testPatternMode);
     if (status != NO_ERROR) {
         LOGE("Unable to configure stream: No matching graph config found! BUG");

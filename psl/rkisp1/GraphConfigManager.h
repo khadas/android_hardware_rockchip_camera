@@ -117,6 +117,8 @@ public:
 
     void getHwPathSize(const char* pathName, uint32_t &size);
     void getSensorOutputSize(uint32_t &size);
+    void enableMainPathOnly(bool isOnlyEnableMp) { mIsOnlyEnableMp = isOnlyEnableMp; }
+    bool isOnlyEnableMp() { return mIsOnlyEnableMp; }
 
     /*
      * Second query
@@ -141,6 +143,7 @@ private:
                                     int& videoStreamCnt, int& stillStreamCnt);
 private:
 
+    bool mIsOnlyEnableMp;
     SharedItemPool<GraphConfig> mGraphConfigPool;
 
     /**
