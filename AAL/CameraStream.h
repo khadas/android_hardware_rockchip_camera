@@ -74,7 +74,7 @@ public:
     virtual status_t capture(std::shared_ptr<CameraBuffer> aBuffer,
                              Camera3Request* request);
     virtual status_t captureDone(std::shared_ptr<CameraBuffer> aBuffer,
-                                 Camera3Request* request);
+                                 Camera3Request* request = NULL);
     virtual status_t reprocess(std::shared_ptr<CameraBuffer> aBuffer,
                              Camera3Request* request);
 

@@ -22,6 +22,7 @@
 #include <hardware/camera3.h>
 #include "UtilityMacros.h"
 #include "arc/camera_buffer_manager.h"
+#include "SyncFence.h"
 #include <memory>
 
 NAMESPACE_DECLARATION {
@@ -121,6 +122,32 @@ public:
     }
     int status() { return mUserBuffer.status; }
 
+    //////////////////////////////////////////////////////////////////////////
+    //for release fence allocated in hal
+    int fenceInc(int val = 1) {
+        return mpSyncFence.get() ? mpSyncFence->inc(val) : -1;
+    }
+    bool isfenceActive() {
+        return mpSyncFence.get() ? (mpSyncFence->getActiveCount() ? true : false) : false;
+    }
+    int fenceWait() {
+        return mpSyncFence.get() ? mpSyncFence->wait() : -1;
+    }
+    void fenceInfo() {
+        if(mpSyncFence.get())
+            LOGD("@%s : fence: instance:%p, fd:%d, name:%s ,sig/act/err: %d/%d/%d, reqId:%d", __FUNCTION__,
+                 mpSyncFence.get(),
+                 mpSyncFence->getFd(),
+                 mpSyncFence->name(),
+                 mpSyncFence->getSignaledCount(),
+                 mpSyncFence->getActiveCount(),
+                 mpSyncFence->getErrorCount(),
+                 mRequestID);
+    }
+    //////////////////////////////////////////////////////////////////////////
+
+    status_t captureDone(std::shared_ptr<CameraBuffer> buffer, bool signalFence = true);
+
 private:
     status_t registerBuffer();
     status_t deregisterBuffer();
@@ -149,6 +176,9 @@ private:
     void*         mDataPtr;           /*!< if locked, here is the vaddr */
     int           mRequestID;         /*!< this is filled by hw streams after
                                           calling putframe */
+    std::shared_ptr<SyncFence> mpSyncFence;  /*!< fx: add a sync fence for userbuffer returning in advance */
+    bool captureDoned;                /*!< fx: buffer callback to resultProcess or not */
+
     int mCameraId;
     int mDmaBufFd;                    /*!< file descriptor for dmabuf */
 };

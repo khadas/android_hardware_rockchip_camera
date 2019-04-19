@@ -394,9 +394,6 @@ status_t ResultProcessor::handleBufferDone(Message &msg)
     Camera3Request* request = msg.request;
     std::shared_ptr<CameraBuffer> buffer = msg.buffer;
 
-    if (buffer.get() && buffer->isLocked())
-        buffer->unlock();
-
     int reqId = request->getId();
     if (buffer.get() && buffer->getOwner()) {
         PERFORMANCE_HAL_ATRACE_PARAM1(
@@ -405,10 +402,6 @@ status_t ResultProcessor::handleBufferDone(Message &msg)
         PERFORMANCE_HAL_ATRACE_PARAM1("reqId", reqId);
     }
     PERFORMANCE_ATRACE_NAME_SNPRINTF("handleBufferDone - %d", reqId);
-
-    if (buffer.get()) {
-        buffer->deinit();
-    }
 
     RequestState_t *reqState = nullptr;
     if (getRequestsInTransit(&reqState, reqId) == BAD_VALUE) {

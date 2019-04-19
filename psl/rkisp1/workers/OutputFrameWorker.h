@@ -61,6 +61,7 @@ private:
     camera3_stream_t* mStream; /* OutputFrameWorker doesn't own mStream */
     bool mNeedPostProcess;
     NodeTypes mNodeName;
+    int mLastPipelineDepth;
 
     // For listeners
     std::vector<camera3_stream_t*> mListeners;

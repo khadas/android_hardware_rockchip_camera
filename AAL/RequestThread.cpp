@@ -45,6 +45,7 @@ RequestThread::RequestThread(int cameraId, ICameraHw *aCameraHW) :
     mBlockAction(REQBLK_NONBLOCKING),
     mInitialized(false),
     mResultProcessor(nullptr),
+    mPipelineDepth(-1),
     mStreamSeqNo(0)
 {
     LOGD("@%s", __FUNCTION__);
@@ -81,8 +82,17 @@ RequestThread::init(const camera3_callback_ops_t *callback_ops)
         return status;
     }
 
+    int DEFAULT_PIPELINE_DEPTH = 4;
+    CameraMetadata staticMeta;
+    staticMeta = PlatformData::getStaticMetadata(mCameraId);
+    MetadataHelper::getMetadataValue(staticMeta, ANDROID_REQUEST_PIPELINE_MAX_DEPTH, mPipelineDepth);
+    mPipelineDepth = mPipelineDepth > 0 ? mPipelineDepth : DEFAULT_PIPELINE_DEPTH;
+    LOGD("@%s : Pipeline Depth :%d", __FUNCTION__, mPipelineDepth);
+
     mResultProcessor = new ResultProcessor(this, callback_ops);
     mCameraHw->registerErrorCallback(mResultProcessor);
+    mActiveRequest.reserve(MAX_REQUEST_IN_PROCESS_NUM);
+    mActiveRequest.clear();
     mInitialized = true;
     return NO_ERROR;
 }
@@ -197,6 +207,7 @@ RequestThread::handleConfigureStreams(Message & msg)
     // Delete inactive streams
     deleteStreams(true);
 
+    waitRequestsDrain();
     status = mCameraHw->configStreams(mStreams, operation_mode);
     if (status != NO_ERROR) {
         LOGE("Error configuring the streams @%s:%d", __FUNCTION__, __LINE__);
@@ -297,7 +308,8 @@ RequestThread::handleProcessCaptureRequest(Message & msg)
 
     // Send for capture
     status = captureRequest(request);
-    if (status == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED || status == REQBLK_WAIT_ONE_REQUEST_COMPLETED) {
+    if (status == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED || status == REQBLK_WAIT_ONE_REQUEST_COMPLETED ||
+        status == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED) {
         // Need ISP reconfiguration
         mWaitingRequest = request;
         mBlockAction = status;
@@ -332,32 +344,80 @@ RequestThread::returnRequest(Camera3Request* req)
     return 0;
 }
 
+void
+RequestThread::waitRequestsDrain() {
+
+    PERFORMANCE_ATRACE_CALL();
+    LOGD("@%s : active requests size %zu", __FUNCTION__, mActiveRequest.size());
+    for (int i = 0; i < mActiveRequest.size(); ++i) {
+        Camera3Request* request = mActiveRequest[i];
+        request->waitAllBufsSignaled();
+        request->deInit();
+        mRequestsPool.releaseItem(request);
+        mActiveRequest.erase(mActiveRequest.begin() + i);
+        i--;
+    }
+}
+
+void
+RequestThread::recycleRequest(Camera3Request* request) {
+    if(request->isAnyBufActive()) {
+        mActiveRequest.push_back(request);
+        LOGI("@%s : buffers of req(%d) are holding the release fence, total active requests:%zu",
+             __FUNCTION__, request->getId(), mActiveRequest.size());
+
+        // postpipeline depth limitation
+        if(mActiveRequest.size() >= mPipelineDepth - 1) {
+            LOGI("@%s : Beyond postpipeline depth limitation, wait one request done", __FUNCTION__);
+            mActiveRequest.front()->waitAllBufsSignaled();
+        }
+    } else {
+        request->deInit();
+        mRequestsPool.releaseItem(request);
+    }
+
+    for (int i = 0; i < mActiveRequest.size(); ++i) {
+        Camera3Request* request = mActiveRequest[i];
+        if(request->isAnyBufActive())
+            continue;
+        request->deInit();
+        mRequestsPool.releaseItem(request);
+        mActiveRequest.erase(mActiveRequest.begin() + i);
+        // erase will cause relocate some elements to new positions,
+        // i-- to match the new positions to promise traversing all elements
+        i--;
+    }
+}
+
 int
 RequestThread::handleReturnRequest(Message & msg)
 {
     Camera3Request* request = msg.request;
     status_t status = NO_ERROR;
 
-    request->deInit();
-    mRequestsPool.releaseItem(request);
+    recycleRequest(request);
     mRequestsInHAL--;
     // Check blocked request
     if (mBlockAction != REQBLK_NONBLOCKING) {
         if (mWaitingRequest != nullptr &&
-                ((mBlockAction == REQBLK_WAIT_ONE_REQUEST_COMPLETED) ||
-                (mBlockAction == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED && mRequestsInHAL == 1))) {
-            
+            ((mBlockAction == REQBLK_WAIT_ONE_REQUEST_COMPLETED) ||
+             ((mBlockAction == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED ||
+               mBlockAction == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED) && mRequestsInHAL == 1))) {
+
+            if(mBlockAction == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED)
+                waitRequestsDrain();
+
             // in the case: inFlightCount already reach max when capture request comming,
             // captureRequest will return REQBLK_WAIT_ONE_REQUEST_COMPLETED
             // first and then return REQBLK_WAIT_ALL_PREVIOUS_COMPLETED
             status = captureRequest(mWaitingRequest);
             if (status == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED
-                || status == REQBLK_WAIT_ONE_REQUEST_COMPLETED) {
+                || status == REQBLK_WAIT_ONE_REQUEST_COMPLETED
+                || status == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED) {
                 LOGD("@%s : captureRequest blocking again, status:%d", __FUNCTION__, status);
             } else {
                 if (status != NO_ERROR) {
-                    mWaitingRequest->deInit();
-                    mRequestsPool.releaseItem(mWaitingRequest);
+                    recycleRequest(mWaitingRequest);
                     mRequestsInHAL--;
                 }
                 mWaitingRequest = nullptr;
@@ -407,6 +467,9 @@ status_t RequestThread::flush(void)
         usleep(10000); // wait 10ms
         interval = systemTime() - startTime;
     }
+    // may access mActiveRequest struct with Cam3Thread thread at same time,
+    // do waitRequestsDrain after mRequestsInHAL=0 will sync that
+    waitRequestsDrain();
 
     LOGI("@%s, line:%d, mRequestsInHAL:%d, time spend:%" PRId64 "us",
             __FUNCTION__, __LINE__, mRequestsInHAL, interval / 1000);
@@ -523,7 +586,8 @@ RequestThread::captureRequest(Camera3Request* request)
     //handling input stream buffer costs few time.
     status = mCameraHw->processRequest(request,mRequestsInHAL);
     if (status == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED
-        || status == REQBLK_WAIT_ONE_REQUEST_COMPLETED) {
+        || status == REQBLK_WAIT_ONE_REQUEST_COMPLETED
+        || status == REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED) {
         return status;
     }
 

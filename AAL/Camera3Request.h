@@ -123,6 +123,8 @@ public:
     void notifyFinalmetaFilled();
     CameraMetadata* getAndWaitforFilledResults(unsigned int index);
     const CameraMetadata* getSettings() const;
+    bool isAnyBufActive();
+    int waitAllBufsSignaled();
 
     const std::vector<camera3_stream_buffer>* getInputBuffers();
     const std::vector<camera3_stream_buffer>* getOutputBuffers();

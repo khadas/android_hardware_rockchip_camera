@@ -448,7 +448,28 @@ RKISP1CameraHw::processRequest(Camera3Request* request, int inFlightCount)
     if(newUseCase == USECASE_STILL && mUseCase == USECASE_STILL) {
         if (inFlightCount > 1) {
             LOGD("@%s : request %d, continuous still capture case", __FUNCTION__, request->getId());
-            return RequestThread::REQBLK_WAIT_ALL_PREVIOUS_COMPLETED;
+            return RequestThread::REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED;
+        }
+    }
+
+    //workround for CTS:ImageReaderTest#testRepeatingJpeg
+    //this test will call mReader.acquireLatestImage, this function will
+    //do get latest frame and acquire it's fence until there no new frame
+    //queued. Now, we return the jpeg buffer back to framework in advance
+    //and then signal the fence after some latency. this will result
+    //acquireLatestImage can alway get the new frame and cause infinite loops
+    //so wait previous request completed and fence signaled to avoid this.
+    std::vector<camera3_stream_t*>& streams = (mUseCase == USECASE_STILL) ?
+                                              mStreamsStill : mStreamsVideo;
+    int jpegStreamCnt = 0;
+    for (auto it : streams) {
+        if (it->format == HAL_PIXEL_FORMAT_BLOB)
+            jpegStreamCnt++;
+    }
+    if (jpegStreamCnt == streams.size()) {
+        LOGI("There are only blob streams, it should be a cts case rather than a normal case");
+        if (inFlightCount > 1) {
+            return RequestThread::REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED;
         }
     }
 
@@ -573,7 +594,7 @@ status_t RKISP1CameraHw::doConfigureStreams(UseCase newUseCase,
             newUseCase == USECASE_STILL ? "USECASE_STILL" : "USECASE_TUNING",
             streams.size());
 
-    mGCM.enableMainPathOnly(mUseCase == USECASE_STILL ? true : false);
+    mGCM.enableMainPathOnly(newUseCase == USECASE_STILL ? true : false);
 
     status_t status = mGCM.configStreams(streams, operation_mode, testPatternMode);
     if (status != NO_ERROR) {

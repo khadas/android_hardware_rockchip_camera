@@ -30,6 +30,7 @@
 #include "CameraBuffer.h"
 #include "ProcUnitSettings.h"
 #include "tasks/JpegEncodeTask.h"
+#include "LogHelper.h"
 
 namespace android {
 namespace camera2 {
@@ -153,6 +154,7 @@ class PostProcessUnit : public IPostProcessListener,
     virtual status_t start();
     virtual status_t stop();
     virtual status_t flush();
+    virtual status_t drain();
     /*
      * The processed frame result should be filled in output buffer
      * instead of the internal allocated buffer in this process unit.
@@ -325,8 +327,48 @@ class PostProcessUnitDigitalZoom : public PostProcessUnit
  * used to do post processes for camera3 stream.
  *
  */
-class PostProcessPipeLine {
+class PostProcessPipeLine: public IMessageHandler {
  public:
+    // thread message id's
+    enum MessageId {
+        MESSAGE_ID_EXIT = 0,
+        MESSAGE_ID_START,
+        MESSAGE_ID_STOP,
+        MESSAGE_ID_PREPARE,
+        MESSAGE_ID_PROCESSFRAME,
+        MESSAGE_ID_FLUSH,
+        MESSAGE_ID_MAX
+    };
+
+    struct MessagePrepare {
+        FrameInfo in;
+        std::vector<camera3_stream_t*> streams;
+        bool  needpostprocess;
+        int   pipelineDepth;
+    };
+
+    struct MessageProcess {
+        std::shared_ptr<PostProcBuffer> in;
+        std::vector<std::shared_ptr<PostProcBuffer>> out;
+        std::shared_ptr<ProcUnitSettings> settings;
+    };
+
+    // union of all message data
+    union MessageData {
+        MessagePrepare msgPrepare;
+        MessageProcess msgProcess;
+    };
+
+    struct Message {
+        MessageId id;
+        MessagePrepare prepareMsg;
+        MessageProcess processMsg;
+        Message(): id(MESSAGE_ID_EXIT) {
+            CLEAR(prepareMsg);
+            CLEAR(processMsg);
+        }
+    };
+
     /* Describle the unit position in pipeline */
     enum ProcessUnitLevel {
         kFirstLevel,
@@ -334,6 +376,7 @@ class PostProcessPipeLine {
         kLastLevel,
         kMaxLevel
     };
+
     /*
      * |worker| defines which ISP phisical path to be extended.
      * |listener| specifies where the processed buffer will be output.
@@ -342,6 +385,10 @@ class PostProcessPipeLine {
     ~PostProcessPipeLine();
     /* construt the pipeline*/
     status_t prepare(const FrameInfo& in,
+                     const std::vector<camera3_stream_t*>& streams,
+                     bool& needpostprocess,
+                     int   pipelineDepth = kDefaultAllocBufferNums);
+    status_t prepare_internal(const FrameInfo& in,
                      const std::vector<camera3_stream_t*>& streams,
                      bool& needpostprocess,
                      int   pipelineDepth = kDefaultAllocBufferNums);
@@ -361,6 +408,15 @@ class PostProcessPipeLine {
 
 
  private:
+    virtual void messageThreadLoop(void);
+    status_t requestExitAndWait();
+    status_t handleMessageExit();
+    status_t handleStart(Message &msg);
+    status_t handleStop(Message &msg);
+    status_t handlePrepare(Message &msg);
+    status_t handleProcessFrame(Message &msg);
+    status_t handleFlush(Message &msg);
+
     int getRotationDegrees(camera3_stream_t* stream) const;
     /*
      * Links the unit together.
@@ -383,6 +439,11 @@ class PostProcessPipeLine {
     std::array<ProcUnitList, kMaxLevel> mPostProcUnitArray;
     IPostProcessListener* mPostProcFrameListener;
     int mCameraId;
+    bool mThreadRunning;
+    MessageQueue<Message, MessageId> mMessageQueue;
+    std::unique_ptr<MessageThread> mMessageThread;
+
+    std::condition_variable mCondition;
     /*
      * when more than one camera3_stream is linked to one pipeline, the
      * OutputBuffer of same request from different stream may need to be
@@ -415,6 +476,15 @@ class PostProcessPipeLine {
     explicit PostProcessPipeLine(const PostProcessPipeLine&);
     PostProcessPipeLine& operator=(const PostProcessPipeLine&);
     std::unique_ptr<OutputBuffersHandler> mOutputBuffersHandler;
+};
+const element_value_t PPMsg_stringEnum[] = {
+    {"MESSAGE_ID_EXIT", PostProcessPipeLine::MESSAGE_ID_EXIT },
+    {"MESSAGE_ID_START", PostProcessPipeLine::MESSAGE_ID_START },
+    {"MESSAGE_ID_STOP", PostProcessPipeLine::MESSAGE_ID_STOP },
+    {"MESSAGE_ID_PREPARE", PostProcessPipeLine::MESSAGE_ID_PREPARE },
+    {"MESSAGE_ID_PROCESSFRAME", PostProcessPipeLine::MESSAGE_ID_PROCESSFRAME },
+    {"MESSAGE_ID_FLUSH", PostProcessPipeLine::MESSAGE_ID_FLUSH },
+    {"MESSAGE_ID_MAX", PostProcessPipeLine::MESSAGE_ID_MAX },
 };
 
 } /* namespace camera2 */

@@ -127,23 +127,19 @@ status_t CameraStream::captureDone(std::shared_ptr<CameraBuffer> aBuffer,
     for (uint32_t i = 0; i < mPendingRequests.size(); i++) {
         Camera3Request *pendingRequest;
         pendingRequest = mPendingRequests.at(i);
-        if (request == nullptr || request->getId() == pendingRequest->getId()) {
+        if (aBuffer.get() != nullptr && aBuffer->requestId() == pendingRequest->getId()) {
             switch (mStreamType) {
             case STREAM_PREVIEW:
-                LOGI("%s:%d: Preview buffer done, instance(%p), requestId(%d)", __FUNCTION__, __LINE__, this, request->getId());
-                aBuffer->dumpImage(CAMERA_DUMP_PREVIEW, "PREVIEW");
+                LOGI("%s:%d: Preview buffer done, instance(%p), requestId(%d), stream:%p", __FUNCTION__, __LINE__, this, pendingRequest->getId(), mStream3);
                 break;
             case STREAM_CAPTURE:
-                LOGI("%s:%d: Capture buffer done, instance(%p), requestId(%d)", __FUNCTION__, __LINE__, this, request->getId());
-                aBuffer->dumpImage(CAMERA_DUMP_JPEG, ".jpg");
+                LOGI("%s:%d: Capture buffer done, instance(%p), requestId(%d), stream:%p", __FUNCTION__, __LINE__, this, pendingRequest->getId(), mStream3);
                 break;
             case STREAM_VIDEO:
-                LOGI("%s:%d: Video buffer done, instance(%p), requestId(%d)", __FUNCTION__, __LINE__, this, request->getId());
-                aBuffer->dumpImage(CAMERA_DUMP_VIDEO, "VIDEO");
+                LOGI("%s:%d: Video buffer done, instance(%p), requestId(%d), stream:%p", __FUNCTION__, __LINE__, this, pendingRequest->getId(), mStream3);
                 break;
             case STREAM_ZSL:
-                LOGI("%s:%d: Zsl buffer done, instance(%p), requestId(%d)", __FUNCTION__, __LINE__, this, request->getId());
-                aBuffer->dumpImage(CAMERA_DUMP_ZSL, "ZSL");
+                LOGI("%s:%d: zsl buffer done, instance(%p), requestId(%d), stream:%p", __FUNCTION__, __LINE__, this, pendingRequest->getId(), mStream3);
                 break;
             default :
                 LOGW("%s:%d: Not support the stream type, is a bug, fix me", __FUNCTION__, __LINE__);
@@ -151,8 +147,8 @@ status_t CameraStream::captureDone(std::shared_ptr<CameraBuffer> aBuffer,
             }
             mPendingRequests.erase(mPendingRequests.begin() + i);
             mCallback->bufferDone(pendingRequest, aBuffer);
-            if (request != nullptr)
-                PERFORMANCE_HAL_ATRACE_PARAM1("seqId", request->sequenceId());
+            if (pendingRequest != nullptr)
+                PERFORMANCE_HAL_ATRACE_PARAM1("seqId", pendingRequest->sequenceId());
             break;
         }
     }

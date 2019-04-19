@@ -29,7 +29,8 @@
 #include <dirent.h>
 #include <algorithm>
 
-NAMESPACE_DECLARATION {
+namespace android {
+namespace camera2 {
 extern int32_t gDumpInterval;
 extern int32_t gDumpCount;
 
@@ -63,6 +64,8 @@ CameraBuffer::CameraBuffer() :  mWidth(0),
                                 mOwner(nullptr),
                                 mDataPtr(nullptr),
                                 mRequestID(0),
+                                mpSyncFence(nullptr),
+                                captureDoned(false),
                                 mCameraId(0),
                                 mDmaBufFd(-1)
 {
@@ -111,6 +114,8 @@ CameraBuffer::CameraBuffer(int w,
         mOwner(nullptr),
         mDataPtr(nullptr),
         mRequestID(0),
+        mpSyncFence(nullptr),
+        captureDoned(false),
         mCameraId(cameraId),
         mDmaBufFd(-1)
 {
@@ -167,6 +172,8 @@ CameraBuffer::CameraBuffer(int w, int h, int s, int fd, int dmaBufFd, int length
         mOwner(nullptr),
         mDataPtr(nullptr),
         mRequestID(0),
+        mpSyncFence(nullptr),
+        captureDoned(false),
         mCameraId(-1),
         mDmaBufFd(dmaBufFd)
 {
@@ -214,10 +221,24 @@ status_t CameraBuffer::init(const camera3_stream_buffer *aBuffer, int cameraId)
     mInit = true;
     mDataPtr = nullptr;
     mUserBuffer = *aBuffer;
-    mUserBuffer.release_fence = -1;
+    captureDoned = false;
+
+    char fenceName[32] = {};
+    snprintf(fenceName, sizeof(fenceName),
+        "%dx%d_%s_%d", mWidth, mHeight, v4l2Fmt2Str(mV4L2Fmt), cameraId);
+    mpSyncFence = std::make_shared<SyncFence>(1, fenceName);
+    CheckError(!mpSyncFence.get(), UNKNOWN_ERROR, "@%s, No memory for new SyncFence",
+                   __FUNCTION__);
+
+    // the fence fd passing to framework must make a dup because framework
+    // will make a dup to this fd and close this fd as soon, we still need to
+    // access the fd to signal the fence in this case. so must do a dup.
+    mUserBuffer.release_fence = mpSyncFence->dup();
+    /* mUserBuffer.release_fence = -1; */
+
     mCameraId = cameraId;
-    LOGI("@%s, mHandle:%p, mFormat:%d, mWidth:%d, mHeight:%d, mStride:%d, mSize:%d, V4l2Fmt:%s",
-        __FUNCTION__, mHandle, mFormat, mWidth, mHeight, mStride, mSize, v4l2Fmt2Str(mV4L2Fmt));
+    LOGI("@%s, mHandle:%p, mFormat:%d, mWidth:%d, mHeight:%d, mStride:%d, mSize:%d, V4l2Fmt:%s, reqId:%d",
+        __FUNCTION__, mHandle, mFormat, mWidth, mHeight, mStride, mSize, v4l2Fmt2Str(mV4L2Fmt), mRequestID);
 
     if (mHandle == nullptr) {
         LOGE("@%s: invalid buffer handle", __FUNCTION__);
@@ -322,7 +343,7 @@ status_t CameraBuffer::waitOnAcquireFence()
             mUserBuffer.release_fence = mUserBuffer.acquire_fence;
             mUserBuffer.acquire_fence = -1;
             mUserBuffer.status = CAMERA3_BUFFER_STATUS_ERROR;
-            LOGE("Buffer sync_wait fail!");
+            LOGE("Buffer sync_wait %d fail!", mUserBuffer.release_fence);
             return TIMED_OUT;
         } else {
             close(mUserBuffer.acquire_fence);
@@ -580,6 +601,53 @@ void CameraBuffer::dumpImage(const void *data, const int size, int width, int he
     }
 }
 
+status_t CameraBuffer::captureDone(std::shared_ptr<CameraBuffer> buffer, bool signalFence) {
+    if(!mOwner) {
+        // stream is NULL in the case: rawPath + CAMERA_DUMP_RAW
+        // because the buf is the input mmap buffer for we set the
+        // RawUnit buffer type as kPostProcBufTypePre in postpipeline
+        LOGW("@%s : The buffer %p belong to none stream", __FUNCTION__, this);
+        return OK;
+    }
+
+    if(signalFence) {
+        switch (mOwner->getStreamType()) {
+        case STREAM_PREVIEW:
+            LOGD("@%s : Preview buffer signaled for req %d", __FUNCTION__, mRequestID);
+            dumpImage(CAMERA_DUMP_PREVIEW, "PREVIEW");
+            break;
+        case STREAM_CAPTURE:
+            LOGD("@%s : Capture buffer signaled for req %d", __FUNCTION__, mRequestID);
+            dumpImage(CAMERA_DUMP_JPEG, ".jpg");
+            break;
+        case STREAM_VIDEO:
+            LOGD("@%s : Video buffer signaled for req %d", __FUNCTION__, mRequestID);
+            dumpImage(CAMERA_DUMP_VIDEO, "VIDEO");
+            break;
+        case STREAM_ZSL:
+            LOGD("@%s : Zsl buffer signaled for req %d", __FUNCTION__, mRequestID);
+            dumpImage(CAMERA_DUMP_ZSL, "ZSL");
+            break;
+        default :
+            LOGW("%s:%d: Not support the stream type, is a bug, fix me", __FUNCTION__, __LINE__);
+            break;
+        }
+        unlock();
+        deinit();
+        fenceInc();
+        fenceInfo();
+    }
+
+    if(captureDoned) {
+        return OK;
+    }
+
+    mOwner->captureDone(buffer);
+    captureDoned = true;
+
+    return OK;
+}
+
 /**
  * Utility methods to allocate CameraBuffers from HEAP or Gfx memory
  */
@@ -740,4 +808,5 @@ std::shared_ptr<CameraBuffer> acquireOneBuffer(int cameraId, int w, int h, bool 
 
 } // namespace MemoryUtils
 
-} NAMESPACE_DECLARATION_END
+} /* namespace camera2 */
+} /* namespace android */

@@ -59,6 +59,8 @@ public:
         REQBLK_WAIT_ALL_PREVIOUS_COMPLETED, /* wait all previous requests completed */
         REQBLK_WAIT_ONE_REQUEST_COMPLETED,  /* the count of request in process reached the max,
                                               wait at least one request is completed */
+        REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED, /* wait all previous requests completed
+                                                                  and all buffers fence signaled*/
         REQBLK_UNKOWN_ERROR,                /* unknow issue */
     };
 
@@ -137,6 +139,8 @@ private:  /* methods */
     status_t handleConstructDefaultRequest(Message & msg);
     status_t handleProcessCaptureRequest(Message & msg);
     int handleReturnRequest(Message & msg);
+    void recycleRequest(Camera3Request* request);
+    void waitRequestsDrain();
 
     status_t captureRequest(Camera3Request* request);
 
@@ -166,6 +170,10 @@ private:  /* members */
     std::vector<camera3_stream_t *> mStreams; /* Map to camera3_stream_t from framework
                                               which are not allocated here */
     std::vector<CameraStream*> mLocalStreams; /* Local storage of streaming informations */
+    /* the request has been done to framework, but the buffers are still been
+     * processing in hal holding the release fence */
+    std::vector<Camera3Request*> mActiveRequest;
+    uint8_t mPipelineDepth;
     unsigned int mStreamSeqNo;
 
 };

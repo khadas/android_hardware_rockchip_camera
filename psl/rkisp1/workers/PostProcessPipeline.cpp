@@ -209,6 +209,31 @@ PostProcessUnit::flush() {
 }
 
 status_t
+PostProcessUnit::drain() {
+    PERFORMANCE_ATRACE_CALL();
+    LOGD("%s: @%s ", mName, __FUNCTION__);
+    // the processing frame can't be stopped so just
+    // wait current frame process done
+    long timeout = 500 * 1000000;    //500ms timeout
+    nsecs_t startTime = systemTime();
+    nsecs_t interval = 0;
+
+    while (!mInBufferPool.empty() ||
+           mCurPostProcBufIn.get() != NULL ||
+           mCurPostProcBufOut.get() != NULL) {
+        usleep(5000); // wait 5ms
+        interval = systemTime() - startTime;
+        if(interval >= timeout) {
+            LOGE("@%s :%s drain timeout, time spend:%" PRId64 "us > 500ms", __FUNCTION__, mName, interval / 1000);
+            return UNKNOWN_ERROR;
+        }
+    }
+    LOGI("@%s : It tooks %" PRId64 "us to drain %s", __FUNCTION__, interval / 1000, mName);
+
+    return OK;
+}
+
+status_t
 PostProcessUnit::addOutputBuffer(std::shared_ptr<PostProcBuffer> buf) {
     LOGD("%s: @%s ", mName, __FUNCTION__);
 
@@ -412,7 +437,7 @@ PostProcessUnit::processFrame(const std::shared_ptr<PostProcBuffer>& in,
     PERFORMANCE_ATRACE_CALL();
 
     LOGD("%s: @%s, reqId: %d",
-         mName, __FUNCTION__, this, settings->request->getId());
+         mName, __FUNCTION__, settings->request->getId());
     status_t status = OK;
 
     if (mProcessUnitType == kPostProcessTypeDummy) {
@@ -511,11 +536,22 @@ PostProcessPipeLine::PostProcessPipeLine(IPostProcessListener* listener,
                                          int camid) :
     mPostProcFrameListener(listener),
     mCameraId(camid),
+    mThreadRunning(false),
+    mMessageQueue("PPThread", static_cast<int>(MESSAGE_ID_MAX)),
+    mMessageThread(nullptr),
     mMayNeedSyncStreamsOutput(false),
     mOutputBuffersHandler(new OutputBuffersHandler(this)) {
+
+    mMessageThread = std::unique_ptr<MessageThread>(new MessageThread(this, "PPThread"));
+    mMessageThread->run();
 }
 
 PostProcessPipeLine::~PostProcessPipeLine() {
+    requestExitAndWait();
+    if (mMessageThread != nullptr) {
+        mMessageThread.reset();
+        mMessageThread = nullptr;
+    }
     mPostProcUnits.clear();
     mStreamToProcUnitMap.clear();
 }
@@ -549,6 +585,22 @@ bool PostProcessPipeLine::IsRawStream(camera3_stream_t* stream) {
 
 }
 
+status_t
+PostProcessPipeLine::prepare(const FrameInfo& in,
+                             const std::vector<camera3_stream_t*>& streams,
+                             bool& needpostprocess,
+                             int   pipelineDepth) {
+    Message msg;
+    msg.id = MESSAGE_ID_PREPARE;
+    msg.prepareMsg.in = in;
+    msg.prepareMsg.streams = streams;
+    msg.prepareMsg.needpostprocess = false;
+    /* TODO  should get needpostprocess from link result*/
+    needpostprocess = true;
+    msg.prepareMsg.pipelineDepth = pipelineDepth;
+    status_t status = mMessageQueue.send(&msg);
+    return status;
+}
 
 /*
  * TODO:
@@ -559,7 +611,7 @@ bool PostProcessPipeLine::IsRawStream(camera3_stream_t* stream) {
  *
  */
 status_t
-PostProcessPipeLine::prepare(const FrameInfo& in,
+PostProcessPipeLine::prepare_internal(const FrameInfo& in,
                              const std::vector<camera3_stream_t*>& streams,
                              bool& needpostprocess,
                              int   pipelineDepth) {
@@ -832,12 +884,9 @@ PostProcessPipeLine::prepare(const FrameInfo& in,
 status_t
 PostProcessPipeLine::start() {
     LOGD("@%s", __FUNCTION__);
-    status_t status = OK;
-
-    for (int i = 0; i < kMaxLevel; i++)
-        for (auto iter : mPostProcUnitArray[i])
-           status |= iter->start();
-
+    Message msg;
+    msg.id = MESSAGE_ID_START;
+    status_t status = mMessageQueue.send(&msg);
     return status;
 }
 
@@ -858,14 +907,9 @@ PostProcessPipeLine::clear() {
 status_t
 PostProcessPipeLine::stop() {
     LOGD("@%s", __FUNCTION__);
-    status_t status = OK;
-
-    for (int i = 0; i < kMaxLevel; i++)
-        for (auto iter : mPostProcUnitArray[i])
-           status |= iter->stop();
-
-    clear();
-
+    Message msg;
+    msg.id = MESSAGE_ID_STOP;
+    status_t status = mMessageQueue.send(&msg);
     return status;
 }
 
@@ -873,10 +917,12 @@ void
 PostProcessPipeLine::flush() {
     LOGD("@%s", __FUNCTION__);
 
+    /* TODO  now only complete dummy flush, just wait all request done,
+     * and flush here do nothing, in future vertion, add it*/
     /* flush from first level unit to last level */
-    for (int i = 0; i < kMaxLevel; i++)
-        for (auto iter : mPostProcUnitArray[i])
-           iter->flush();
+    /* for (int i = 0; i < kMaxLevel; i++) */
+    /*     for (auto iter : mPostProcUnitArray[i]) */
+    /*        iter->flush(); */
 }
 
 status_t
@@ -885,14 +931,13 @@ PostProcessPipeLine::processFrame(const std::shared_ptr<PostProcBuffer>& in,
                                   const std::shared_ptr<ProcUnitSettings>& settings) {
     status_t status = OK;
 
-    // add |out| to correspond unit
-    status = addOutputBuffer(out);
-    if (status != OK)
-        return status;
-    mOutputBuffersHandler->addSyncBuffersIfNeed(in, out);
-    // send |in| to each first level process unit
-    for (auto iter : mPostProcUnitArray[kFirstLevel])
-        status |= iter->notifyNewFrame(in, settings, 0);
+    Message msg;
+    msg.id = MESSAGE_ID_PROCESSFRAME;
+
+    msg.processMsg.in = in;
+    msg.processMsg.out = out;
+    msg.processMsg.settings = settings;
+    status = mMessageQueue.send(&msg);
 
     return status;
 }
@@ -969,6 +1014,137 @@ PostProcessPipeLine::setPostProcUnitAsync(PostProcessUnit* procunit, bool async)
     }
 
     return status;
+}
+
+void
+PostProcessPipeLine::messageThreadLoop()
+{
+    LOGD("@%s - Start", __FUNCTION__);
+
+    mThreadRunning = true;
+    while (mThreadRunning) {
+        status_t status = NO_ERROR;
+
+        PERFORMANCE_ATRACE_BEGIN("PP-PollMsg");
+        Message msg;
+        mMessageQueue.receive(&msg);
+        PERFORMANCE_ATRACE_END();
+
+        PERFORMANCE_ATRACE_NAME_SNPRINTF("PP-%s", ENUM2STR(PPMsg_stringEnum, msg.id));
+        PERFORMANCE_HAL_ATRACE_PARAM1("msg", msg.id);
+        LOGD("@%s, receive message id:%d", __FUNCTION__, msg.id);
+        switch (msg.id) {
+        case MESSAGE_ID_EXIT:
+            status = handleMessageExit();
+            break;
+        case MESSAGE_ID_START:
+            status = handleStart(msg);
+            break;
+        case MESSAGE_ID_STOP:
+            status = handleStop(msg);
+            break;
+        case MESSAGE_ID_PREPARE:
+            status = handlePrepare(msg);
+            break;
+        case MESSAGE_ID_PROCESSFRAME:
+            status = handleProcessFrame(msg);
+            break;
+        case MESSAGE_ID_FLUSH:
+            status = handleFlush(msg);
+            break;
+        default:
+            LOGE("ERROR Unknown message %d", msg.id);
+            status = BAD_VALUE;
+            break;
+        }
+        if (status != NO_ERROR)
+            LOGE("error %d in handling message: %d", status,
+                    static_cast<int>(msg.id));
+        LOGD("@%s, finish message id:%d", __FUNCTION__, msg.id);
+        mMessageQueue.reply(msg.id, status);
+        PERFORMANCE_ATRACE_END();
+    }
+
+    LOGD("%s: Exit", __FUNCTION__);
+}
+
+status_t
+PostProcessPipeLine::requestExitAndWait()
+{
+    Message msg;
+    msg.id = MESSAGE_ID_EXIT;
+    status_t status = mMessageQueue.send(&msg, MESSAGE_ID_EXIT);
+    status |= mMessageThread->requestExitAndWait();
+    return status;
+}
+
+status_t
+PostProcessPipeLine::handleMessageExit()
+{
+    mThreadRunning = false;
+    return NO_ERROR;
+}
+
+status_t
+PostProcessPipeLine::handleStart(Message &msg)
+{
+    LOGD("@%s : enter", __FUNCTION__);
+    status_t status = OK;
+    for (int i = 0; i < kMaxLevel; i++)
+        for (auto iter : mPostProcUnitArray[i])
+           status |= iter->start();
+
+    return status;
+}
+
+status_t
+PostProcessPipeLine::handleStop(Message &msg)
+{
+    LOGD("@%s : enter", __FUNCTION__);
+    status_t status = OK;
+
+    for (int i = 0; i < kMaxLevel; i++)
+        for (auto iter : mPostProcUnitArray[i])
+           iter->drain();
+
+    for (int i = 0; i < kMaxLevel; i++)
+        for (auto iter : mPostProcUnitArray[i])
+           status |= iter->stop();
+
+    clear();
+
+    return status;
+}
+
+status_t
+PostProcessPipeLine::handlePrepare(Message &msg)
+{
+    LOGD("@%s : enter", __FUNCTION__);
+    prepare_internal(msg.prepareMsg.in, msg.prepareMsg.streams, msg.prepareMsg.needpostprocess, msg.prepareMsg.pipelineDepth);
+    return NO_ERROR;
+}
+
+status_t
+PostProcessPipeLine::handleProcessFrame(Message &msg)
+{
+    LOGD("@%s : enter", __FUNCTION__);
+    status_t status = OK;
+    // add |out| to correspond unit
+    status = addOutputBuffer(msg.processMsg.out);
+    if (status != OK)
+        return status;
+    mOutputBuffersHandler->addSyncBuffersIfNeed(msg.processMsg.in, msg.processMsg.out);
+    // send |in| to each first level process unit
+    for (auto iter : mPostProcUnitArray[kFirstLevel])
+        status |= iter->notifyNewFrame(msg.processMsg.in, msg.processMsg.settings, 0);
+    return status;
+}
+
+status_t
+PostProcessPipeLine::handleFlush(Message &msg)
+{
+    LOGD("@%s : enter", __FUNCTION__);
+    return NO_ERROR;
 }
 
 PostProcessPipeLine::
@@ -1067,16 +1243,30 @@ PostProcessUnitJpegEnc::processFrame(const std::shared_ptr<PostProcBuffer>& in,
                                      const std::shared_ptr<ProcUnitSettings>& settings) {
     PERFORMANCE_ATRACE_CALL();
     status_t status = OK;
-    LOGD("%s: @%s, reqId: %d",
-         mName, __FUNCTION__, this, settings->request->getId());
+    // to avoid the destruct of the in args
+    std::shared_ptr<PostProcBuffer> inbuf = in;
+    std::shared_ptr<PostProcBuffer> outBuf = out;
+    std::shared_ptr<ProcUnitSettings> procsettings = settings;
 
-    in->cambuf->dumpImage(CAMERA_DUMP_JPEG, "before_jpeg_converion_nv12");
+    LOGD("%s: @%s, reqId: %d",
+         mName, __FUNCTION__, procsettings->request->getId());
+
+    inbuf->cambuf->dumpImage(CAMERA_DUMP_JPEG, "before_jpeg_converion_nv12");
     // JPEG encoding
-    status = mJpegTask->handleMessageSettings(*settings.get());
+    status = mJpegTask->handleMessageSettings(*procsettings.get());
     CheckError((status != OK), status, "@%s, set settings failed! [%d]!",
                __FUNCTION__, status);
 
-    status = convertJpeg(in->cambuf, out->cambuf, out->request);
+    status = convertJpeg(inbuf->cambuf, outBuf->cambuf, outBuf->request);
+    //caputre buffer already done with holding release fence, now signal
+    //the release fence. In normal case, capture done should be called in
+    //OutputFrameWorker::notifyNewFrame, but in order to speed up capture
+    //time in switch capture case, the pipeline flush and stop had been done
+    //in advance, so it can't notify to outputFrameWork here, just do
+    //cambuf->captureDone here.
+    outBuf->cambuf->captureDone(outBuf->cambuf, true);
+
+    mCurPostProcBufOut.reset();
     CheckError((status != OK), status, "@%s, JPEG conversion failed! [%d]!",
                __FUNCTION__, status);
 
@@ -1140,7 +1330,7 @@ PostProcessUnitRaw::processFrame(const std::shared_ptr<PostProcBuffer>& in,
     PERFORMANCE_ATRACE_CALL();
     status_t status = OK;
 
-    LOGD("@%s: instance:%p, name: %s", __FUNCTION__, this, mName);
+    LOGD("@%s: instance:%p, name: %s", __FUNCTION__, mName);
     /* in->cambuf->dumpImage(CAMERA_DUMP_RAW, "RawUnit"); */
 
     return status;
@@ -1163,7 +1353,7 @@ PostProcessUnitSwLsc::processFrame(const std::shared_ptr<PostProcBuffer>& in,
                                    const std::shared_ptr<ProcUnitSettings>& settings) {
     PERFORMANCE_ATRACE_CALL();
     LOGD("%s: @%s, reqId: %d",
-         mName, __FUNCTION__, this, settings->request->getId());
+         mName, __FUNCTION__, settings->request->getId());
     ScopedPerfTrace lscper(3, "lscper", 30 * 1000);
 
     status_t status = OK;

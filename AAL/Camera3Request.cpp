@@ -203,6 +203,7 @@ Camera3Request::init(camera3_capture_request* req,
                                                    buffer->stream->width,
                                                    buffer->stream->stream_type);
 
+        mOutputBufferPool[i]->setRequestId(req->frame_number);
         status = mOutputBufferPool[i]->init(buffer, cameraId);
         if (status != NO_ERROR) {
             LOGE("init output buffer fail");
@@ -309,6 +310,31 @@ Camera3Request::getId()
 {
     std::lock_guard<std::mutex> l(mAccessLock);
     return mInitialized ? mRequestId : -1;
+}
+
+bool
+Camera3Request::isAnyBufActive()
+{
+    for (auto it : mOutputBuffers) {
+        if(it->isfenceActive() == true)
+            return true;
+    }
+    return false;
+}
+
+int
+Camera3Request::waitAllBufsSignaled()
+{
+    PERFORMANCE_ATRACE_CALL();
+    LOGD("@%s : reqId %d", __FUNCTION__, mRequestId);
+    int ret = 0;
+    for (auto it : mOutputBuffers) {
+        ret = it->fenceWait();
+        CheckError(ret != 0, ret;, "@%s, wait buffer fence signaled failed for req %d",
+                       __FUNCTION__, mRequestId);
+    }
+    LOGD("@%s : done for reqId %d", __FUNCTION__, mRequestId);
+    return ret;
 }
 
 const std::vector<CameraStreamNode*>*

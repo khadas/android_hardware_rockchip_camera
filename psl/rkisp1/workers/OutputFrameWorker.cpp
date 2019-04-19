@@ -36,6 +36,7 @@ OutputFrameWorker::OutputFrameWorker(int cameraId, std::string name,
                 mStream(NULL),
                 mNeedPostProcess(false),
                 mNodeName(nodeName),
+                mLastPipelineDepth(pipelineDepth),
                 mPostPipeline(new PostProcessPipeLine(this, cameraId)),
                 mPostProcItemsPool("PostBufPool")
 {
@@ -99,17 +100,7 @@ OutputFrameWorker::notifyNewFrame(const std::shared_ptr<PostProcBuffer>& buf,
                                   const std::shared_ptr<ProcUnitSettings>& settings,
                                   int err)
 {
-    CameraStream *stream = buf->cambuf->getOwner();
-    // stream is NULL in the case: rawPath + CAMERA_DUMP_RAW
-    // because the buf is the input mmap buffer for we set the
-    // RawUnit buffer type as kPostProcBufTypePre in postpipeline
-    if (stream) {
-        stream->captureDone(buf->cambuf, buf->request);
-    } else {
-        LOGI("@%s %s: Dump raw enabled, fake raw stream do nothing",
-             __FUNCTION__, mName.c_str());
-    }
-
+    buf->cambuf->captureDone(buf->cambuf, true);
     return OK;
 }
 
@@ -163,7 +154,10 @@ status_t OutputFrameWorker::configure(bool configChanged)
 
     LOGI("@%s %s: configChanged:%d", __FUNCTION__, mName.c_str(), configChanged);
     if(configChanged) {
-        if(mOutputBuffers.size() != mPipelineDepth) {
+        if(mLastPipelineDepth != mPipelineDepth) {
+            LOGD("@%s :  pipelineDepth changed %d > %d in still capture case",
+                 __FUNCTION__, mLastPipelineDepth, mPipelineDepth);
+            mLastPipelineDepth = mPipelineDepth;
             mPostProcItemsPool.deInit();
             mPostProcItemsPool.init(mPipelineDepth, PostProcBuffer::reset);
             for (size_t i = 0; i < mPipelineDepth; i++)
@@ -425,10 +419,9 @@ status_t OutputFrameWorker::postRun()
             continue;
         }
 
-        stream = listenerBuf->getOwner();
         if (NO_ERROR != prepareBuffer(listenerBuf)) {
             LOGE("prepare listener buffer error!");
-            listenerBuf->getOwner()->captureDone(listenerBuf, request);
+            listenerBuf->captureDone(listenerBuf);
             status = UNKNOWN_ERROR;
             continue;
         }
@@ -437,6 +430,10 @@ status_t OutputFrameWorker::postRun()
         postOutBuf->request = request;
         outBufs.push_back(postOutBuf);
         postOutBuf = nullptr;
+        if(listenerBuf->getOwner()->getStreamType() ==  STREAM_CAPTURE) {
+            listenerBuf->captureDone(listenerBuf, false);
+            LOGD("@%s : captureDone in advance for req %d", __FUNCTION__, request->getId());
+        }
     }
     if (status != OK)
         goto exit;
@@ -467,8 +464,11 @@ status_t OutputFrameWorker::postRun()
     mPostPipeline->processFrame(tempBuf, outBufs, mMsg->pMsg.processingSettings);
     stream = mOutputBuffer->getOwner();
 
-    // call capturedone for the stream of the buffer
-    //stream->captureDone(mOutputBuffer, request);
+    // call captureDone for the stream of the buffer
+    if(stream->getStreamType() ==  STREAM_CAPTURE) {
+        mOutputBuffer->captureDone(mOutputBuffer, false);
+        LOGD("@%s : captureDone in advance for req %d", __FUNCTION__, request->getId());
+    }
 
 exit:
     /* Prevent from using old data */
@@ -492,7 +492,7 @@ void OutputFrameWorker::returnBuffers(bool returnListenerBuffers)
 
     buffer = findBuffer(request, mStream);
     if (buffer.get() && buffer->isRegistered())
-        buffer->getOwner()->captureDone(buffer, request);
+        buffer->captureDone(buffer);
 
     if (!returnListenerBuffers)
         return;
@@ -502,8 +502,7 @@ void OutputFrameWorker::returnBuffers(bool returnListenerBuffers)
         buffer = findBuffer(request, listener);
         if (buffer.get() == nullptr || !buffer->isRegistered())
             continue;
-
-        buffer->getOwner()->captureDone(buffer, request);
+        buffer->captureDone(buffer);
     }
 }
 
