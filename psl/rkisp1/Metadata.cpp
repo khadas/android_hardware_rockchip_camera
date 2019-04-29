@@ -260,8 +260,11 @@ void Metadata::writeRestMetadata(RequestCtrlState &reqState) const
     i32 = 0;
     RESULT_UPDATE_WITH_VALUE_IF_NEED(ANDROID_SENSOR_TEST_PATTERN_MODE, 1, &i32);
 
-    i64 = 30 * 1000 * 1000;  //fake rolling time
-    RESULT_UPDATE_WITH_VALUE_IF_NEED(ANDROID_SENSOR_FRAME_DURATION, 1, &i64);
+    entry = settings->find(ANDROID_CONTROL_AE_TARGET_FPS_RANGE);
+    if (entry.count == 2) {
+        i64 = 1 * 1000 * 1000 * 1000 / entry.data.i32[1];
+        RESULT_UPDATE_WITH_VALUE_IF_NEED(ANDROID_SENSOR_FRAME_DURATION, 1, &i64);
+    }
 
     i64 = 15 * 1000 * 1000;  //fake rolling time
     RESULT_UPDATE_WITH_VALUE_IF_NEED(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW, 1, &i64);
