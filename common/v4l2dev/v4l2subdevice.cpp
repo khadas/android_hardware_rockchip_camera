@@ -288,6 +288,33 @@ status_t V4L2Subdevice::setFramerate(int pad, int fps)
     return setFrameInterval(finterval);
 }
 
+status_t V4L2Subdevice::getSensorFrameDuration(int32_t &duration)
+{
+    LOGI("@%s device = %s", __FUNCTION__, mName.c_str());
+    int ret = 0;
+
+    struct v4l2_subdev_frame_interval finterval;
+    CLEAR(finterval);
+
+    if (mState == DEVICE_CLOSED) {
+        LOGE("%s invalid device state %d",__FUNCTION__, mState);
+        return INVALID_OPERATION;
+    }
+
+    ret = pbxioctl(VIDIOC_SUBDEV_G_FRAME_INTERVAL, &finterval);
+    if (ret < 0) {
+        LOGE("VIDIOC_SUBDEV_S_FRAME_INTERVAL failed: %s", strerror(errno));
+        return UNKNOWN_ERROR;
+    }
+    duration = 1000 * finterval.interval.numerator / finterval.interval.denominator;
+    LOGI("VIDIOC_SUBDEV_G_FRAME_INTERVAL: numerator %d, denominator %d，duration %dms",
+        finterval.interval.numerator,
+        finterval.interval.denominator,
+        duration);
+
+    return NO_ERROR;
+}
+
 status_t V4L2Subdevice::getSensorFormats(int pad, uint32_t code, std::vector<struct v4l2_subdev_frame_size_enum> &fse)
 {
     int ret = 0;

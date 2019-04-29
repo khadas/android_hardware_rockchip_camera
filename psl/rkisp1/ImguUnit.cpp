@@ -256,14 +256,19 @@ ImguUnit::configStreamsDone()
        return status;
     }
 
-    /*
-     * TODO:
-     * the interval from configstream done to the first frame produced by ISP driver may
-     * be over 200ms, and this will cause some recording CTS cases fail, so we add some
-     * delay here. The actual delay time may be different for various sensors, so it could
-     * be better to define this in camera_profiles.xml
-     */
-    /* usleep(200 * 1000); */
+    int32_t duration = 30;    //default duration 30ms
+    status = PlatformData::getCameraHWInfo()->getSensorFrameDuration(mCameraId, duration);
+    if (status != NO_ERROR)
+        LOGW("@%s : Can't get sensor frame duration", __FUNCTION__);
+
+    // Notice: frame.initialSkip configured in camera3_profiles.xml should be
+    // the(actual skipFrams - 2) for the driver will alway drop 2 frames.
+    // the first frame can't be captured by ISP, the second frame will be
+    // captured to dummy buffer.
+    const RKISP1CameraCapInfo *cap = getRKISP1CameraCapInfo(mCameraId);
+    int skipFrames = cap->frameInitialSkip();
+    LOGD("@%s : skipFrames: %d, sensorFrameDuration: %d", __FUNCTION__, skipFrames, duration);
+    usleep(skipFrames * duration * 1000);
 
     return status;
 }

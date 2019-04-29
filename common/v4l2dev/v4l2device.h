@@ -323,6 +323,7 @@ public:
     status_t setSelection(int pad, int target, int top, int left, int width, int height);
     status_t getPadFormat(int padIndex, int &width, int &height, int &code);
     status_t setFramerate(int pad, int fps);
+    status_t getSensorFrameDuration(int32_t &duration);
     status_t getSensorFormats(int pad, uint32_t code, std::vector<struct v4l2_subdev_frame_size_enum> &fse);
 private:
     status_t setFormat(struct v4l2_subdev_format &aFormat);
