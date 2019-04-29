@@ -246,7 +246,7 @@
             <exposure.lag value="2"/>
             <fov value= "54.8" value_v="42.5"/>
             <statistics.initialSkip value="1"/> <!-- camera3 HAL CPF parameters moved here end-->
-            <frame.initialSkip value="3"/> <!-- camera3 HAL CPF parameters moved here end-->
+            <frame.initialSkip value="0"/> <!-- should equal actual skipFrames - 2 for driver dropped 2 frames -->
             <isoAnalogGain1 value="75"/> <!--Pseudo ISO corresponding analog gain value 1.0. -->
             <cITMaxMargin value="10"/> <!--coarse integration time max margin -->
         </Sensor_info_RKISP1>
@@ -465,7 +465,7 @@
             <exposure.lag value="2"/>
             <fov value= "54.8" value_v="42.5"/>
             <statistics.initialSkip value="1"/> <!-- camera3 HAL CPF parameters moved here end-->
-            <frame.initialSkip value="3"/> <!-- camera3 HAL CPF parameters moved here end-->
+            <frame.initialSkip value="0"/> <!-- should equal actual skipFrames - 2 for driver dropped 2 frames -->
             <isoAnalogGain1 value="75"/> <!--Pseudo ISO corresponding analog gain value 1.0. -->
             <cITMaxMargin value="10"/> <!--coarse integration time max margin -->
         </Sensor_info_RKISP1>
@@ -716,7 +716,7 @@
             <exposure.lag value="2"/>
             <fov value= "54.8" value_v="42.5"/>
             <statistics.initialSkip value="1"/> <!-- camera3 HAL CPF parameters moved here end-->
-            <frame.initialSkip value="3"/> <!-- camera3 HAL CPF parameters moved here end-->
+            <frame.initialSkip value="0"/> <!-- should equal actual skipFrames - 2 for driver dropped 2 frames -->
             <isoAnalogGain1 value="75"/> <!--Pseudo ISO corresponding analog gain value 1.0. -->
             <cITMaxMargin value="10"/> <!--coarse integration time max margin -->
         </Sensor_info_RKISP1>
