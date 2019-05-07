@@ -43,8 +43,8 @@ MediaCtlHelper::MediaCtlHelper(std::shared_ptr<MediaController> mediaCtl,
 MediaCtlHelper::~MediaCtlHelper()
 {
     closeVideoNodes();
-    resetLinks(mMediaCtlConfig);
-    resetLinks(mPipeConfig);
+    resetLinks(&mConfigedMediaCtlConfigs[IStreamConfigProvider::CIO2]);
+    resetLinks(&mConfigedMediaCtlConfigs[IStreamConfigProvider::IMGU_COMMON]);
 }
 
 void MediaCtlHelper::getConfigedHwPathSize(const char* pathName, uint32_t &size) {
@@ -71,6 +71,7 @@ void MediaCtlHelper::getConfigedSensorOutputSize(uint32_t &size) {
 status_t MediaCtlHelper::configure(IStreamConfigProvider &graphConfigMgr, IStreamConfigProvider::MediaType type)
 {
     HAL_TRACE_CALL(CAM_GLBL_DBG_HIGH);
+    status_t status = NO_ERROR;
     if (isMediaTypeForPipe(type)) {
         LOGE("%d is type for pipe!", type);
         return BAD_VALUE;
@@ -82,28 +83,8 @@ status_t MediaCtlHelper::configure(IStreamConfigProvider &graphConfigMgr, IStrea
     media_device_info deviceInfo;
     CLEAR(deviceInfo);
 
-    status_t status = closeVideoNodes();
-    if (status != NO_ERROR) {
-        LOGE("Failed to close video nodes (ret = %d)", status);
-        return status;
-    }
-
-    // Reset pipe config
-    status = resetLinks(graphConfigMgr.getMediaCtlConfigPrev(mConfigedPipeType));
-    if (status != NO_ERROR) {
-        LOGE("Cannot reset MediaCtl links");
-        return status;
-    }
     mConfigedPipeType = IStreamConfigProvider::MEDIA_TYPE_MAX_COUNT;
     mPipeConfig = nullptr;
-
-    // Reset common config
-    mMediaCtlConfig = graphConfigMgr.getMediaCtlConfigPrev(type);
-    status = resetLinks(mMediaCtlConfig);
-    if (status != NO_ERROR) {
-        LOGE("Cannot reset MediaCtl links");
-        return status;
-    }
 
     // Handle new common config
     mMediaCtlConfig = graphConfigMgr.getMediaCtlConfig(type);
@@ -303,6 +284,7 @@ status_t MediaCtlHelper::openVideoNodes()
     status_t status = UNKNOWN_ERROR;
 
     mConfiguredNodes.clear();
+    mConfiguredNodesPerName.clear();
 
     // Open video nodes that are listed in the current config
     for (unsigned int i = 0; i < mMediaCtlConfig->mVideoNodes.size(); i++) {

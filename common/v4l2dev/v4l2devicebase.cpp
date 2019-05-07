@@ -67,6 +67,7 @@ status_t V4L2DeviceBase::open()
         return UNKNOWN_ERROR;
     }
 
+    PERFORMANCE_ATRACE_NAME_SNPRINTF("Open - %s", mName.c_str());
     perfopen(mName.c_str(), O_RDWR, mFd);
 
     if (mFd < 0) {

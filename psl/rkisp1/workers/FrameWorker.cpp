@@ -86,7 +86,8 @@ status_t FrameWorker::stopWorker()
     mMsg = nullptr;
     mBuffers.clear();
     mCameraBuffers.clear();
-    status_t ret = mNode->stop(true);
+    //stream_off and destory the buffer pool
+    status_t ret = mNode->stop();
     if (ret != OK) {
         LOGE("stop device failed: %s ret: %d", mNode->name(), ret);
     }
