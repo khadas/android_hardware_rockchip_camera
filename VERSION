@@ -46,3 +46,9 @@ V1.9.0
       v1.9.0
     matched rkisp1 driver version:
       v0.1.1
+V1.9.1
+	- support flashlight
+	matched librkisp version:
+	  v2.0.1
+	matched rkisp1 driver version:
+	  v0.1.3

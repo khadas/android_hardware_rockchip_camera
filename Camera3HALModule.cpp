@@ -46,7 +46,7 @@ USING_DECLARED_NAMESPACE;
 // vA.B.C:
 // A and B is updated by platform, and C is updated by product
 #define CAM_HAL3_PROPERTY_KEY  "vendor.cam.hal3.ver"
-static char rkHal3Version[PROPERTY_VALUE_MAX] = "v1.9.0";
+static char rkHal3Version[PROPERTY_VALUE_MAX] = "v1.9.1";
 
 static int hal_dev_close(hw_device_t* device);
 
