@@ -39,7 +39,8 @@ PSLSRC = \
     common/platformdata/gc/FormatUtils.cpp \
     psl/rkisp1/NodeTypes.cpp \
     psl/rkisp1/RgaCropScale.cpp \
-    psl/rkisp1/RkCtrlLoop.cpp 
+    psl/rkisp1/RkCtrlLoop.cpp \
+    psl/rkisp1/tunetool/TuningServer.cpp
 
 STRICTED_CPPFLAGS := \
                     -Wno-unused-parameter \
@@ -52,6 +53,7 @@ PSLCPPFLAGS = \
     $(STRICTED_CPPFLAGS) \
     -I$(LOCAL_PATH)/common/platformdata/metadataAutoGen/6.0.1 \
     -I$(LOCAL_PATH)/psl/rkisp1 \
+    -I$(LOCAL_PATH)/psl/rkisp1/tunetool \
     -I$(LOCAL_PATH)/include \
     -I$(LOCAL_PATH)/include/ia_imaging \
     -I$(LOCAL_PATH)/include/rk_imaging \

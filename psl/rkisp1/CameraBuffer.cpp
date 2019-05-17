@@ -806,6 +806,33 @@ std::shared_ptr<CameraBuffer> acquireOneBuffer(int cameraId, int w, int h, bool 
     return buffer;
 }
 
+std::shared_ptr<CameraBuffer> acquireOneBufferWithNoCache(int cameraId, int w, int h, bool allocate) {
+    status_t ret;
+    std::shared_ptr<CameraBuffer> buffer = nullptr;
+
+    //PreAllocateBufferPool[cameraId]->acquireItem(buffer);
+    if(allocate && buffer.get() == nullptr) {
+        buffer = MemoryUtils::allocateHandleBuffer(w, h, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
+                                                   GRALLOC_USAGE_HW_CAMERA_WRITE|GRALLOC_USAGE_HW_CAMERA_READ|
+                                                   /* TODO: same as the temp solution in RKISP1CameraHw.cpp configStreams func
+                                                    * add GRALLOC_USAGE_HW_VIDEO_ENCODER is a temp patch for gpu bug:
+                                                    * gpu cant alloc a nv12 buffer when format is
+                                                    * HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED. Need gpu provide a patch */
+                                                   GRALLOC_USAGE_HW_VIDEO_ENCODER);
+
+        CheckError((buffer.get() == nullptr), nullptr, "@%s : No memeory, failed allocate buffer",
+                   __FUNCTION__);
+        LOGW("@%s : shortage of internal buffer, allocate a new one ", __FUNCTION__);
+        return buffer;
+    }
+
+    // reuse the Camerabuffer, just change the stream width and height
+    if (buffer.get() != nullptr)
+        buffer->reConfig(w, h);
+
+    return buffer;
+}
+
 } // namespace MemoryUtils
 
 } /* namespace camera2 */

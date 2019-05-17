@@ -26,6 +26,7 @@
 #include "ImguUnit.h"
 #include "ControlUnit.h"
 #include "PSLConfParser.h"
+#include "TuningServer.h"
 
 namespace android {
 namespace camera2 {
@@ -100,6 +101,11 @@ RKISP1CameraHw::init()
         return status;
     }
 
+    mTuningServer = TuningServer::GetInstance();
+    if(mTuningServer) {
+        mTuningServer->init(mControlUnit, this);
+    }
+
     // Register ControlUnit as a listener to capture events
     status = mImguUnit->attachListener(mControlUnit);
     status = initStaticMetadata();
@@ -150,6 +156,11 @@ RKISP1CameraHw::deInit()
         mStaticMeta->release();
         delete mStaticMeta;
         mStaticMeta = nullptr;
+    }
+
+    mTuningServer = TuningServer::GetInstance();
+    if(mTuningServer) {
+        mTuningServer->deinit();
     }
 }
 

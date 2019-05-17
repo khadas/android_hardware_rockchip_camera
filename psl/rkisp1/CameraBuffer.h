@@ -208,6 +208,7 @@ status_t creatHandlerBufferPool(int cameraId,
 void destroyHandleBufferPool(int cameraId);
 
 std::shared_ptr<CameraBuffer> acquireOneBuffer(int cameraId, int w, int h, bool allocate = true);
+std::shared_ptr<CameraBuffer> acquireOneBufferWithNoCache(int cameraId, int w, int h, bool allocate = true);
 
 };
 } NAMESPACE_DECLARATION_END

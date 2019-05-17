@@ -25,6 +25,7 @@
 #include "RgaCropScale.h"
 #include "LogHelper.h"
 #include "FormatUtils.h"
+#include "TuningServer.h"
 
 #define ALIGN(value, x)	 ((value + (x-1)) & (~(x-1)))
 
@@ -469,6 +470,7 @@ PostProcessUnit::processFrame(const std::shared_ptr<PostProcBuffer>& in,
      * may enable cache but not fluch cache when buffer is unlocked.
      */
     if (mProcessUnitType == kPostProcessTypeCopy ||
+        mProcessUnitType == kPostProcessTypeUVC ||
         mProcessUnitType == kPostProcessTypeScaleAndRotation) {
         int cropw, croph, croptop, cropleft;
         float inratio = (float)in->cambuf->width() / in->cambuf->height();
@@ -646,6 +648,9 @@ PostProcessPipeLine::prepare_internal(const FrameInfo& in,
     /* TODO: from metadata */
     common_process_type = 0;
 
+    mUvc.width = in.width;
+    mUvc.height = in.height;
+
     for (auto stream : streams) {
         int stream_process_type = 0;
         if(IsRawStream(stream)) {
@@ -670,6 +675,12 @@ PostProcessPipeLine::prepare_internal(const FrameInfo& in,
         if (getRotationDegrees(stream))
            common_process_type |= kPostProcessTypeCropRotationScale;
 
+        TuningServer *pserver = TuningServer::GetInstance();
+        if (pserver && pserver->isTuningMode()){
+            if (stream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED){
+                streams_post_proc.push_back(std::map<camera3_stream_t*, int> {{&mUvc, kPostProcessTypeUVC}});
+            }
+        }
         camera_metadata_ro_entry entry = MetadataHelper::getMetadataEntry(meta,
                                     ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM);
         float max_digital_zoom = 1.0f;
@@ -850,6 +861,11 @@ PostProcessPipeLine::prepare_internal(const FrameInfo& in,
                     process_unit_name = "MemCopy";
                     procunit_from = std::make_shared<PostProcessUnit>
                                     (process_unit_name, test_type, buf_type, this);
+                    break;
+                case kPostProcessTypeUVC :
+                    process_unit_name = "UVC";
+                    procunit_from = std::make_shared<PostProcessUnitUVC>
+                                    (process_unit_name, test_type, PostProcessUnit::kPostProcBufTypeInt, this);
                     break;
                 case kPostProcessTypeRaw :
                     process_unit_name = "Raw";
@@ -1245,6 +1261,112 @@ addSyncBuffersIfNeed(const std::shared_ptr<PostProcBuffer>& in,
     }
 }
 
+PostProcessUnitUVC::PostProcessUnitUVC(const char* name, int type,
+                                               uint32_t buftype, PostProcessPipeLine* pl)
+    :PostProcessUnit(name, type, buftype, pl) {
+
+    TuningServer *pserver = TuningServer::GetInstance();
+    if(pserver) {
+        pUvc_vpu_ops = pserver->get_vpu_ops();
+        pUvc_proc_ops = pserver->get_proc_ops();
+    }
+}
+
+PostProcessUnitUVC::~PostProcessUnitUVC() {
+    if (pUvc_vpu_ops && pUvc_vpu_ops->encode_deinit)
+        pUvc_vpu_ops->encode_deinit();
+}
+
+status_t
+PostProcessUnitUVC::prepare(const FrameInfo& outfmt, int bufNum) {
+
+    LOGD("@%s %d: instance:%p, name: %s", __FUNCTION__, __LINE__, this, mName);
+
+    mOutFmtInfo = outfmt;
+    mBufNum = bufNum;
+    uvcFrameW = outfmt.width;
+    uvcFrameH = outfmt.height;
+    if (pUvc_vpu_ops && pUvc_vpu_ops->encode_init && pUvc_vpu_ops->encode_init(uvcFrameW, uvcFrameH, 5)) {
+        LOGE("%s(%d): encode_init failed!",__FUNCTION__,__LINE__);
+        return BAD_VALUE;
+    }
+
+    return PostProcessUnit::prepare(outfmt, bufNum);
+}
+
+status_t
+PostProcessUnitUVC::processFrame(const std::shared_ptr<PostProcBuffer>& in,
+                                     const std::shared_ptr<PostProcBuffer>& out,
+                                     const std::shared_ptr<ProcUnitSettings>& settings) {
+    unsigned int fcc;
+    int width,height;
+    unsigned char *enc_out_data;
+    unsigned int enc_out_len;
+    int ret = 0;
+    unsigned char *srcbuf, *dstbuf;
+
+    LOGD("@%s %d: instance:%p, name: %s", __FUNCTION__, __LINE__, this, mName);
+
+//    PostProcessUnit::processFrame(in, out, settings);
+//    in->cambuf->dumpImage(CAMERA_DUMP_VIDEO, "UVC_IN");
+//    out->cambuf->dumpImage(CAMERA_DUMP_VIDEO, "UVC_OUT");
+
+    if ((pUvc_proc_ops==NULL) || !pUvc_proc_ops->get_state || !pUvc_proc_ops->get_state() || !pUvc_proc_ops->transfer_data_enable()) {
+        goto out;
+    }else {
+        fcc = pUvc_proc_ops->get_fcc();
+        pUvc_proc_ops->get_res(&width, &height);
+
+        if((width != uvcFrameW) || (height != uvcFrameH)){
+            uvcFrameW = width;
+            uvcFrameH = height;
+            if (V4L2_PIX_FMT_MJPEG == fcc) {
+                 pUvc_vpu_ops->encode_deinit();
+                 if (pUvc_vpu_ops->encode_init && pUvc_vpu_ops->encode_init(uvcFrameW, uvcFrameH, 5)) {
+                     LOGE("%s(%d): encode_init failed!",__FUNCTION__,__LINE__);
+                 }
+
+            }
+        }
+
+        std::shared_ptr<PostProcBuffer> tempBuf = std::make_shared<PostProcBuffer> ();
+        if(V4L2_PIX_FMT_MJPEG == fcc){
+            tempBuf->cambuf = MemoryUtils::acquireOneBufferWithNoCache(mPipeline->getCameraId(), uvcFrameW, uvcFrameH);
+        }else if(V4L2_PIX_FMT_YUYV == fcc){
+            tempBuf->cambuf = MemoryUtils::acquireOneBuffer(mPipeline->getCameraId(), uvcFrameW, uvcFrameH);
+        }
+        tempBuf->request = in->request;
+
+
+        PostProcessUnit::processFrame(in, tempBuf, settings);
+        switch (fcc) {
+            case V4L2_PIX_FMT_YUYV:
+            {
+                pUvc_proc_ops->transfer_data(NULL, 0, (void *)tempBuf->cambuf->data(), uvcFrameW * uvcFrameH * 2, fcc);
+                break;
+            }
+            case V4L2_PIX_FMT_MJPEG:
+            {
+                std::shared_ptr<PostProcBuffer> tempBuf1 = std::make_shared<PostProcBuffer> ();
+                tempBuf1->cambuf = MemoryUtils::acquireOneBufferWithNoCache(mPipeline->getCameraId(), uvcFrameW, uvcFrameH);
+                pUvc_vpu_ops->encode_set_buf(tempBuf1->cambuf->dmaBufFd(),(void *)tempBuf1->cambuf->data(),
+                                           tempBuf1->cambuf->dmaBufFd(),uvcFrameW * uvcFrameH);
+                ret = pUvc_vpu_ops->encode_process((void *)tempBuf->cambuf->data(), tempBuf->cambuf->dmaBufFd(), uvcFrameW * uvcFrameH * 3 / 2);
+                if (!ret) {
+                    pUvc_vpu_ops->encode_get_buf(&enc_out_data, &enc_out_len);
+                    pUvc_proc_ops->transfer_data(NULL, 0, enc_out_data, enc_out_len, fcc);
+                }
+               break;
+            }
+        }
+    }
+out:
+    mCurPostProcBufOut.reset();
+    mCurPostProcBufIn.reset();
+    mCurProcSettings.reset();
+    return OK;
+}
+
 PostProcessUnitJpegEnc::PostProcessUnitJpegEnc(const char* name, int type,
                                                uint32_t buftype, PostProcessPipeLine* pl)
     : PostProcessUnit(name, type, buftype, pl) {
@@ -1370,7 +1492,49 @@ PostProcessUnitRaw::processFrame(const std::shared_ptr<PostProcBuffer>& in,
 
     LOGD("@%s: instance:%p, name: %s", __FUNCTION__, mName);
     /* in->cambuf->dumpImage(CAMERA_DUMP_RAW, "RawUnit"); */
+    std::string fileName;
+    std::string dumpPrefix = "dump_";
+    char dumpSuffix[100] = {};
+    char szDateTime[20] = "";
+    struct timeval tval;
+    TuningServer *pserver = TuningServer::GetInstance();
 
+    if (pserver && (pserver->mStartCapture) && (pserver->mCapRawNum > 0)){
+        if(pserver->mSkipFrame > 0){
+            pserver->mSkipFrame--;
+            return status;
+        }
+        snprintf(dumpSuffix, sizeof(dumpSuffix), "%dx%d_t%0.3f_g%0.3f_%d", out->cambuf->width(), out->cambuf->height(),
+                 pserver->mCurTime/1000.0, pserver->mCurGain, pserver->mCapRawNum);
+        gettimeofday(&tval, NULL);
+        int64_t timestamp =  (((int64_t)tval.tv_sec) * 1000000L) + tval.tv_usec;
+        strftime( szDateTime, sizeof(szDateTime), "_%Y%m%d_%H%M%S", localtime(&tval.tv_sec) );
+        fileName = std::string("/data/isptune/") + dumpPrefix + std::string(dumpSuffix) + std::string(szDateTime) + std::string(".pgm");
+
+        LOGD("%s filename is %s", __FUNCTION__, fileName.data());
+
+        FILE *fp = fopen (fileName.data(), "w+");
+        if (fp == nullptr) {
+            LOGE("open file failed,%s",strerror(errno));
+            return status;
+        }
+        //raw format,bayer pattern
+        fprintf( fp,
+                "P5\n%d %d\n#####<DCT Raw>\n#<Type>%u</Type>\n#<Layout>%u</Layout>\n#<TimeStampUs>%lli</TimeStampUs>\n#####</DCT Raw>\n%d\n",
+                out->cambuf->width(), out->cambuf->height(), 0x11/*raw16*/, 0x12, timestamp, 65535);
+
+        if ((fwrite(out->cambuf->data(), out->cambuf->width() * out->cambuf->height() * 2, 1, fp)) != 1)
+            LOGW("Error or short count writing %d bytes to %s", out->cambuf->width() * out->cambuf->height() * 2, fileName.data());
+        fclose (fp);
+        pserver->mCapRawNum--;
+        if(pserver->mCapRawNum == 0){
+            pserver->stopCatureRaw();
+            pserver->mStartCapture = false;
+            pserver->bExpCmdCap = false;
+            if(pserver->mMsgType == CMD_TYPE_SYNC)
+                pserver->mUvc_proc_ops->uvc_signal();
+        }
+    }
     return status;
 }
 

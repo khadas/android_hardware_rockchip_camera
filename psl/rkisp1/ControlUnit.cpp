@@ -32,6 +32,8 @@
 #include "Metadata.h"
 #include "MediaEntity.h"
 #include "rkcamera_vendor_tags.h"
+#include "TuningServer.h"
+
 USING_METADATA_NAMESPACE;
 static const int SETTINGS_POOL_SIZE = MAX_REQUEST_IN_PROCESS_NUM * 2;
 
@@ -917,6 +919,10 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
                 mPrecapTriggered = false;
             }
 
+            TuningServer *pserver = TuningServer::GetInstance();
+            if (pserver && pserver->isTuningMode()) {
+                pserver->set_tuning_params(tempCamMeta);
+            }
             frame_metas.metas = tempCamMeta.getAndLock();
             frame_metas.id = reqId;
 
@@ -1431,9 +1437,16 @@ ControlUnit::handleMetadataReceived(Message &msg) {
 void ControlUnit::sMetadatCb(const struct cl_result_callback_ops* ops,
                              struct rkisp_cl_frame_metadata_s *result) {
     LOGI("@%s %d: frame %d result meta received", __FUNCTION__, __LINE__, result->id);
+    TuningServer *pserver = TuningServer::GetInstance();
+
     ControlUnit *ctl = const_cast<ControlUnit*>(static_cast<const ControlUnit*>(ops));
 
     ctl->metadataReceived(result->id, result->metas);
+    if(pserver && pserver->isTuningMode()){
+        CameraMetadata uvcCamMeta(const_cast<camera_metadata_t*>(result->metas));
+        pserver->get_tuning_params(uvcCamMeta);
+        uvcCamMeta.release();
+    }
 }
 
 } // namespace camera2

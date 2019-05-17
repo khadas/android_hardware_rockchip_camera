@@ -28,7 +28,7 @@ namespace camera2 {
 
 class ControlUnit;
 class ImguUnit;
-
+class TuningServer;
 /**
  * \enum
  * This enum is used as index when acquiring the partial result metadata buffer
@@ -57,7 +57,6 @@ class RKISP1CameraHw: public ICameraHw {
     virtual status_t flush();
     virtual void dump(int fd);
     void sendTuningDumpCmd(int w, int h);
-
  private:
     enum UseCase {
         USECASE_STILL,
@@ -96,6 +95,7 @@ class RKISP1CameraHw: public ICameraHw {
     int mPipelineDepth;  /*!< How many request we allow in the PSL at one time*/
     ImguUnit *mImguUnit;
     ControlUnit *mControlUnit;
+    TuningServer *mTuningServer;
     // Vector to store dummy Hw streams
     std::vector<std::shared_ptr<HwStreamBase>> mDummyHwStreamsVector;
     GraphConfigManager mGCM;

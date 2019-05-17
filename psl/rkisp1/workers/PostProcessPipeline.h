@@ -24,6 +24,7 @@
 #include <vector>
 #include <mutex>
 #include <array>
+#include <dlfcn.h>
 #include <condition_variable>
 #include "common/MessageThread.h"
 #include "common/SharedItemPool.h"
@@ -31,6 +32,7 @@
 #include "ProcUnitSettings.h"
 #include "tasks/JpegEncodeTask.h"
 #include "LogHelper.h"
+#include "uvc_hal_types.h"
 
 namespace android {
 namespace camera2 {
@@ -54,6 +56,7 @@ enum PostProcessType {
     kPostProcessTypeScaleAndRotation  = 1 << 17,
     kPostProcessTypeJpegEncoder       = 1 << 18,
     kPostProcessTypeCopy              = 1 << 19,
+    kPostProcessTypeUVC               = 1 << 20,
     kPostProcessTypeRaw               = 1 << 21,
     kPostProcessTypeDummy             = 1 << 22,
     kPostProcessTypeStreamMax         = 1 << MAX_STREAM_PROC_UNIT_SHIFT,
@@ -219,6 +222,27 @@ class PostProcessUnit : public IPostProcessListener,
     /*disable copy constructor and assignment*/
     PostProcessUnit(const PostProcessUnit&);
     PostProcessUnit& operator=(const PostProcessUnit&);
+};
+
+class PostProcessUnitUVC : public PostProcessUnit
+{
+ public:
+    explicit PostProcessUnitUVC(const char* name, int type, uint32_t buftype = kPostProcBufTypeExt, PostProcessPipeLine* pl = nullptr);
+    virtual ~PostProcessUnitUVC();
+    virtual status_t processFrame(const std::shared_ptr<PostProcBuffer>& in,
+                                  const std::shared_ptr<PostProcBuffer>& out,
+                                  const std::shared_ptr<ProcUnitSettings>& settings);
+    virtual status_t prepare(const FrameInfo& outfmt, int bufNum = kDefaultAllocBufferNums);
+ private:
+    /*disable copy constructor and assignment*/
+    PostProcessUnitUVC(const PostProcessUnitUVC&);
+    PostProcessUnitUVC& operator=(const PostProcessUnitUVC&);
+    int uvcFrameW;
+    int uvcFrameH;
+    FrameInfo mOutFmtInfo;
+    int mBufNum;
+    uvc_vpu_ops_t *pUvc_vpu_ops;
+    uvc_proc_ops_t *pUvc_proc_ops;
 };
 
 class PostProcessUnitJpegEnc : public PostProcessUnit
@@ -478,6 +502,7 @@ class PostProcessPipeLine: public IMessageHandler {
     explicit PostProcessPipeLine(const PostProcessPipeLine&);
     PostProcessPipeLine& operator=(const PostProcessPipeLine&);
     std::unique_ptr<OutputBuffersHandler> mOutputBuffersHandler;
+    camera3_stream_t mUvc;
 };
 const element_value_t PPMsg_stringEnum[] = {
     {"MESSAGE_ID_EXIT", PostProcessPipeLine::MESSAGE_ID_EXIT },
