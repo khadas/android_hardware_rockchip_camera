@@ -405,6 +405,7 @@ class PostProcessPipeLine: public IMessageHandler {
                           const std::shared_ptr<ProcUnitSettings>& settings);
 
     int getCameraId() { return mCameraId; };
+    camera3_stream_t* getStreamByType(int stream_type);
 
 
  private:
@@ -433,6 +434,7 @@ class PostProcessPipeLine: public IMessageHandler {
 
     bool IsRawStream(camera3_stream_t* stream);
 
+    std::vector<std::map<camera3_stream_t*, int>> mStreamToTypeMap;
     std::vector<std::shared_ptr<PostProcessUnit>> mPostProcUnits;
     std::map<camera3_stream_t*, PostProcessUnit*> mStreamToProcUnitMap;
     typedef std::vector<PostProcessUnit*> ProcUnitList;

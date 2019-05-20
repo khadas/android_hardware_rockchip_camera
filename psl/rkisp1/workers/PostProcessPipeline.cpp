@@ -27,6 +27,10 @@
 #include "FormatUtils.h"
 
 #define ALIGN(value, x)	 ((value + (x-1)) & (~(x-1)))
+
+// disable mirror handling by default
+/* #define MIRROR_HANDLING_FOR_FRONT_CAMERA */
+
 namespace android {
 namespace camera2 {
 
@@ -439,6 +443,21 @@ PostProcessUnit::processFrame(const std::shared_ptr<PostProcBuffer>& in,
     LOGD("%s: @%s, reqId: %d",
          mName, __FUNCTION__, settings->request->getId());
     status_t status = OK;
+    bool mirror = false;
+#ifdef MIRROR_HANDLING_FOR_FRONT_CAMERA
+    if(PlatformData::facing(mPipeline->getCameraId()) == CAMERA_FACING_FRONT) {
+        bool isPreview = false;
+        camera3_stream_t* stream = mPipeline->getStreamByType(mProcessUnitType);
+
+        if(stream) {
+            isPreview = CHECK_FLAG(stream->usage, GRALLOC_USAGE_HW_COMPOSER);
+            isPreview |= CHECK_FLAG(stream->usage, GRALLOC_USAGE_HW_TEXTURE);
+            isPreview |= CHECK_FLAG(stream->usage, GRALLOC_USAGE_HW_RENDER);
+        }
+        mirror = isPreview;
+        LOGD("@%s : mirror(%d) handling for front camera", __FUNCTION__, mirror);
+    }
+#endif
 
     if (mProcessUnitType == kPostProcessTypeDummy) {
         LOGD("@%s %d: dummy unit , do nothing", __FUNCTION__, __LINE__);
@@ -488,7 +507,7 @@ PostProcessUnit::processFrame(const std::shared_ptr<PostProcBuffer>& in,
         else
             rgain.fmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
         rgain.vir_addr = (char*)in->cambuf->data();
-        rgain.mirror = false;
+        rgain.mirror = mirror;
         rgain.width = cropw;
         rgain.height = croph;
         rgain.offset_x = cropleft;
@@ -620,7 +639,8 @@ PostProcessPipeLine::prepare_internal(const FrameInfo& in,
     int common_process_type = 0;
     const camera_metadata_t *meta = PlatformData::getStaticMetadata(mCameraId);
     // analyze which process unit do we need
-    std::vector<std::map<camera3_stream_t*, int>> streams_post_proc;
+    mStreamToTypeMap.clear();
+    std::vector<std::map<camera3_stream_t*, int>>& streams_post_proc = mStreamToTypeMap;
 
     mMayNeedSyncStreamsOutput = streams.size() > 1;
     /* TODO: from metadata */
@@ -656,6 +676,14 @@ PostProcessPipeLine::prepare_internal(const FrameInfo& in,
         MetadataHelper::getValueByType(entry, 0, &max_digital_zoom);
         if (max_digital_zoom > 1.0)
            common_process_type |= kPostProcessTypeDigitalZoom;
+
+#ifdef MIRROR_HANDLING_FOR_FRONT_CAMERA
+        //for front camera mirror handling, front camera preview do twice mirror
+        if(PlatformData::facing(mCameraId) == CAMERA_FACING_FRONT) {
+            if(stream_process_type == 0)
+                stream_process_type |= kPostProcessTypeCopy;
+        }
+#endif
         streams_post_proc.push_back(std::map<camera3_stream_t*, int> {{stream, stream_process_type}});
     }
 
@@ -940,6 +968,16 @@ PostProcessPipeLine::processFrame(const std::shared_ptr<PostProcBuffer>& in,
     status = mMessageQueue.send(&msg);
 
     return status;
+}
+
+camera3_stream_t*
+PostProcessPipeLine::getStreamByType(int stream_type) {
+    for (auto proc_map : mStreamToTypeMap) {
+        uint32_t stream_proc_type = proc_map.begin()->second;
+        if (stream_proc_type & stream_type)
+            return proc_map.begin()->first;
+    }
+    return NULL;
 }
 
 int
@@ -1782,6 +1820,13 @@ PostProcessUnitDigitalZoom::processFrame(const std::shared_ptr<PostProcBuffer>& 
     CameraWindow& crop = settings->cropRegion;
     int jpegBufCount = settings->request->getBufferCountOfFormat(HAL_PIXEL_FORMAT_BLOB);
 
+    bool mirror_handing = false;
+#ifdef MIRROR_HANDLING_FOR_FRONT_CAMERA
+    //for front camera mirror handling
+    mirror_handing = PlatformData::facing(mPipeline->getCameraId()) == CAMERA_FACING_FRONT;
+#endif
+    LOGD("@%s : mirror handleing %d", __FUNCTION__, mirror_handing);
+
     // check if zoom is required
     if (mBufType != kPostProcBufTypeExt &&
         crop.width() ==  mApa.width() && crop.height() == mApa.height()) {
@@ -1791,6 +1836,8 @@ PostProcessUnitDigitalZoom::processFrame(const std::shared_ptr<PostProcBuffer>& 
         // for capture case
         if(jpegBufCount != 0) {
             LOGD("@%s : Use digital zoom out gralloc buffer as hwjpeg input buffer", __FUNCTION__);
+        } else if(mirror_handing) {
+            LOGD("@%s : use digitalZoom do mirror for front camera", __FUNCTION__);
         } else {
             return STATUS_FORWRAD_TO_NEXT_UNIT;
         }
@@ -1836,7 +1883,7 @@ PostProcessUnitDigitalZoom::processFrame(const std::shared_ptr<PostProcBuffer>& 
     else
         rgain.fmt = HAL_PIXEL_FORMAT_YCrCb_420_SP;
     rgain.vir_addr = (char*)in->cambuf->data();
-    rgain.mirror = false;
+    rgain.mirror = mirror_handing;
     rgain.width = mapwidth;
     rgain.height = mapheight;
     rgain.offset_x = mapleft;
