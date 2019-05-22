@@ -44,6 +44,26 @@ class Metadata;
 class IStreamConfigProvider;
 struct ProcUnitSettings;
 
+class SocCamFlashCtrUnit {
+public:
+    explicit SocCamFlashCtrUnit(const char* name, int CameraId);
+    virtual ~SocCamFlashCtrUnit();
+    int setFlashSettings(const CameraMetadata *settings);
+    int updateFlashResult(CameraMetadata *result);
+private:  /* Methods */
+    // prevent copy constructor and assignment operator
+    SocCamFlashCtrUnit(const SocCamFlashCtrUnit& other);
+    SocCamFlashCtrUnit& operator=(const SocCamFlashCtrUnit& other);
+    int setV4lFlashMode(int mode, int power, int timeout, int strobe);
+    std::shared_ptr<V4L2Subdevice> mFlSubdev;
+    int mV4lFlashMode;
+    int mAePreTrigger;
+    int mAeTrigFrms;
+    uint8_t mAeFlashMode;
+    uint8_t mAeMode;
+    uint8_t mAeState;
+};
+
 /**
  * \class ControlUnit
  *
@@ -212,6 +232,7 @@ private:  /* Members */
     };
     std::map<enum DevPathType, std::string> mDevPathsMap;
     std::shared_ptr<V4L2Subdevice> mSensorSubdev;
+    std::unique_ptr<SocCamFlashCtrUnit> mSocCamFlashCtrUnit;
     /**
      * Static callback forwarding methods from CL to instance
      */

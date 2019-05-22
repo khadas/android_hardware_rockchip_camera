@@ -37,6 +37,174 @@ static const int SETTINGS_POOL_SIZE = MAX_REQUEST_IN_PROCESS_NUM * 2;
 namespace android {
 namespace camera2 {
 
+SocCamFlashCtrUnit::SocCamFlashCtrUnit(const char* name,
+                                       int CameraId) :
+        mFlSubdev(new V4L2Subdevice(name)),
+        mV4lFlashMode(V4L2_FLASH_LED_MODE_NONE),
+        mAePreTrigger(0),
+        mAeTrigFrms(0),
+        mAeFlashMode(ANDROID_FLASH_MODE_OFF),
+        mAeMode(ANDROID_CONTROL_AE_MODE_ON),
+        mAeState(ANDROID_CONTROL_AE_STATE_INACTIVE)
+{
+    LOGD("%s:%d", __FUNCTION__, __LINE__);
+    if (mFlSubdev.get())
+        mFlSubdev->open();
+}
+
+SocCamFlashCtrUnit::~SocCamFlashCtrUnit()
+{
+    LOGD("%s:%d", __FUNCTION__, __LINE__);
+    if (mFlSubdev.get()) {
+      setV4lFlashMode(CAM_AE_FLASH_MODE_OFF, 100, 0, 0);
+      mFlSubdev->close();
+    }
+}
+
+int SocCamFlashCtrUnit::setFlashSettings(const CameraMetadata *settings)
+{
+    int ret = 0;
+    // parse flash mode, ae mode, ae precap trigger
+    uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
+    camera_metadata_ro_entry entry = settings->find(ANDROID_CONTROL_AE_MODE);
+    if (entry.count == 1)
+        aeMode = entry.data.u8[0];
+
+    uint8_t flash_mode = ANDROID_FLASH_MODE_OFF;
+    entry = settings->find(ANDROID_FLASH_MODE);
+    if (entry.count == 1) {
+        flash_mode = entry.data.u8[0];
+    }
+
+    mAeFlashMode = flash_mode;
+    mAeMode = aeMode;
+
+    // if aemode is *_flash, overide the flash mode of ANDROID_FLASH_MODE
+    int flashMode;
+    if (aeMode == ANDROID_CONTROL_AE_MODE_ON_AUTO_FLASH)
+        flashMode = CAM_AE_FLASH_MODE_AUTO; // TODO: set always on for soc now
+    else if (aeMode == ANDROID_CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+        flashMode = CAM_AE_FLASH_MODE_ON;
+    else if (flash_mode  == ANDROID_FLASH_MODE_TORCH)
+        flashMode = CAM_AE_FLASH_MODE_TORCH;
+    else if (flash_mode  == ANDROID_FLASH_MODE_SINGLE)
+        flashMode = CAM_AE_FLASH_MODE_SINGLE;
+    else
+        flashMode = CAM_AE_FLASH_MODE_OFF;
+
+    // TODO: set always on for soc now
+    if (flashMode == CAM_AE_FLASH_MODE_AUTO)
+        flashMode = CAM_AE_FLASH_MODE_ON;
+
+    if (flashMode == CAM_AE_FLASH_MODE_ON) {
+        entry = settings->find(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER);
+        if (entry.count == 1) {
+            if (!(entry.data.u8[0] == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE
+                && mAePreTrigger == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START))
+                mAePreTrigger = entry.data.u8[0];
+        }
+    }
+
+    mAeState = ANDROID_CONTROL_AE_STATE_CONVERGED;
+    int setToDrvFlMode = flashMode;
+    if (flashMode == CAM_AE_FLASH_MODE_TORCH)
+        setToDrvFlMode = CAM_AE_FLASH_MODE_TORCH;
+    else if (flashMode == CAM_AE_FLASH_MODE_ON) {
+        // assume SoC sensor has only torch flash mode, and for
+        // ANDROID_CONTROL_CAPTURE_INTENT usecase, flash should keep
+        // on until the jpeg image captured.
+        if (mAePreTrigger == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START) {
+            setToDrvFlMode = CAM_AE_FLASH_MODE_TORCH;
+            mAeState = ANDROID_CONTROL_AE_STATE_PRECAPTURE;
+
+            mAeTrigFrms++;
+            // keep on precap for 10 frames to wait flash ae stable
+            if (mAeTrigFrms > 10)
+                mAeState = ANDROID_CONTROL_AE_STATE_CONVERGED;
+            // keep flash on another 10 frames to make sure capture the
+            // flashed frame
+            if (mAeTrigFrms > 20) {
+                setToDrvFlMode = CAM_AE_FLASH_MODE_OFF;
+                mAeTrigFrms = 0;
+                mAePreTrigger = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_CANCEL;
+                mAeState = ANDROID_CONTROL_AE_STATE_CONVERGED;
+            }
+        } else if (mAePreTrigger == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_CANCEL) {
+            setToDrvFlMode = CAM_AE_FLASH_MODE_OFF;
+            mAeTrigFrms = 0;
+        }
+        LOGD("aePreTrigger %d, mAeTrigFrms %d", mAePreTrigger, mAeTrigFrms);
+    } else
+        setToDrvFlMode = CAM_AE_FLASH_MODE_OFF;
+
+    LOGD("%s:%d aePreTrigger %d, mAeTrigFrms %d, setToDrvFlMode %d",
+         __FUNCTION__, __LINE__, mAePreTrigger, mAeTrigFrms, setToDrvFlMode);
+
+    return setV4lFlashMode(setToDrvFlMode, 100, 500, 0);
+}
+
+int SocCamFlashCtrUnit::updateFlashResult(CameraMetadata *result)
+{
+    result->update(ANDROID_CONTROL_AE_MODE, &mAeMode, 1);
+    result->update(ANDROID_CONTROL_AE_STATE, &mAeState, 1);
+    result->update(ANDROID_FLASH_MODE, &mAeFlashMode, 1);
+
+    return 0;
+}
+
+int SocCamFlashCtrUnit::setV4lFlashMode(int mode, int power, int timeout, int strobe)
+{
+    struct v4l2_control control;
+    int fl_v4l_mode;
+
+#define set_fl_contol_to_dev(control_id,val) \
+        memset(&control, 0, sizeof(control)); \
+        control.id = control_id; \
+        control.value = val; \
+        if (mFlSubdev.get()) { \
+            if (pioctl(mFlSubdev->getFd(), VIDIOC_S_CTRL, &control, 0) < 0) { \
+                LOGE(" set fl %s to %d failed", #control_id, val); \
+                return -1; \
+            } \
+            LOGD("set fl %s to %d, success", #control_id, val); \
+        } \
+
+    if (mode == CAM_AE_FLASH_MODE_OFF)
+        fl_v4l_mode = V4L2_FLASH_LED_MODE_NONE;
+    else if (mode == CAM_AE_FLASH_MODE_ON)
+        fl_v4l_mode = V4L2_FLASH_LED_MODE_FLASH;
+    else if (mode == CAM_AE_FLASH_MODE_TORCH)
+        fl_v4l_mode = V4L2_FLASH_LED_MODE_TORCH;
+    else {
+        LOGE(" set fl to mode  %d failed", mode);
+        return -1;
+    }
+
+    if (mV4lFlashMode == fl_v4l_mode)
+        return 0;
+
+    if (fl_v4l_mode == V4L2_FLASH_LED_MODE_NONE) {
+        set_fl_contol_to_dev(V4L2_CID_FLASH_LED_MODE, V4L2_FLASH_LED_MODE_NONE);
+    } else if (fl_v4l_mode == V4L2_FLASH_LED_MODE_FLASH) {
+        set_fl_contol_to_dev(V4L2_CID_FLASH_LED_MODE, V4L2_FLASH_LED_MODE_FLASH);
+        set_fl_contol_to_dev(V4L2_CID_FLASH_TIMEOUT, timeout * 1000);
+        // TODO: should query intensity range before setting
+        /* set_fl_contol_to_dev(V4L2_CID_FLASH_INTENSITY, fl_intensity); */
+        set_fl_contol_to_dev(strobe ? V4L2_CID_FLASH_STROBE : V4L2_CID_FLASH_STROBE_STOP, 0);
+    } else if (fl_v4l_mode == V4L2_FLASH_LED_MODE_TORCH) {
+        // TODO: should query intensity range before setting
+        /* set_fl_contol_to_dev(V4L2_CID_FLASH_TORCH_INTENSITY, fl_intensity); */
+        set_fl_contol_to_dev(V4L2_CID_FLASH_LED_MODE, V4L2_FLASH_LED_MODE_TORCH);
+    } else {
+        LOGE("setV4lFlashMode error fl mode %d", mode);
+        return -1;
+    }
+
+    mV4lFlashMode = fl_v4l_mode;
+
+    return 0;
+}
+
 ControlUnit::ControlUnit(ImguUnit *thePU,
                          int cameraId,
                          IStreamConfigProvider &aStreamCfgProv,
@@ -61,7 +229,8 @@ ControlUnit::ControlUnit(ImguUnit *thePU,
         mLensSupported(false),
         mSofSequence(0),
         mShutterDoneReqId(-1),
-        mSensorSubdev(nullptr)
+        mSensorSubdev(nullptr),
+        mSocCamFlashCtrUnit(nullptr)
 {
     cl_result_callback_ops::metadata_result_callback = &sMetadatCb;
 }
@@ -74,6 +243,32 @@ ControlUnit::getDevicesPath()
     const CameraHWInfo* camHwInfo = PlatformData::getCameraHWInfo();
     std::shared_ptr<V4L2Subdevice> subdev = nullptr;
     status_t status = OK;
+
+    // get lens device path
+    if (camHwInfo->mSensorInfo[mCameraId].mModuleLensDevName == "") {
+        LOGW("%s: No lens found", __FUNCTION__);
+    } else {
+        struct stat sb;
+        int PathExists = stat(camHwInfo->mSensorInfo[mCameraId].mModuleLensDevName.c_str(), &sb);
+        if (PathExists != 0) {
+            LOGE("Error, could not find lens subdev %s !", entityName.c_str());
+        } else {
+            mDevPathsMap[KDevPathTypeLensNode] = camHwInfo->mSensorInfo[mCameraId].mModuleLensDevName;
+        }
+    }
+
+    // get flashlight device path
+    if (camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName == "") {
+        LOGW("%s: No flashlight found", __FUNCTION__);
+    } else {
+        struct stat sb;
+        int PathExists = stat(camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName.c_str(), &sb);
+        if (PathExists != 0) {
+            LOGE("Error, could not find flashlight subdev %s !", entityName.c_str());
+        } else {
+            mDevPathsMap[KDevPathTypeFlNode] = camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName;
+        }
+    }
 
     // get isp subdevice path
     entityName = "rkisp1-isp-subdev";
@@ -128,32 +323,6 @@ ControlUnit::getDevicesPath()
     mediaEntity->getDevice((std::shared_ptr<V4L2DeviceBase>&) subdev);
     if (subdev.get())
         mDevPathsMap[KDevPathTypeIspStatsNode] = subdev->name();
-
-    // get lens device path
-    if (camHwInfo->mSensorInfo[mCameraId].mModuleLensDevName == "") {
-        LOGW("%s: No lens found", __FUNCTION__);
-    } else {
-        struct stat sb;
-        int PathExists = stat(camHwInfo->mSensorInfo[mCameraId].mModuleLensDevName.c_str(), &sb);
-        if (PathExists != 0) {
-            LOGE("Error, could not find lens subdev %s !", entityName.c_str());
-        } else {
-            mDevPathsMap[KDevPathTypeLensNode] = camHwInfo->mSensorInfo[mCameraId].mModuleLensDevName;
-        }
-    }
-
-    // get flashlight device path
-    if (camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName == "") {
-        LOGW("%s: No flashlight found", __FUNCTION__);
-    } else {
-        struct stat sb;
-        int PathExists = stat(camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName.c_str(), &sb);
-        if (PathExists != 0) {
-            LOGE("Error, could not find flashlight subdev %s !", entityName.c_str());
-        } else {
-            mDevPathsMap[KDevPathTypeFlNode] = camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName;
-        }
-    }
 
     return OK;
 }
@@ -264,6 +433,15 @@ ControlUnit::init()
     bool supportDigiGain = false;
     if (cap)
         supportDigiGain = cap->digiGainOnSensor();
+
+    getDevicesPath();
+
+    if (cap->sensorType() == SENSOR_TYPE_SOC &&
+        mDevPathsMap.find(KDevPathTypeFlNode) != mDevPathsMap.end()) {
+        mSocCamFlashCtrUnit = std::unique_ptr<SocCamFlashCtrUnit>(
+                              new SocCamFlashCtrUnit(
+                              mDevPathsMap[KDevPathTypeFlNode].c_str(), mCameraId));
+    }
 
     return status;
 }
@@ -401,8 +579,6 @@ ControlUnit::configStreams(std::vector<camera3_stream_t*> &activeStreams, bool c
         }
 
         //start 3a when config video stream done
-        getDevicesPath();
-
         for (auto &it : mDevPathsMap) {
             switch (it.first) {
             case KDevPathTypeIspDevNode:
@@ -591,6 +767,12 @@ ControlUnit::processSoCSettings(const CameraMetadata *settings)
        // set to driver
        if (mSensorSubdev.get())
            mSensorSubdev->setFramerate(0, maxFps);
+    }
+
+    if (mSocCamFlashCtrUnit.get()) {
+        int ret = mSocCamFlashCtrUnit->setFlashSettings(settings);
+        if (ret < 0)
+            LOGE("%s:%d set flash settings failed", __FUNCTION__, __LINE__);
     }
 
     return OK;
@@ -790,10 +972,14 @@ status_t ControlUnit::fillMetadata(std::shared_ptr<RequestCtrlState> &reqState)
         ctrlUnitResult->update(ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
         uint8_t awbState = ANDROID_CONTROL_AWB_STATE_CONVERGED;
         ctrlUnitResult->update(ANDROID_CONTROL_AWB_STATE, &awbState, 1);
-        uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
-        ctrlUnitResult->update(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
-        uint8_t aeState = ANDROID_CONTROL_AE_STATE_CONVERGED;
-        ctrlUnitResult->update(ANDROID_CONTROL_AE_STATE, &aeState, 1);
+        if (mSocCamFlashCtrUnit.get()) {
+            mSocCamFlashCtrUnit->updateFlashResult(ctrlUnitResult);
+        } else {
+            uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
+            ctrlUnitResult->update(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
+            uint8_t aeState = ANDROID_CONTROL_AE_STATE_CONVERGED;
+            ctrlUnitResult->update(ANDROID_CONTROL_AE_STATE, &aeState, 1);
+        }
         reqState->mClMetaReceived = true;
     }
     return OK;
