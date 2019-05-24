@@ -267,6 +267,15 @@ void PlatformData::getCameraInfo(int cameraId, struct camera_info * info)
     info->orientation = orientation(cameraId);
     info->device_version = getCameraDeviceAPIVersion();
     info->static_camera_characteristics = getStaticMetadata(cameraId);
+
+    //For now assume both cameras can operate independently.
+    //simultaneously open multiple camera may be influenced, please check
+    //hardware/libhardware/include/hardware/camera_common.h for detail
+    info->conflicting_devices = NULL;
+    info->conflicting_devices_length = 0;
+    info->resource_cost = 50;
+    LOGI("camera %d resource cost is %d", cameraId,
+            info->resource_cost);
 }
 
 /**

@@ -28,6 +28,7 @@
 #include <cutils/properties.h>
 
 #include "Camera3HAL.h"
+#include "FlashLight.h"
 
 
 using namespace android;
@@ -57,6 +58,8 @@ static int hal_dev_close(hw_device_t* device);
 static bool sInstances[MAX_CAMERAS] = {false, false};
 static int sInstanceCount = 0;
 
+static const camera_module_callbacks_t *sCallbacks;
+
 /**
  * Global mutex used to protect sInstanceCount and sInstances
  */
@@ -68,6 +71,11 @@ int openCameraHardware(int id, const hw_module_t* module, hw_device_t** device)
 
     if (sInstances[id])
         return 0;
+
+    FlashLight& flash = FlashLight::getInstance();
+
+    flash.init(id);
+    flash.reserveFlashForCamera(id);
 
     Camera3HAL* halDev = new Camera3HAL(id, module);
 
@@ -124,8 +132,8 @@ static int hal_get_camera_info(int cameraId, struct camera_info *cameraInfo)
 static int hal_set_callbacks(const camera_module_callbacks_t *callbacks)
 {
     HAL_TRACE_CALL(CAM_GLBL_DBG_HIGH);
+    sCallbacks = callbacks;
 
-    UNUSED(callbacks);
     return 0;
 }
 
@@ -197,6 +205,10 @@ static int hal_dev_close(hw_device_t* device)
         delete camera_priv;
         sInstanceCount--;
         sInstances[id] = false;
+
+        FlashLight& flash = FlashLight::getInstance();
+        flash.releaseFlashFromCamera(id);
+        flash.deinit(id);
     }
 
     LOGI("%s, instance count %d", __FUNCTION__, sInstanceCount);
@@ -208,9 +220,54 @@ static int hal_dev_close(hw_device_t* device)
 static int hal_set_torch_mode (const char* camera_id, bool enabled){
     HAL_TRACE_CALL(CAM_GLBL_DBG_HIGH);
 
-    UNUSED(camera_id);
-    UNUSED(enabled);
-    return -ENOSYS;
+    int retVal(0);
+    long cameraIdLong(-1);
+    int cameraIdInt(-1);
+    char* endPointer = NULL;
+    errno = 0;
+    FlashLight& flash = FlashLight::getInstance();
+
+    cameraIdLong = strtol(camera_id, &endPointer, 10);
+
+    if ((errno == ERANGE) ||
+            (cameraIdLong < 0) ||
+            (cameraIdLong >= static_cast<long>(hal_get_number_of_cameras())) ||
+            (endPointer == camera_id) ||
+            (*endPointer != '\0')) {
+        retVal = -EINVAL;
+    } else if (enabled) {
+        cameraIdInt = static_cast<int>(cameraIdLong);
+        retVal = flash.init(cameraIdInt);
+
+        if (retVal == 0) {
+            retVal = flash.setFlashMode(cameraIdInt, enabled);
+            if ((retVal == 0) && (sCallbacks != NULL)) {
+                sCallbacks->torch_mode_status_change(sCallbacks,
+                        camera_id,
+                        TORCH_MODE_STATUS_AVAILABLE_ON);
+            } else if (retVal == -EALREADY) {
+                // Flash is already on, so treat this as a success.
+                retVal = 0;
+            }
+        }
+    } else {
+        cameraIdInt = static_cast<int>(cameraIdLong);
+        retVal = flash.setFlashMode(cameraIdInt, enabled);
+
+        if (retVal == 0) {
+            retVal = flash.deinit(cameraIdInt);
+            if ((retVal == 0) && (sCallbacks != NULL)) {
+                sCallbacks->torch_mode_status_change(sCallbacks,
+                        camera_id,
+                        TORCH_MODE_STATUS_AVAILABLE_OFF);
+            }
+        } else if (retVal == -EALREADY) {
+            // Flash is already off, so treat this as a success.
+            retVal = 0;
+        }
+    }
+
+    return retVal;
 }
 #endif
 
@@ -221,7 +278,7 @@ static struct hw_module_methods_t hal_module_methods = {
 camera_module_t VISIBILITY_PUBLIC HAL_MODULE_INFO_SYM = {
     NAMED_FIELD_INITIALIZER(common) {
         NAMED_FIELD_INITIALIZER(tag) HARDWARE_MODULE_TAG,
-        NAMED_FIELD_INITIALIZER(module_api_version) CAMERA_MODULE_API_VERSION_2_3,
+        NAMED_FIELD_INITIALIZER(module_api_version) CAMERA_MODULE_API_VERSION_2_4,
         NAMED_FIELD_INITIALIZER(hal_api_version) 0,
         NAMED_FIELD_INITIALIZER(id) CAMERA_HARDWARE_MODULE_ID,
         NAMED_FIELD_INITIALIZER(name) "Rockchip Camera3HAL Module",

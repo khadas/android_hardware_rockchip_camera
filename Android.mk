@@ -62,6 +62,7 @@ COMMONSRC = common/SysCall.cpp \
             common/LogHelper.cpp \
             common/LogHelperAndroid.cpp \
             common/EnumPrinthelper.cpp \
+            common/FlashLight.cpp \
             common/MessageThread.cpp \
             common/PerformanceTraces.cpp \
             common/PollerThread.cpp \
