@@ -257,6 +257,7 @@ ControlUnit::getDevicesPath()
         }
     }
 
+#if 0
     // get flashlight device path
     if (camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName == "") {
         LOGW("%s: No flashlight found", __FUNCTION__);
@@ -269,7 +270,7 @@ ControlUnit::getDevicesPath()
             mDevPathsMap[KDevPathTypeFlNode] = camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName;
         }
     }
-
+#endif
     // get isp subdevice path
     entityName = "rkisp1-isp-subdev";
     status = mMediaCtl->getMediaEntity(mediaEntity, entityName.c_str());
@@ -436,11 +437,14 @@ ControlUnit::init()
 
     getDevicesPath();
 
+    const CameraHWInfo* camHwInfo = PlatformData::getCameraHWInfo();
     if (cap->sensorType() == SENSOR_TYPE_SOC &&
-        mDevPathsMap.find(KDevPathTypeFlNode) != mDevPathsMap.end()) {
+        camHwInfo->mSensorInfo[mCameraId].mFlashNum > 0) {
         mSocCamFlashCtrUnit = std::unique_ptr<SocCamFlashCtrUnit>(
                               new SocCamFlashCtrUnit(
-                              mDevPathsMap[KDevPathTypeFlNode].c_str(), mCameraId));
+                              // TODO: support only one flash for SoC now
+                              camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName[0].c_str(),
+                              mCameraId));
     }
 
     return status;
@@ -596,12 +600,20 @@ ControlUnit::configStreams(std::vector<camera3_stream_t*> &activeStreams, bool c
             case KDevPathTypeLensNode:
                 prepareParams.lens_sd_node_path = it.second.c_str();
                 break;
+            // deprecated
             case KDevPathTypeFlNode:
-                prepareParams.flashlight_sd_node_path = it.second.c_str();
+                prepareParams.flashlight_sd_node_path[0] = it.second.c_str();
                 break;
             default:
                 continue;
             }
+        }
+
+        const CameraHWInfo* camHwInfo = PlatformData::getCameraHWInfo();
+        LOGD("zyc flash num %d", camHwInfo->mSensorInfo[mCameraId].mFlashNum);
+        for (int i = 0; i < camHwInfo->mSensorInfo[mCameraId].mFlashNum; i++) {
+            prepareParams.flashlight_sd_node_path[i] =
+                camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName[i].c_str();
         }
 
         mEnable3A = true;
@@ -856,13 +868,23 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
         if (mCtrlLoop && mEnable3A) {
             const CameraMetadata *settings = reqState->request->getSettings();
             rkisp_cl_frame_metadata_s frame_metas;
-            frame_metas.metas = settings->getAndLock();
-            frame_metas.id = reqId;
+            /* frame_metas.metas = settings->getAndLock(); */
+            /* frame_metas.id = reqId; */
+
+                CameraMetadata tempCamMeta = *settings;
+                if(jpegBufCount == 0) {
+                    uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
+                    tempCamMeta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
+                }
+                frame_metas.metas = tempCamMeta.getAndLock();
+                frame_metas.id = reqId;
+
             status = mCtrlLoop->setFrameParams(&frame_metas);
             if (status != OK)
                 LOGE("CtrlLoop setFrameParams error");
 
-            status = settings->unlock(frame_metas.metas);
+            /* status = settings->unlock(frame_metas.metas); */
+            status = tempCamMeta.unlock(frame_metas.metas);
             if (status != OK) {
                 LOGE("unlock frame frame_metas failed");
                 return UNKNOWN_ERROR;

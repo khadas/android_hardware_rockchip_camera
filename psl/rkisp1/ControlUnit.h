@@ -228,6 +228,8 @@ private:  /* Members */
         KDevPathTypeIspInputParamsNode,
         KDevPathTypeSensorNode,
         KDevPathTypeLensNode,
+        // deprecated, one sensor may have more than one
+        // flash
         KDevPathTypeFlNode
     };
     std::map<enum DevPathType, std::string> mDevPathsMap;

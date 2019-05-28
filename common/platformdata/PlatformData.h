@@ -132,6 +132,7 @@ enum SensorDeviceType {
     SENSOR_DEVICE_MC    // Media controller sensor
 };
 
+#define SENSOR_ATTACHED_FLASH_MAX_NUM 2
 struct SensorDriverDescriptor {
     /* sensor entity name format:
      * m01_b_ov13850 1-0010, where 'm01' means
@@ -148,7 +149,8 @@ struct SensorDriverDescriptor {
     enum SensorDeviceType mSensorDevType;
     int csiPort;
     std::string mModuleLensDevName; // matched using mPhyModuleIndex
-    std::string mModuleFlashDevName; // matched using mPhyModuleIndex
+    int mFlashNum;
+    std::string mModuleFlashDevName[SENSOR_ATTACHED_FLASH_MAX_NUM]; // matched using mPhyModuleIndex
     std::string mModuleRealSensorName; //parsed frome sensor entity name
     std::string mModuleIndexStr; // parsed from sensor entity name
     char mPhyModuleOrient; // parsed from sensor entity name

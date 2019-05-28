@@ -728,10 +728,11 @@ status_t CameraHWInfo::findAttachedSubdevs(const std::string &mcPath,
     bool find_lens = false;
     unsigned lens_major;
     unsigned lens_minor;
-    bool find_flashlight = false;
-    unsigned flashlight_major;
-    unsigned flashlight_minor;
+    int find_flashlight = 0;
+    unsigned flashlight_major[SENSOR_ATTACHED_FLASH_MAX_NUM];
+    unsigned flashlight_minor[SENSOR_ATTACHED_FLASH_MAX_NUM];
     struct media_entity_desc entity;
+    std::string last_fl_entity_str;
 
     LOGI("@%s", __FUNCTION__);
 
@@ -762,7 +763,7 @@ status_t CameraHWInfo::findAttachedSubdevs(const std::string &mcPath,
             break;
         } else {
             if (entity.type == MEDIA_ENT_T_V4L2_SUBDEV_LENS) {
-               if ((entity.name[0] = 'm') &&
+               if ((entity.name[0] == 'm') &&
                    strncmp(entity.name, drv_info.mModuleIndexStr.c_str(), 3) == 0) {
                    if (find_lens == true)
                        LOGW("one module can attach only one lens now");
@@ -775,14 +776,45 @@ status_t CameraHWInfo::findAttachedSubdevs(const std::string &mcPath,
             }
 
             if (entity.type == MEDIA_ENT_T_V4L2_SUBDEV_FLASH) {
-               if ((entity.name[0] = 'm') &&
+               if ((entity.name[0] == 'm') &&
                    strncmp(entity.name, drv_info.mModuleIndexStr.c_str(), 3) == 0) {
-                   if (find_flashlight == true)
-                       LOGW("one module can attach only one flashlight now");
-                   find_flashlight = true;
-                   flashlight_major = entity.v4l.major;
-                   flashlight_minor = entity.v4l.minor;
-                   LOGD("%s:%d, found flashlight %s attatched to sensor %s",
+                   if (find_flashlight >= SENSOR_ATTACHED_FLASH_MAX_NUM) {
+                       LOGW("%s:%d, one module can attach %d flashlight",
+                        __FUNCTION__, __LINE__, SENSOR_ATTACHED_FLASH_MAX_NUM);
+                       continue;
+                   }
+
+                   flashlight_major[find_flashlight] = entity.v4l.major;
+                   flashlight_minor[find_flashlight] = entity.v4l.minor;
+                   // sort the flash order, make sure led0 befor led1
+                   if (find_flashlight > 0) {
+                       char* cur_flash_index_str = strstr(entity.name, "_led");
+                       const char* last_flash_index_str = strstr(last_fl_entity_str.c_str(),
+                                                                 "_led");
+                       if (cur_flash_index_str && last_flash_index_str) {
+                           int cur_flash_index = atoi(cur_flash_index_str + 4);
+                           int last_flash_index = atoi(last_flash_index_str + 4);
+
+                           if (cur_flash_index < last_flash_index) {
+                              int tmp = flashlight_major[find_flashlight];
+
+                              flashlight_major[find_flashlight] =
+                                  flashlight_major[find_flashlight - 1];
+                              flashlight_major[find_flashlight - 1] = tmp;
+
+                              tmp = flashlight_minor[find_flashlight];
+                              flashlight_minor[find_flashlight] =
+                                  flashlight_minor[find_flashlight - 1];
+                              flashlight_minor[find_flashlight - 1] = tmp;
+                           }
+                       } else
+                           LOGW("%s:%d, wrong flashlight name format %s, %s",
+                                __FUNCTION__, __LINE__,
+                                entity.name,last_fl_entity_str.c_str());
+                   }
+                   last_fl_entity_str = entity.name;
+                   find_flashlight++;
+                   LOGD("%s:%d,found flashlight %s attatched to sensor %s",
                         __FUNCTION__, __LINE__, entity.name, drv_info.mSensorName.c_str());
                }
             }
@@ -827,10 +859,13 @@ status_t CameraHWInfo::findAttachedSubdevs(const std::string &mcPath,
             find_lens = false;
         }
 
-        if (find_flashlight && ((flashlight_major == MAJOR(fileInfo.st_rdev)) &&
-            (flashlight_minor == MINOR(fileInfo.st_rdev)))) {
-            drv_info.mModuleFlashDevName = subdevPathNameN;
-            find_flashlight = false;
+        if (find_flashlight > 0) {
+            drv_info.mFlashNum = find_flashlight;
+            for (int i = 0; i < SENSOR_ATTACHED_FLASH_MAX_NUM; i++) {
+                if ((flashlight_major[i] == MAJOR(fileInfo.st_rdev)) &&
+                    (flashlight_minor[i] == MINOR(fileInfo.st_rdev)))
+                    drv_info.mModuleFlashDevName[i] = subdevPathNameN;
+            }
         }
     }
 
