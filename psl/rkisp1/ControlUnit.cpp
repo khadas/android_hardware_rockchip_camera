@@ -93,7 +93,8 @@ int SocCamFlashCtrUnit::setFlashSettings(const CameraMetadata *settings)
         flashMode = CAM_AE_FLASH_MODE_OFF;
 
     // TODO: set always on for soc now
-    if (flashMode == CAM_AE_FLASH_MODE_AUTO)
+    if (flashMode == CAM_AE_FLASH_MODE_AUTO ||
+        flashMode == CAM_AE_FLASH_MODE_SINGLE)
         flashMode = CAM_AE_FLASH_MODE_ON;
 
     if (flashMode == CAM_AE_FLASH_MODE_ON) {
@@ -148,6 +149,14 @@ int SocCamFlashCtrUnit::updateFlashResult(CameraMetadata *result)
     result->update(ANDROID_CONTROL_AE_MODE, &mAeMode, 1);
     result->update(ANDROID_CONTROL_AE_STATE, &mAeState, 1);
     result->update(ANDROID_FLASH_MODE, &mAeFlashMode, 1);
+
+    uint8_t flashState = ANDROID_FLASH_STATE_READY;
+    if (mV4lFlashMode == V4L2_FLASH_LED_MODE_FLASH ||
+        mV4lFlashMode == V4L2_FLASH_LED_MODE_TORCH)
+        flashState = ANDROID_FLASH_STATE_FIRED;
+
+    //# ANDROID_METADATA_Dynamic android.flash.state done
+    result->update(ANDROID_FLASH_STATE, &flashState, 1);
 
     return 0;
 }
@@ -978,9 +987,13 @@ status_t ControlUnit::fillMetadata(std::shared_ptr<RequestCtrlState> &reqState)
     bool flash_available = false;
     uint8_t flash_mode = ANDROID_FLASH_MODE_OFF;
     mSettingsProcessor->getStaticMetadataCache().getFlashInfoAvailable(flash_available);
-    if (!flash_available)
+    if (!flash_available) {
         reqState->ctrlUnitResult->update(ANDROID_FLASH_MODE,
                                          &flash_mode, 1);
+        uint8_t flashState = ANDROID_FLASH_STATE_UNAVAILABLE;
+        //# ANDROID_METADATA_Dynamic android.flash.state done
+        reqState->ctrlUnitResult->update(ANDROID_FLASH_STATE, &flashState, 1);
+    }
 
     mMetadata->writeJpegMetadata(*reqState);
     uint8_t pipelineDepth;
@@ -1106,17 +1119,12 @@ ControlUnit::handleNewShutter(Message &msg)
         return UNKNOWN_ERROR;
     }
 
-    /* flash state - hack, should know from frame whether it fired */
     const CameraMetadata* metaData = reqState->request->getSettings();
     if (metaData == nullptr) {
         LOGE("Metadata should not be nullptr. Fix the bug!");
         return UNKNOWN_ERROR;
     }
 
-    uint8_t flashState = ANDROID_FLASH_STATE_UNAVAILABLE;
-
-    //# ANDROID_METADATA_Dynamic android.flash.state done
-    reqState->ctrlUnitResult->update(ANDROID_FLASH_STATE, &flashState, 1);
     int64_t ts = msg.data.shutter.tv_sec * 1000000000; // seconds to nanoseconds
     ts += msg.data.shutter.tv_usec * 1000; // microseconds to nanoseconds
 
