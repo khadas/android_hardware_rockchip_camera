@@ -101,6 +101,7 @@ public:  /* private types */
         MESSAGE_ID_NEW_SHUTTER,
         MESSAGE_ID_NEW_REQUEST_DONE,
         MESSAGE_ID_METADATA_RECEIVED,
+        MESSAGE_ID_STILL_CAP_DONE,
         MESSAGE_ID_FLUSH,
         MESSAGE_ID_MAX
     };
@@ -239,6 +240,16 @@ private:  /* Members */
      * Static callback forwarding methods from CL to instance
      */
     static ::metadata_result_callback sMetadatCb;
+    bool mStillCapSyncNeeded;
+    typedef enum StillCapSyncState_e {
+        STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE,
+        STILL_CAP_SYNC_STATE_TO_ENGINE_START,
+        STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE,
+        STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE,
+        STILL_CAP_SYNC_STATE_WATING_JPEG_FRAME,
+        STILL_CAP_SYNC_STATE_JPEG_FRAME_DONE,
+    } StillCapSyncState_e ;
+    StillCapSyncState_e mStillCapSyncState;
 };  // class ControlUnit
 
 const element_value_t CtlUMsg_stringEnum[] = {
@@ -247,6 +258,7 @@ const element_value_t CtlUMsg_stringEnum[] = {
     {"MESSAGE_ID_NEW_SHUTTER", ControlUnit::MESSAGE_ID_NEW_SHUTTER },
     {"MESSAGE_ID_NEW_REQUEST_DONE", ControlUnit::MESSAGE_ID_NEW_REQUEST_DONE },
     {"MESSAGE_ID_METADATA_RECEIVED", ControlUnit::MESSAGE_ID_METADATA_RECEIVED },
+    {"MESSAGE_ID_STILL_CAP_DONE", ControlUnit::MESSAGE_ID_STILL_CAP_DONE},
     {"MESSAGE_ID_FLUSH", ControlUnit::MESSAGE_ID_FLUSH },
     {"MESSAGE_ID_MAX", ControlUnit::MESSAGE_ID_MAX },
 };

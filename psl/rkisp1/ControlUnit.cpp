@@ -31,6 +31,7 @@
 #include "SettingsProcessor.h"
 #include "Metadata.h"
 #include "MediaEntity.h"
+#include "rkcamera_vendor_tags.h"
 USING_METADATA_NAMESPACE;
 static const int SETTINGS_POOL_SIZE = MAX_REQUEST_IN_PROCESS_NUM * 2;
 
@@ -239,7 +240,9 @@ ControlUnit::ControlUnit(ImguUnit *thePU,
         mSofSequence(0),
         mShutterDoneReqId(-1),
         mSensorSubdev(nullptr),
-        mSocCamFlashCtrUnit(nullptr)
+        mSocCamFlashCtrUnit(nullptr),
+        mStillCapSyncNeeded(0),
+        mStillCapSyncState(STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE)
 {
     cl_result_callback_ops::metadata_result_callback = &sMetadatCb;
 }
@@ -619,7 +622,6 @@ ControlUnit::configStreams(std::vector<camera3_stream_t*> &activeStreams, bool c
         }
 
         const CameraHWInfo* camHwInfo = PlatformData::getCameraHWInfo();
-        LOGD("zyc flash num %d", camHwInfo->mSensorInfo[mCameraId].mFlashNum);
         for (int i = 0; i < camHwInfo->mSensorInfo[mCameraId].mFlashNum; i++) {
             prepareParams.flashlight_sd_node_path[i] =
                 camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName[i].c_str();
@@ -855,6 +857,7 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
          yuv888BufCount,
          reqState->request->getNumberInputBufs(),
          reqState->request->getId());
+
     if (jpegBufCount > 0) {
         // NOTE: Makernote should be get after isp_bxt_run()
         // NOTE: makernote.data deleted in JpegEncodeTask::handleMakernote()
@@ -865,7 +868,6 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
         /* m3aWrapper->getMakerNote(ia_mkn_trg_section_2, mkn); */
 
         /* reqState->captureSettings->makernote = mkn; */
-
     } else {
         // No JPEG buffers in request. Reset MKN info, just in case.
         reqState->captureSettings->makernote.data = nullptr;
@@ -880,13 +882,24 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
             /* frame_metas.metas = settings->getAndLock(); */
             /* frame_metas.id = reqId; */
 
-                CameraMetadata tempCamMeta = *settings;
-                if(jpegBufCount == 0) {
-                    uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
-                    tempCamMeta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
+            CameraMetadata tempCamMeta = *settings;
+            if(jpegBufCount == 0) {
+                uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
+                tempCamMeta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
+            } else {
+                if (mStillCapSyncNeeded) {
+                    if (mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE) {
+                        uint8_t stillCapSync = RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD_SYNCSTART;
+                        tempCamMeta.update(RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD, &stillCapSync, 1);
+                        mStillCapSyncState = STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE;
+                    } else
+                        LOGW("already in stillcap_sync state %d",
+                             mStillCapSyncState);
                 }
-                frame_metas.metas = tempCamMeta.getAndLock();
-                frame_metas.id = reqId;
+            }
+
+            frame_metas.metas = tempCamMeta.getAndLock();
+            frame_metas.id = reqId;
 
             status = mCtrlLoop->setFrameParams(&frame_metas);
             if (status != OK)
@@ -898,6 +911,18 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
                 LOGE("unlock frame frame_metas failed");
                 return UNKNOWN_ERROR;
             }
+
+            while (mStillCapSyncState == STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE) {
+                LOGD("waiting for stillcap_sync_done");
+                usleep(10*1000);
+            }
+
+            if (mStillCapSyncState == STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE) {
+                mStillCapSyncState = STILL_CAP_SYNC_STATE_WATING_JPEG_FRAME;
+            }
+
+            LOGD("%s:%d, stillcap_sync_state %d",
+                 __FUNCTION__, __LINE__, mStillCapSyncState);
         } else {
             // set SoC sensor's params
             const CameraMetadata *settings = reqState->request->getSettings();
@@ -1125,6 +1150,33 @@ ControlUnit::handleNewShutter(Message &msg)
         return UNKNOWN_ERROR;
     }
 
+    int jpegBufCount = reqState->request->getBufferCountOfFormat(HAL_PIXEL_FORMAT_BLOB);
+    if (jpegBufCount &&
+        (mStillCapSyncState == STILL_CAP_SYNC_STATE_WATING_JPEG_FRAME)) {
+        mStillCapSyncState = STILL_CAP_SYNC_STATE_JPEG_FRAME_DONE;
+
+        status_t status = OK;
+        const CameraMetadata *settings = reqState->request->getSettings();
+        rkisp_cl_frame_metadata_s frame_metas;
+        CameraMetadata tempCamMeta = *settings;
+        uint8_t stillCapSyncEnd = RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD_SYNCEND;
+        tempCamMeta.update(RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD, &stillCapSyncEnd, 1);
+        mStillCapSyncState = STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE;
+
+        frame_metas.metas = tempCamMeta.getAndLock();
+        frame_metas.id = -1;
+        status = mCtrlLoop->setFrameParams(&frame_metas);
+        if (status != OK)
+            LOGE("CtrlLoop setFrameParams error");
+
+        /* status = settings->unlock(frame_metas.metas); */
+        status = tempCamMeta.unlock(frame_metas.metas);
+        if (status != OK) {
+            LOGE("unlock frame frame_metas failed");
+            return UNKNOWN_ERROR;
+        }
+    }
+
     int64_t ts = msg.data.shutter.tv_sec * 1000000000; // seconds to nanoseconds
     ts += msg.data.shutter.tv_usec * 1000; // microseconds to nanoseconds
 
@@ -1272,11 +1324,30 @@ status_t
 ControlUnit::metadataReceived(int id, const camera_metadata_t *metas) {
     Message msg;
     status_t status = NO_ERROR;
+    camera_metadata_entry entry;
 
-    msg.id = MESSAGE_ID_METADATA_RECEIVED;
-    msg.requestId = id;
-    msg.metas = metas;
-    status = mMessageQueue.send(&msg);
+    CameraMetadata result(const_cast<camera_metadata_t*>(metas));
+    entry = result.find(RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_NEEDED);
+    if (entry.count == 1) {
+        mStillCapSyncNeeded = !!entry.data.u8[0];
+    }
+
+    entry = result.find(RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD);
+    if (entry.count == 1) {
+        if (entry.data.u8[0] == RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD_SYNCDONE/* &&
+            mStillCapSyncState == STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE*/)
+            mStillCapSyncState = STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE;
+    }
+
+    result.release();
+
+    if (id != -1) {
+        msg.id = MESSAGE_ID_METADATA_RECEIVED;
+        msg.requestId = id;
+        msg.metas = metas;
+        status = mMessageQueue.send(&msg);
+    }
+
     return status;
 }
 
