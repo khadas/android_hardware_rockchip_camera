@@ -530,9 +530,6 @@ ImguUnit::createProcessingTasks(std::shared_ptr<GraphConfig> graphConfig)
 
             mMainOutWorker->attachNode(it.second);
             mMainOutWorker->attachStream(mStreamNodeMapping[it.first]);
-            // optimize switch resolution capture performance by reducing the
-            // count of mmap buffers which according to pepelineDepth
-            mMainOutWorker->setPipelineDepth(mGCM.isOnlyEnableMp() ? 1 : pipelineDepth);
 
             videoConfig->deviceWorkers.push_back(mMainOutWorker);
             videoConfig->pollableWorkers.push_back(mMainOutWorker);

@@ -443,15 +443,6 @@ RKISP1CameraHw::processRequest(Camera3Request* request, int inFlightCount)
         CheckError(status != NO_ERROR, status, "@%s: failed to get test pattern mode", __FUNCTION__);
     }
 
-    // in USECASE_STILL, inFlightCount should be one for there are only one
-    // mmap buffer in this case.
-    if(newUseCase == USECASE_STILL && mUseCase == USECASE_STILL) {
-        if (inFlightCount > 1) {
-            LOGD("@%s : request %d, continuous still capture case", __FUNCTION__, request->getId());
-            return RequestThread::REQBLK_WAIT_ALL_PREVIOUS_COMPLETED_AND_FENCE_SIGNALED;
-        }
-    }
-
     //workround for CTS:ImageReaderTest#testRepeatingJpeg
     //this test will call mReader.acquireLatestImage, this function will
     //do get latest frame and acquire it's fence until there no new frame
