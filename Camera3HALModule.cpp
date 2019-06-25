@@ -75,6 +75,7 @@ int openCameraHardware(int id, const hw_module_t* module, hw_device_t** device)
     FlashLight& flash = FlashLight::getInstance();
 
     flash.init(id);
+    flash.setCallbacks(sCallbacks);
     flash.reserveFlashForCamera(id);
 
     Camera3HAL* halDev = new Camera3HAL(id, module);
