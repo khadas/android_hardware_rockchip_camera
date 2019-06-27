@@ -243,6 +243,7 @@ private:  /* Members */
     bool mStillCapSyncNeeded;
     typedef enum StillCapSyncState_e {
         STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE,
+        STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP,
         STILL_CAP_SYNC_STATE_TO_ENGINE_START,
         STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE,
         STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE,

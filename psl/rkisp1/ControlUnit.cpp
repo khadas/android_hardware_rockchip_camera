@@ -883,12 +883,26 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
             /* frame_metas.id = reqId; */
 
             CameraMetadata tempCamMeta = *settings;
+
+            camera_metadata_ro_entry entry =
+                settings->find(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER);
+            if (entry.count == 1) {
+                if (entry.data.u8[0] == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START &&
+                    mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE)
+                    mStillCapSyncState = STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP;
+            }
+
             if(jpegBufCount == 0) {
                 uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
                 tempCamMeta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
             } else {
                 if (mStillCapSyncNeeded) {
                     if (mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE) {
+                        uint8_t precap = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START;
+                        tempCamMeta.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &precap, 1);
+                        mStillCapSyncState = STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP;
+                    }
+                    if (mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP) {
                         uint8_t stillCapSync = RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD_SYNCSTART;
                         tempCamMeta.update(RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD, &stillCapSync, 1);
                         mStillCapSyncState = STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE;
