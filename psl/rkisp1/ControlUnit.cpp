@@ -242,7 +242,8 @@ ControlUnit::ControlUnit(ImguUnit *thePU,
         mSensorSubdev(nullptr),
         mSocCamFlashCtrUnit(nullptr),
         mStillCapSyncNeeded(0),
-        mStillCapSyncState(STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE)
+        mStillCapSyncState(STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE),
+        mPrecapTriggered(false)
 {
     cl_result_callback_ops::metadata_result_callback = &sMetadatCb;
 }
@@ -887,9 +888,10 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
             camera_metadata_ro_entry entry =
                 settings->find(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER);
             if (entry.count == 1) {
-                if (entry.data.u8[0] == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START &&
-                    mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE)
+                if (entry.data.u8[0] == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START) {
                     mStillCapSyncState = STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP;
+                    mPrecapTriggered = true;
+                }
             }
 
             if(jpegBufCount == 0) {
@@ -897,7 +899,9 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
                 tempCamMeta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
             } else {
                 if (mStillCapSyncNeeded) {
-                    if (mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE) {
+                    if (mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE
+                        || !mPrecapTriggered) {
+                        LOGD("forcely trigger ae precapture");
                         uint8_t precap = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START;
                         tempCamMeta.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &precap, 1);
                         mStillCapSyncState = STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP;
@@ -910,6 +914,7 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
                         LOGW("already in stillcap_sync state %d",
                              mStillCapSyncState);
                 }
+                mPrecapTriggered = false;
             }
 
             frame_metas.metas = tempCamMeta.getAndLock();
@@ -926,9 +931,17 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
                 return UNKNOWN_ERROR;
             }
 
-            while (mStillCapSyncState == STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE) {
+            int max_counts = 500;
+            while (mStillCapSyncState == STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE &&
+                   max_counts > 0) {
                 LOGD("waiting for stillcap_sync_done");
                 usleep(10*1000);
+                max_counts--;
+            }
+
+            if (max_counts == 0) {
+                mStillCapSyncState = STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE;
+                LOGW("waiting for stillcap_sync_done timeout!");
             }
 
             if (mStillCapSyncState == STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE) {
@@ -1189,6 +1202,8 @@ ControlUnit::handleNewShutter(Message &msg)
             LOGE("unlock frame frame_metas failed");
             return UNKNOWN_ERROR;
         }
+        LOGD("%s:%d, stillcap_sync_state %d",
+             __FUNCTION__, __LINE__, mStillCapSyncState);
     }
 
     int64_t ts = msg.data.shutter.tv_sec * 1000000000; // seconds to nanoseconds
@@ -1351,6 +1366,8 @@ ControlUnit::metadataReceived(int id, const camera_metadata_t *metas) {
         if (entry.data.u8[0] == RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD_SYNCDONE/* &&
             mStillCapSyncState == STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE*/)
             mStillCapSyncState = STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE;
+            LOGD("%s:%d, stillcap_sync_state %d",
+                 __FUNCTION__, __LINE__, mStillCapSyncState);
     }
 
     result.release();

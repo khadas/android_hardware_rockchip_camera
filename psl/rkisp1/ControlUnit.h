@@ -251,6 +251,7 @@ private:  /* Members */
         STILL_CAP_SYNC_STATE_JPEG_FRAME_DONE,
     } StillCapSyncState_e ;
     StillCapSyncState_e mStillCapSyncState;
+    bool mPrecapTriggered;
 };  // class ControlUnit
 
 const element_value_t CtlUMsg_stringEnum[] = {
