@@ -91,8 +91,12 @@ public:
     /* ICaptureEventListener interface*/
     bool notifyCaptureEvent(CaptureMessage *captureMsg);
 
-    status_t flush(bool configChanged = true);
-
+    enum {
+        FLUSH_FOR_NOCHANGE,
+        FLUSH_FOR_STILLCAP,
+        FLUSH_FOR_PREVIEW,
+    };
+    status_t flush(int configChanged = FLUSH_FOR_PREVIEW);
 public:  /* private types */
     // thread message id's
     enum MessageId {
@@ -130,7 +134,7 @@ public:  /* private types */
     // message id and message data
     struct Message {
         MessageId id;
-        bool configChanged;
+        int configChanged;
         unsigned int requestId; /**< For raw buffers from CaptureUnit as
                                      they don't have request */
         MessageData data;
@@ -244,6 +248,8 @@ private:  /* Members */
     typedef enum StillCapSyncState_e {
         STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE,
         STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP,
+        STILL_CAP_SYNC_STATE_FORCE_TO_ENGINE_PRECAP,
+        STILL_CAP_SYNC_STATE_FORCE_PRECAP_DONE,
         STILL_CAP_SYNC_STATE_TO_ENGINE_START,
         STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE,
         STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE,
@@ -251,7 +257,8 @@ private:  /* Members */
         STILL_CAP_SYNC_STATE_JPEG_FRAME_DONE,
     } StillCapSyncState_e ;
     StillCapSyncState_e mStillCapSyncState;
-    bool mPrecapTriggered;
+    int mFlushForUseCase;
+    CameraMetadata mLatestCamMeta;
 };  // class ControlUnit
 
 const element_value_t CtlUMsg_stringEnum[] = {

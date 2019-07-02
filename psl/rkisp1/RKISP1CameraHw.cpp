@@ -610,7 +610,9 @@ status_t RKISP1CameraHw::doConfigureStreams(UseCase newUseCase,
        next stream config. */
     // mImguUnit->flush() moves to the controlunit for sync
     /* mImguUnit->flush(); */
-    mControlUnit->flush(mConfigChanged);
+    mControlUnit->flush(!mConfigChanged ? ControlUnit::FLUSH_FOR_NOCHANGE :
+                        newUseCase == USECASE_STILL ? ControlUnit::FLUSH_FOR_STILLCAP :
+                        ControlUnit::FLUSH_FOR_PREVIEW);
 
     status = mImguUnit->configStreams(streams, mConfigChanged);
     if (status != NO_ERROR) {

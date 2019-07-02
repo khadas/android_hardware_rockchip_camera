@@ -245,7 +245,7 @@ ControlUnit::ControlUnit(ImguUnit *thePU,
         mSocCamFlashCtrUnit(nullptr),
         mStillCapSyncNeeded(0),
         mStillCapSyncState(STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE),
-        mPrecapTriggered(false)
+        mFlushForUseCase(FLUSH_FOR_NOCHANGE)
 {
     cl_result_callback_ops::metadata_result_callback = &sMetadatCb;
 }
@@ -892,7 +892,6 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
             if (entry.count == 1) {
                 if (entry.data.u8[0] == ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START) {
                     mStillCapSyncState = STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP;
-                    mPrecapTriggered = true;
                 }
             }
 
@@ -901,8 +900,7 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
                 tempCamMeta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
             } else {
                 if (mStillCapSyncNeeded) {
-                    if (mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE
-                        || !mPrecapTriggered) {
+                    if (mStillCapSyncState == STILL_CAP_SYNC_STATE_TO_ENGINE_IDLE) {
                         LOGD("forcely trigger ae precapture");
                         uint8_t precap = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START;
                         tempCamMeta.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &precap, 1);
@@ -916,7 +914,6 @@ ControlUnit::processRequestForCapture(std::shared_ptr<RequestCtrlState> &reqStat
                         LOGW("already in stillcap_sync state %d",
                              mStillCapSyncState);
                 }
-                mPrecapTriggered = false;
             }
 
             TuningServer *pserver = TuningServer::GetInstance();
@@ -1231,7 +1228,7 @@ ControlUnit::handleNewShutter(Message &msg)
 }
 
 status_t
-ControlUnit::flush(bool configChanged)
+ControlUnit::flush(int configChanged)
 {
     PERFORMANCE_ATRACE_NAME("ControlUnit::flush");
     HAL_TRACE_CALL(CAM_GLBL_DBG_HIGH);
@@ -1252,8 +1249,37 @@ ControlUnit::handleMessageFlush(Message &msg)
     if (CC_UNLIKELY(status != OK)) {
         LOGE("Failed to stop 3a control loop!");
     }
-    if(msg.configChanged && mCtrlLoop && mEnable3A)
+    mFlushForUseCase = msg.configChanged;
+    if(msg.configChanged && mCtrlLoop && mEnable3A) {
+        if (mStillCapSyncNeeded &&
+            mStillCapSyncState != STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP &&
+            mFlushForUseCase == FLUSH_FOR_STILLCAP) {
+            rkisp_cl_frame_metadata_s frame_metas;
+            // force precap
+            uint8_t precap = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START;
+            mLatestCamMeta.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &precap, 1);
+            frame_metas.metas = mLatestCamMeta.getAndLock();
+            frame_metas.id = -1;
+            status = mCtrlLoop->setFrameParams(&frame_metas);
+            if (status != OK)
+                LOGE("CtrlLoop setFrameParams error");
+
+            status = mLatestCamMeta.unlock(frame_metas.metas);
+            if (status != OK) {
+                LOGE("unlock frame frame_metas failed");
+                return UNKNOWN_ERROR;
+            }
+            mStillCapSyncState = STILL_CAP_SYNC_STATE_FORCE_TO_ENGINE_PRECAP;
+            // wait precap 3A done
+            while (mStillCapSyncState != STILL_CAP_SYNC_STATE_FORCE_PRECAP_DONE) {
+                LOGD("%d:wait forceprecap done...", __LINE__);
+                usleep(10*1000);
+            }
+            mStillCapSyncState = STILL_CAP_SYNC_STATE_TO_ENGINE_PRECAP;
+        }
+
         mCtrlLoop->stop();
+    }
 
     mImguUnit->flush();
 
@@ -1360,6 +1386,7 @@ ControlUnit::metadataReceived(int id, const camera_metadata_t *metas) {
     Message msg;
     status_t status = NO_ERROR;
     camera_metadata_entry entry;
+    static std::map<int,uint8_t> sLastAeStateMap;
 
     CameraMetadata result(const_cast<camera_metadata_t*>(metas));
     entry = result.find(RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_NEEDED);
@@ -1369,11 +1396,25 @@ ControlUnit::metadataReceived(int id, const camera_metadata_t *metas) {
 
     entry = result.find(RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD);
     if (entry.count == 1) {
-        if (entry.data.u8[0] == RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD_SYNCDONE/* &&
-            mStillCapSyncState == STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE*/)
+        if (entry.data.u8[0] == RKCAMERA3_PRIVATEDATA_STILLCAP_SYNC_CMD_SYNCDONE &&
+            (mStillCapSyncState == STILL_CAP_SYNC_STATE_WAITING_ENGINE_DONE ||
+             mFlushForUseCase == FLUSH_FOR_STILLCAP))
             mStillCapSyncState = STILL_CAP_SYNC_STATE_FROM_ENGINE_DONE;
             LOGD("%s:%d, stillcap_sync_state %d",
                  __FUNCTION__, __LINE__, mStillCapSyncState);
+    }
+
+    entry = result.find(ANDROID_CONTROL_AE_STATE);
+    if (entry.count == 1) {
+        if (id == -1 && entry.data.u8[0] == ANDROID_CONTROL_AE_STATE_CONVERGED &&
+            mStillCapSyncState == STILL_CAP_SYNC_STATE_FORCE_TO_ENGINE_PRECAP &&
+            sLastAeStateMap[mCameraId] == ANDROID_CONTROL_AE_STATE_PRECAPTURE) {
+            mStillCapSyncState = STILL_CAP_SYNC_STATE_FORCE_PRECAP_DONE;
+            sLastAeStateMap[mCameraId] = 0;
+            LOGD("%s:%d, stillcap_sync_state %d",
+                 __FUNCTION__, __LINE__, mStillCapSyncState);
+        }
+        sLastAeStateMap[mCameraId] = entry.data.u8[0];
     }
 
     result.release();
@@ -1410,6 +1451,7 @@ ControlUnit::handleMetadataReceived(Message &msg) {
         return UNKNOWN_ERROR;
     }
 
+    mLatestCamMeta = msg.metas;
     //Metadata reuslt are mainly divided into three parts
     //1. some settings from app
     //2. 3A metas from Control loop
