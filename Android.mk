@@ -210,11 +210,15 @@ LOCAL_SHARED_LIBRARIES:= \
 ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 8.0)))
 LOCAL_SHARED_LIBRARIES += \
     libnativewindow \
-    libsync_vendor \
     liblog
 else
 LOCAL_SHARED_LIBRARIES += \
     libcamera_client
+endif
+
+ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 9)))
+LOCAL_SHARED_LIBRARIES += \
+    libsync_vendor
 endif
 
 ifeq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 8.0)))
