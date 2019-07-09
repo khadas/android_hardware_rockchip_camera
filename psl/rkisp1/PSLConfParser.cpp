@@ -469,7 +469,12 @@ camera_metadata_t* PSLConfParser::constructDefaultMetadata(int cameraId, int req
         TAGINFO_ARRAY(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange_variable, 2);
     }
 
-    value_u8 = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
+    // select antibanding mode
+    value_u8 = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+    entry = metadata.find(ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES);
+    // xml should put the default mode at first
+    if (entry.count > 0)
+        value_u8 = entry.data.u8[0];
     TAGINFO(ANDROID_CONTROL_AE_ANTIBANDING_MODE, value_u8);
     TAGINFO(ANDROID_CONTROL_AWB_MODE, awbMode);
     TAGINFO(ANDROID_CONTROL_AWB_LOCK, bogusValue);
