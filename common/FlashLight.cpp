@@ -107,7 +107,7 @@ int32_t FlashLight::init(const int cameraId)
 
     if (!hasFlash) {
         LOGE("%s: No flash available for camera id: %d", __FUNCTION__, cameraId);
-        retVal = -EINVAL;
+        retVal = -ENOSYS;
     } else if (mCameraOpen[cameraId]) {
         LOGE("%s: Camera in use for camera id: %d", __FUNCTION__, cameraId);
         retVal = -EBUSY;
