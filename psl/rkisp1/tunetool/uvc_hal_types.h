@@ -20,6 +20,7 @@
 
 #define UVC_HAL_VERSION           _VERSION_(1, 0x0, 0)
 
+
 enum UvcCmd{
     CMD_REBOOT = 1,
     CMD_SET_CAPS,
@@ -67,14 +68,14 @@ typedef bool (*uvc_get_run_state_t)();
 typedef unsigned int (*uvc_get_fcc_t)();
 typedef void (*uvc_get_resolution_t)(int* width, int* height);
 typedef void (*uvc_buffer_write_t)(void* extra_data,
-                                        size_t extra_size,
+                                        unsigned long extra_size,
                                         void* data,
-                                        size_t size,
+                                        unsigned long size,
                                         unsigned int fcc);
 typedef	int (*vpu_encode_jpeg_doing_t)(
                                 void* srcbuf,
                                 int src_fd,
-                                size_t src_size);
+                                unsigned long src_size);
 typedef void (*vpu_encode_jpeg_set_encbuf_t)(int fd, void *viraddr, unsigned long phyaddr, unsigned int size);
 typedef void (*vpu_encode_jpeg_get_encbuf_t)(unsigned char** jpeg_out, unsigned int *jpeg_len);
 typedef bool (*uvc_buffer_write_enable_t)();
@@ -118,10 +119,10 @@ enum HAL_BLS_WINCFG {
 };
 
 typedef struct HAL_Bls_Win {
-  uint16_t h_offs;
-  uint16_t v_offs;
-  uint16_t width;
-  uint16_t height;
+  unsigned short h_offs;
+  unsigned short v_offs;
+  unsigned short width;
+  unsigned short height;
 } __attribute__((packed)) HAL_Bls_Win_t;
 
 struct HAL_ISP_bls_cfg_s {
@@ -129,11 +130,11 @@ struct HAL_ISP_bls_cfg_s {
   enum HAL_BLS_WINCFG win_cfg;
   HAL_Bls_Win_t win1;
   HAL_Bls_Win_t win2;
-  uint8_t samples;
-  uint16_t fixed_red;
-  uint16_t fixed_greenR;
-  uint16_t fixed_greenB;
-  uint16_t fixed_blue;
+  unsigned char samples;
+  unsigned short fixed_red;
+  unsigned short fixed_greenR;
+  unsigned short fixed_greenB;
+  unsigned short fixed_blue;
 }__attribute__((packed));
 
 #define HAL_ISP_LSC_NAME_LEN         25
@@ -142,27 +143,27 @@ struct HAL_ISP_bls_cfg_s {
 #define HAL_ISP_LSC_MATRIX_TBL_LEN   289
 
 struct HAL_ISP_Lsc_Profile_s {
-  int8_t    LscName[HAL_ISP_LSC_NAME_LEN];
+  char    LscName[HAL_ISP_LSC_NAME_LEN];
 
-  uint16_t  LscSectors;
-  uint16_t  LscNo;
-  uint16_t  LscXo;
-  uint16_t  LscYo;
+  unsigned short  LscSectors;
+  unsigned short  LscNo;
+  unsigned short  LscXo;
+  unsigned short  LscYo;
 
-  uint16_t  LscXSizeTbl[HAL_ISP_LSC_SIZE_TBL_LEN];
-  uint16_t  LscYSizeTbl[HAL_ISP_LSC_SIZE_TBL_LEN];
+  unsigned short  LscXSizeTbl[HAL_ISP_LSC_SIZE_TBL_LEN];
+  unsigned short  LscYSizeTbl[HAL_ISP_LSC_SIZE_TBL_LEN];
 
-  uint16_t  LscMatrix[HAL_ISP_LSC_MATRIX_COLOR_NUM][HAL_ISP_LSC_MATRIX_TBL_LEN];
+  unsigned short  LscMatrix[HAL_ISP_LSC_MATRIX_COLOR_NUM][HAL_ISP_LSC_MATRIX_TBL_LEN];
 }__attribute__((packed));
 
 struct HAL_ISP_Lsc_Query_s {
-  int8_t    LscNameUp[HAL_ISP_LSC_NAME_LEN];
-  int8_t    LscNameDn[HAL_ISP_LSC_NAME_LEN];
+  char    LscNameUp[HAL_ISP_LSC_NAME_LEN];
+  char    LscNameDn[HAL_ISP_LSC_NAME_LEN];
 }__attribute__((packed));
 
 #define HAL_ISP_ILL_NAME_LEN    20
 struct HAL_ISP_AWB_CCM_SET_s {
-  int8_t ill_name[HAL_ISP_ILL_NAME_LEN];
+  char ill_name[HAL_ISP_ILL_NAME_LEN];
 #if 0
   float coeff00;
   float coeff01;
@@ -183,8 +184,8 @@ struct HAL_ISP_AWB_CCM_SET_s {
 }__attribute__((packed));
 
 struct HAL_ISP_AWB_CCM_GET_s {
-  int8_t name_up[HAL_ISP_ILL_NAME_LEN];
-  int8_t name_dn[HAL_ISP_ILL_NAME_LEN];
+  char name_up[HAL_ISP_ILL_NAME_LEN];
+  char name_dn[HAL_ISP_ILL_NAME_LEN];
   #if 0
   float coeff00;
   float coeff01;
@@ -208,17 +209,17 @@ struct HAL_ISP_AWB_s {
   float gr_gain;
   float gb_gain;
   float b_gain;
-  uint8_t lock_ill;
+  unsigned char lock_ill;
   char ill_name[HAL_ISP_ILL_NAME_LEN];
 }__attribute__((packed));
 
 #define HAL_ISP_AWBFADE2PARM_LEN  6
 struct HAL_ISP_AWB_White_Point_Set_s {
-  uint16_t win_h_offs;
-  uint16_t win_v_offs;
-  uint16_t win_width;
-  uint16_t win_height;
-  uint8_t awb_mode;
+  unsigned short win_h_offs;
+  unsigned short win_v_offs;
+  unsigned short win_width;
+  unsigned short win_height;
+  unsigned char awb_mode;
   #if 1//awb_v11
   float afFade[HAL_ISP_AWBFADE2PARM_LEN];
   float afmaxCSum_br[HAL_ISP_AWBFADE2PARM_LEN];
@@ -263,36 +264,36 @@ struct HAL_ISP_AWB_White_Point_Set_s {
   float fRegionSizeInc;
   float fRegionSizeDec;
 
-  uint32_t cnt;
-  uint8_t mean_y;
-  uint8_t mean_cb;
-  uint8_t mean_cr;
-  uint16_t mean_r;
-  uint16_t mean_b;
-  uint16_t mean_g;
+  unsigned int cnt;
+  unsigned char mean_y;
+  unsigned char mean_cb;
+  unsigned char mean_cr;
+  unsigned short mean_r;
+  unsigned short mean_b;
+  unsigned short mean_g;
 }__attribute__((packed));
 
 
 struct HAL_ISP_AWB_White_Point_Get_s {
-  uint16_t win_h_offs;
-  uint16_t win_v_offs;
-  uint16_t win_width;
-  uint16_t win_height;
-  uint8_t awb_mode;
-  uint32_t cnt;
-  uint8_t mean_y;
-  uint8_t mean_cb;
-  uint8_t mean_cr;
-  uint16_t mean_r;
-  uint16_t mean_b;
-  uint16_t mean_g;
+  unsigned short win_h_offs;
+  unsigned short win_v_offs;
+  unsigned short win_width;
+  unsigned short win_height;
+  unsigned char awb_mode;
+  unsigned int cnt;
+  unsigned char mean_y;
+  unsigned char mean_cb;
+  unsigned char mean_cr;
+  unsigned short mean_r;
+  unsigned short mean_b;
+  unsigned short mean_g;
 
-  uint8_t RefCr;
-  uint8_t RefCb;
-  uint8_t MinY;
-  uint8_t MaxY;
-  uint8_t MinC;
-  uint8_t MaxCSum;
+  unsigned char RefCr;
+  unsigned char RefCb;
+  unsigned char MinY;
+  unsigned char MaxY;
+  unsigned char MinC;
+  unsigned char MaxCSum;
 
   float RgProjection;
   float RegionSize;
@@ -322,7 +323,7 @@ struct HAL_ISP_AWB_Curve_s {
 }__attribute__((packed));
 
 struct HAL_ISP_AWB_RefGain_s {
-  int8_t ill_name[HAL_ISP_ILL_NAME_LEN];
+  char ill_name[HAL_ISP_ILL_NAME_LEN];
   float refRGain;
   float refGrGain;
   float refGbGain;
@@ -346,10 +347,10 @@ enum HAL_ISP_GOC_CFG_MODE {
 };
 
 struct HAL_ISP_GOC_s {
-  int8_t scene_name[HAL_ISP_GOC_SCENE_NAME_LEN];
+  char scene_name[HAL_ISP_GOC_SCENE_NAME_LEN];
   enum HAL_ISP_GOC_WDR_STATUS wdr_status;
   enum HAL_ISP_GOC_CFG_MODE cfg_mode;
-  uint16_t gamma_y[HAL_ISP_GOC_GAMMA_NUM];
+  unsigned short gamma_y[HAL_ISP_GOC_GAMMA_NUM];
 }__attribute__((packed));
 
 enum HAL_ISP_CPROC_MODE {
@@ -363,19 +364,19 @@ struct HAL_ISP_CPROC_s {
   float cproc_contrast;
   float cproc_hue;
   float cproc_saturation;
-  int8_t cproc_brightness;
+  char cproc_brightness;
 }__attribute__((packed));
 
 
 #define HAL_ISP_ADPF_DPF_NAME_LEN  20
 #define HAL_ISP_ADPF_DPF_NLL_COEFF_LEN  17
 struct HAL_ISP_ADPF_DPF_s {
-  int8_t  dpf_name[HAL_ISP_ADPF_DPF_NAME_LEN];
-  uint8_t dpf_enable;
-  uint8_t nll_segment;
-  uint16_t nll_coeff[HAL_ISP_ADPF_DPF_NLL_COEFF_LEN];
-  uint16_t sigma_green;
-  uint16_t sigma_redblue;
+  char  dpf_name[HAL_ISP_ADPF_DPF_NAME_LEN];
+  unsigned char dpf_enable;
+  unsigned char nll_segment;
+  unsigned short nll_coeff[HAL_ISP_ADPF_DPF_NLL_COEFF_LEN];
+  unsigned short sigma_green;
+  unsigned short sigma_redblue;
   float gradient;
   float offset;
   float fRed;
@@ -387,29 +388,29 @@ struct HAL_ISP_ADPF_DPF_s {
 #define HAL_ISP_FLT_CURVE_NUM 5
 #define HAL_ISP_FLT_NAME_LEN  20
 struct HAL_ISP_FLT_Denoise_Curve_s {
-  uint8_t denoise_gain[HAL_ISP_FLT_CURVE_NUM];
-  uint8_t denoise_level[HAL_ISP_FLT_CURVE_NUM];
+  unsigned char denoise_gain[HAL_ISP_FLT_CURVE_NUM];
+  unsigned char denoise_level[HAL_ISP_FLT_CURVE_NUM];
 }__attribute__((packed));
 
 struct HAL_ISP_FLT_Sharp_Curve_s {
-  uint8_t sharp_gain[HAL_ISP_FLT_CURVE_NUM];
-  uint8_t sharp_level[HAL_ISP_FLT_CURVE_NUM];
+  unsigned char sharp_gain[HAL_ISP_FLT_CURVE_NUM];
+  unsigned char sharp_level[HAL_ISP_FLT_CURVE_NUM];
 }__attribute__((packed));
 
 struct HAL_ISP_FLT_Level_Conf_s {
-  uint8_t grn_stage1;
-  uint8_t chr_h_mode;
-  uint8_t chr_v_mode;
+  unsigned char grn_stage1;
+  unsigned char chr_h_mode;
+  unsigned char chr_v_mode;
   #if 1
-  uint32_t thresh_bl0;
-  uint32_t thresh_bl1;
-  uint32_t thresh_sh0;
-  uint32_t thresh_sh1;
-  uint32_t fac_sh1;
-  uint32_t fac_sh0;
-  uint32_t fac_mid;
-  uint32_t fac_bl0;
-  uint32_t fac_bl1;
+  unsigned int thresh_bl0;
+  unsigned int thresh_bl1;
+  unsigned int thresh_sh0;
+  unsigned int thresh_sh1;
+  unsigned int fac_sh1;
+  unsigned int fac_sh0;
+  unsigned int fac_mid;
+  unsigned int fac_bl0;
+  unsigned int fac_bl1;
   #else
   float thresh_bl0;
   float thresh_bl1;
@@ -424,28 +425,28 @@ struct HAL_ISP_FLT_Level_Conf_s {
 }__attribute__((packed));
 
 struct HAL_ISP_FLT_Set_s {
-  int8_t  filter_name[HAL_ISP_FLT_NAME_LEN];
-  uint8_t scene_mode;
-  uint8_t filter_enable;
+  char  filter_name[HAL_ISP_FLT_NAME_LEN];
+  unsigned char scene_mode;
+  unsigned char filter_enable;
   struct HAL_ISP_FLT_Denoise_Curve_s denoise;
   struct HAL_ISP_FLT_Sharp_Curve_s sharp;
-  uint8_t level_conf_enable;
-  uint8_t level;
+  unsigned char level_conf_enable;
+  unsigned char level;
   struct HAL_ISP_FLT_Level_Conf_s level_conf;
 }__attribute__((packed));
 
 struct HAL_ISP_FLT_Get_ParamIn_s {
-  uint8_t scene;
-  uint8_t level;
+  unsigned char scene;
+  unsigned char level;
 }__attribute__((packed));
 
 struct HAL_ISP_FLT_Get_s {
-  int8_t  filter_name[HAL_ISP_FLT_NAME_LEN];
-  uint8_t filter_enable;
+  char  filter_name[HAL_ISP_FLT_NAME_LEN];
+  unsigned char filter_enable;
   struct HAL_ISP_FLT_Denoise_Curve_s denoise;
   struct HAL_ISP_FLT_Sharp_Curve_s sharp;
-  uint8_t level_conf_enable;
-  uint8_t is_level_exit;
+  unsigned char level_conf_enable;
+  unsigned char is_level_exit;
   struct HAL_ISP_FLT_Level_Conf_s level_conf;
 }__attribute__((packed));
 
@@ -468,22 +469,22 @@ enum HAL_ISP_AE_MODE {
 };
 
 struct HAL_ISP_Cap_Req_s {
-  uint8_t cap_id;
-  int8_t  store_path[HAL_ISP_STORE_PATH_LEN];
+  unsigned char cap_id;
+  char  store_path[HAL_ISP_STORE_PATH_LEN];
   enum HAL_ISP_CAP_FORMAT cap_format;
-  uint8_t cap_num;
-  uint16_t cap_height;
-  uint16_t cap_width;
+  unsigned char cap_num;
+  unsigned short cap_height;
+  unsigned short cap_width;
   enum HAL_ISP_AE_MODE ae_mode;
-  uint8_t exp_time_h;
-  uint8_t exp_time_l;
-  uint8_t exp_gain_h;
-  uint8_t exp_gain_l;
-  uint16_t af_code;
+  unsigned char exp_time_h;
+  unsigned char exp_time_l;
+  unsigned char exp_gain_h;
+  unsigned char exp_gain_l;
+  unsigned short af_code;
 }__attribute__((packed));
 
 struct HAL_ISP_Cap_Result_s {
-  uint8_t cap_id;
+  unsigned char cap_id;
   enum HAL_ISP_CAP_RESULT result;
 }__attribute__((packed));
 
@@ -492,74 +493,79 @@ struct HAL_ISP_Cap_Result_s {
 #define HAL_ISP_SENSOR_RESOLUTION_NUM         8
 
 struct HAL_ISP_Sensor_Reso_s {
-  uint16_t width;
-  uint16_t height;
+  unsigned short width;
+  unsigned short height;
 }__attribute__((packed));
 
 struct HAL_ISP_OTP_Info_s {
-  uint8_t awb_otp:1;
-  uint8_t lsc_otp:1;
+  unsigned char awb_otp:1;
+  unsigned char lsc_otp:1;
 }__attribute__((packed));
 
 struct HAL_ISP_Sys_Info_s {
-  int8_t  platform[HAL_ISP_SYS_INFO_LEN];
-  int8_t  sensor[HAL_ISP_SYS_INFO_LEN];
-  int8_t  module[HAL_ISP_SYS_INFO_LEN];
-  int8_t  lens[HAL_ISP_SYS_INFO_LEN];
-  int8_t  iq_name[HAL_ISP_SYS_INFO_LEN*2];
-  uint8_t otp_info;
-  uint8_t max_exp_time_h;
-  uint8_t max_exp_time_l;
-  uint8_t max_exp_gain_h;
-  uint8_t max_exp_gain_l;
-  uint8_t reso_num;
+  char  platform[HAL_ISP_SYS_INFO_LEN];
+  char  sensor[HAL_ISP_SYS_INFO_LEN];
+  char  module[HAL_ISP_SYS_INFO_LEN];
+  char  lens[HAL_ISP_SYS_INFO_LEN];
+  char  iq_name[HAL_ISP_SYS_INFO_LEN*2];
+  unsigned char otp_flag;
+  unsigned int otp_r_value;
+  unsigned int otp_gr_value;
+  unsigned int otp_gb_value;
+  unsigned int otp_b_value;
+  unsigned char max_exp_time_h;
+  unsigned char max_exp_time_l;
+  unsigned char max_exp_gain_h;
+  unsigned char max_exp_gain_l;
+  unsigned char reso_num;
   struct HAL_ISP_Sensor_Reso_s reso[HAL_ISP_SENSOR_RESOLUTION_NUM];
-  uint8_t sensor_fmt;
+  unsigned char sensor_fmt;
+  unsigned char bayer_pattern;
 }__attribute__((packed));
 
 struct HAL_ISP_Sensor_Mirror_s {
-  uint8_t horizontal_mirror:1;
-  uint8_t vertical_mirror:1;
+  unsigned char horizontal_mirror:1;
+  unsigned char vertical_mirror:1;
 }__attribute__((packed));
 
 struct HAL_ISP_Sensor_Info_s {
-  uint8_t exp_time_h;
-  uint8_t exp_time_l;
-  uint8_t exp_gain_h;
-  uint8_t exp_gain_l;
-  uint8_t mirror_info;
-  uint16_t frame_length_lines;
-  uint16_t line_length_pck;
-  uint32_t vt_pix_clk_freq_hz;
-  uint8_t binning;
-  uint8_t black_white_mode;
+  unsigned char exp_time_h;
+  unsigned char exp_time_l;
+  unsigned char exp_gain_h;
+  unsigned char exp_gain_l;
+  unsigned char mirror_info;
+  unsigned short frame_length_lines;
+  unsigned short line_length_pck;
+  unsigned int vt_pix_clk_freq_hz;
+  unsigned char binning;
+  unsigned char black_white_mode;
 }__attribute__((packed));
 
 struct HAL_ISP_Sensor_Exposure_s {
   enum HAL_ISP_AE_MODE ae_mode;
-  uint8_t exp_time_h;
-  uint8_t exp_time_l;
-  uint8_t exp_gain_h;
-  uint8_t exp_gain_l;
+  unsigned char exp_time_h;
+  unsigned char exp_time_l;
+  unsigned char exp_gain_h;
+  unsigned char exp_gain_l;
 }__attribute__((packed));
 
 struct HAL_ISP_Sensor_Reg_s {
-  uint8_t reg_addr_len;
-  uint16_t reg_addr;
-  uint8_t reg_data_len;
-  uint16_t reg_data;
+  unsigned char reg_addr_len;
+  unsigned short reg_addr;
+  unsigned char reg_data_len;
+  unsigned short reg_data;
 }__attribute__((packed));
 
 #define HAL_ISP_IQ_PATH_LEN    32
 struct HAL_ISP_Reboot_Req_s {
-  uint8_t reboot;
-  int8_t  iq_path[HAL_ISP_IQ_PATH_LEN];
+  unsigned char reboot;
+  char  iq_path[HAL_ISP_IQ_PATH_LEN];
 }__attribute__((packed));
 
 struct HAL_ISP_Protocol_Ver_s {
-    uint8_t major_ver;
-    uint8_t minor_ver;
-    uint32_t magicCode;
+    unsigned char major_ver;
+    unsigned char minor_ver;
+    unsigned int magicCode;
 }__attribute__((packed));
 
 #endif

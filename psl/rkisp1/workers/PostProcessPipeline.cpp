@@ -1490,10 +1490,10 @@ PostProcessUnitRaw::processFrame(const std::shared_ptr<PostProcBuffer>& in,
     PERFORMANCE_ATRACE_CALL();
     status_t status = OK;
 
-    LOGD("@%s: instance:%p, name: %s", __FUNCTION__, mName);
+    LOGD("@%s: instance:%p, name: %s", __FUNCTION__, this, mName);
     /* in->cambuf->dumpImage(CAMERA_DUMP_RAW, "RawUnit"); */
     std::string fileName;
-    std::string dumpPrefix = "dump_";
+    std::string dumpPrefix = "";
     char dumpSuffix[100] = {};
     char szDateTime[20] = "";
     struct timeval tval;
@@ -1504,12 +1504,12 @@ PostProcessUnitRaw::processFrame(const std::shared_ptr<PostProcBuffer>& in,
             pserver->mSkipFrame--;
             return status;
         }
-        snprintf(dumpSuffix, sizeof(dumpSuffix), "%dx%d_t%0.3f_g%0.3f_%d", out->cambuf->width(), out->cambuf->height(),
-                 pserver->mCurTime/1000.0, pserver->mCurGain, pserver->mCapRawNum);
         gettimeofday(&tval, NULL);
         int64_t timestamp =  (((int64_t)tval.tv_sec) * 1000000L) + tval.tv_usec;
-        strftime( szDateTime, sizeof(szDateTime), "_%Y%m%d_%H%M%S", localtime(&tval.tv_sec) );
-        fileName = std::string("/data/isptune/") + dumpPrefix + std::string(dumpSuffix) + std::string(szDateTime) + std::string(".pgm");
+        strftime( szDateTime, sizeof(szDateTime), "%Y%m%d_%H%M%S", localtime(&tval.tv_sec) );
+        snprintf(dumpSuffix, sizeof(dumpSuffix), "t%0.3f_g%0.3f_%dx%d_raw16_%s_%d", pserver->mCurTime/1000.0, pserver->mCurGain,
+                 out->cambuf->width(), out->cambuf->height(), szDateTime, pserver->mCapRawNum);
+        fileName = std::string("/data/isptune/") + dumpPrefix + std::string(dumpSuffix) + std::string(".pgm");
 
         LOGD("%s filename is %s", __FUNCTION__, fileName.data());
 
@@ -1529,8 +1529,6 @@ PostProcessUnitRaw::processFrame(const std::shared_ptr<PostProcBuffer>& in,
         pserver->mCapRawNum--;
         if(pserver->mCapRawNum == 0){
             pserver->stopCatureRaw();
-            pserver->mStartCapture = false;
-            pserver->bExpCmdCap = false;
             if(pserver->mMsgType == CMD_TYPE_SYNC)
                 pserver->mUvc_proc_ops->uvc_signal();
         }

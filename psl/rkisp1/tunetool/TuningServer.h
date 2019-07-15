@@ -85,6 +85,7 @@ private:
     TuningServer();
     RKISP1CameraHw *mCamHw;
     ControlUnit *mCtrlUnit;
+    int mCamId;
     void *mLibUvcApp;
     bool mTuningMode;
 public:
@@ -107,7 +108,7 @@ public:
     {
         return mTuningMode;
     }
-    void init(ControlUnit *pCu, RKISP1CameraHw* pCh);
+    void init(ControlUnit *pCu, RKISP1CameraHw* pCh, int camId);
     void deinit();
 
 //cmd implemet

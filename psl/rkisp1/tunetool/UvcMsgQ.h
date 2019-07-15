@@ -25,10 +25,10 @@ struct Message_cam
     void*        arg3;
     void*        arg4;
     Message_cam(){
-        arg1 = NULL;
-        arg2 = NULL;
-        arg3 = NULL;
-        arg4 = NULL;
+        arg1 = 0;
+        arg2 = 0;
+        arg3 = 0;
+        arg4 = 0;
     }
 };
 class MsgQueue

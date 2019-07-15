@@ -202,6 +202,8 @@ public:
                                  std::string &sensorEntityName) const;
     status_t getAvailableSensorOutputFormats(int32_t cameraId,
                                      SensorFormat &OutputFormats) const;
+    status_t getSensorBayerPattern(int32_t cameraId,
+                                   int32_t &bayerPattern) const;
     status_t getSensorFrameDuration(int32_t cameraId, int32_t &duration) const;
     void getMediaCtlElementNames(std::vector<std::string> &elementNames, bool isFirst = false) const;
     bool isIspSupportRawPath() const;

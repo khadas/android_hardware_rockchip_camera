@@ -29,12 +29,13 @@
 #include "LogHelper.h"
 #include "TuningServer.h"
 #include "ControlUnit.h"
-
+#include "GraphConfig.h"
+#include "FormatUtils.h"
 //#define  DEBUG_ON
-
+using GCSS::GraphConfigNode;
 namespace android {
 namespace camera2 {
-
+namespace gcu = graphconfig::utils;
 TuningServer::TuningServer():mMainTh(this),mCmdTh(this){
     mTuningMode = false;
     bExpCmdCap = false;
@@ -90,36 +91,36 @@ TuningServer::TuningServer():mMainTh(this),mCmdTh(this){
 TuningServer::~TuningServer(){
 }
 
-void TuningServer::init(ControlUnit *pCu, RKISP1CameraHw* pCh)
+void TuningServer::init(ControlUnit *pCu, RKISP1CameraHw* pCh, int camId)
 {
     char prop_adb[PROPERTY_VALUE_MAX];
     char prop_uvc[PROPERTY_VALUE_MAX];
 
     property_get("sys.camera.uvc", prop_uvc, "0");
-    if(strcmp(prop_uvc, "1") == 0) {       
+    if(strcmp(prop_uvc, "1") == 0) {
         mLibUvcApp = dlopen("libuvcapp.so", RTLD_NOLOAD);
         if (mLibUvcApp == NULL){
             mLibUvcApp = dlopen("libuvcapp.so", RTLD_NOW);
         }
-        
+
         if (mLibUvcApp == NULL)
         {
             LOGE("open libuvcapp fail");
             return;
         }
-        
+
         mUvc_vpu_ops = (uvc_vpu_ops_t *)dlsym(mLibUvcApp, "uvc_vpu_ops");
         if(mUvc_vpu_ops == NULL){
             LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
             return;
         }
-        
+
         mUvc_proc_ops = (uvc_proc_ops_t *)dlsym(mLibUvcApp, "uvc_proc_ops");
         if(mUvc_proc_ops == NULL){
             LOGE("%s(%d):get symbol fail,%s",__FUNCTION__,__LINE__,dlerror());
             return;
         }
-        
+
         uint32_t uvc_version = mUvc_proc_ops->uvc_getVersion();
         if (uvc_version != UVC_HAL_VERSION)
         {
@@ -138,6 +139,7 @@ void TuningServer::init(ControlUnit *pCu, RKISP1CameraHw* pCh)
         }
         mCtrlUnit = pCu;
         mCamHw = pCh;
+        mCamId = camId;
         mMainTh.run();
         mCmdTh.run();
         mTuningMode = true;
@@ -153,17 +155,22 @@ void TuningServer::deinit()
         mTuningMode = false;
         dlclose(mLibUvcApp);
         mLibUvcApp = NULL;
+        property_set("sys.usb.config", "none");
+        usleep(3000000);
+        property_set("sys.usb.config", "adb");
     }
 }
 
 void TuningServer::startCaptureRaw(int w, int h)
 {
+    mStartCapture = true;
     if(mCamHw)
         mCamHw->sendTuningDumpCmd(w, h);
 }
 
 void TuningServer::stopCatureRaw()
 {
+    mStartCapture = false;
     if(mCamHw)
         mCamHw->sendTuningDumpCmd(0, 0);
 }
@@ -184,7 +191,6 @@ void TuningServer::set_cap_req(CameraMetadata &uvcCamMeta)
     if(mCapReqOn){
         mCapReqOn = false;
         bExpCmdCap = true;
-        mStartCapture = true;
         uvcExpTime = (int64_t)(((float)mPtrCapReq->exp_time_h + mPtrCapReq->exp_time_l / 256.0) * 1e6);
         uvcSensitivity = (int32_t)(((float)mPtrCapReq->exp_gain_h + mPtrCapReq->exp_gain_l / 256.0) * 100);
 
@@ -192,11 +198,9 @@ void TuningServer::set_cap_req(CameraMetadata &uvcCamMeta)
             uvcAeMode = ANDROID_CONTROL_AE_MODE_OFF;
         else
             uvcAeMode = ANDROID_CONTROL_AE_MODE_ON;
-        mSkipFrame = 100;
+        mSkipFrame = 10;
         mCapRawNum = mPtrCapReq->cap_num;
         LOGD("CMD_SET_CAPS:%dx%d,%d,%lld",mPtrCapReq->cap_width, mPtrCapReq->cap_height,uvcSensitivity,uvcExpTime);
-
-        startCaptureRaw(mPtrCapReq->cap_width, mPtrCapReq->cap_height);
     }
     if(bExpCmdCap){
         if(uvcAeMode == HAL_ISP_AE_MANUAL)
@@ -206,6 +210,12 @@ void TuningServer::set_cap_req(CameraMetadata &uvcCamMeta)
         uvcCamMeta.update(ANDROID_SENSOR_SENSITIVITY, &uvcSensitivity, 1);
         uvcCamMeta.update(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
         uvcCamMeta.update(ANDROID_SENSOR_EXPOSURE_TIME, &uvcExpTime, 1);
+	    if(mSkipFrame > 0){
+		   mSkipFrame--;
+		}else if(mSkipFrame == 0) {
+		   bExpCmdCap = false;
+		   startCaptureRaw(mPtrCapReq->cap_width, mPtrCapReq->cap_height);
+		}
     }
 }
 
@@ -225,12 +235,12 @@ void TuningServer::get_exposure(CameraMetadata &uvcCamMeta)
 
     if (mCurTime != time)
         mCurTime = time;
+    LOGD("%s: now gain&time:%f,%f",__FUNCTION__, mCurGain,mCurTime);
 }
 
 void TuningServer::set_exposure(CameraMetadata &uvcCamMeta)
 {
     uint8_t aeMode;
-
     if(mExpSetOn){
         uvcExpTime = (int64_t)(((float)mPtrExp->exp_time_h + mPtrExp->exp_time_l / 256.0) * 1e6);
         uvcSensitivity = (int32_t)(((float)mPtrExp->exp_gain_h + mPtrExp->exp_gain_l / 256.0) * 100);
@@ -1394,7 +1404,14 @@ void TuningServer::get_sys_info(CameraMetadata &uvcCamMeta)
             pchr += sizeof(mPtrSysInfo->module);
             memcpy(mPtrSysInfo->lens, pchr, sizeof(mPtrSysInfo->lens));
             pchr += sizeof(mPtrSysInfo->lens);
-            mPtrSysInfo->otp_info = *pchr++;
+            mPtrSysInfo->otp_flag = *pchr++;
+            memcpy(&mPtrSysInfo->otp_r_value, pchr, 4);
+            pchr += 4;
+            memcpy(&mPtrSysInfo->otp_gr_value, pchr, 4);
+            pchr += 4;
+            memcpy(&mPtrSysInfo->otp_gb_value, pchr, 4);
+            pchr += 4;
+            memcpy(&mPtrSysInfo->otp_b_value, pchr, 4);
         }
 
         char sdkversion[PROPERTY_VALUE_MAX],*pstr1,*pstr2;
@@ -1435,7 +1452,7 @@ void TuningServer::get_sys_info(CameraMetadata &uvcCamMeta)
 
         SensorFormat mAvailableSensorFormat;
         uint32_t format;
-        PlatformData::getCameraHWInfo()->getAvailableSensorOutputFormats(0, mAvailableSensorFormat);
+        PlatformData::getCameraHWInfo()->getAvailableSensorOutputFormats(mCamId, mAvailableSensorFormat);
         format = mAvailableSensorFormat.begin()->first;
         uint32_t index=0;
         std::vector<struct SensorFrameSize> &frameSize = mAvailableSensorFormat[format];
@@ -1450,6 +1467,29 @@ void TuningServer::get_sys_info(CameraMetadata &uvcCamMeta)
         }
         mPtrSysInfo->reso_num = index;
         mPtrSysInfo->sensor_fmt = 0x2b;
+        int code = 0, fmt = 0;
+        char bayer[8];
+        memset(bayer, 0, sizeof(bayer));
+        PlatformData::getCameraHWInfo()->getSensorBayerPattern(mCamId, code);
+        sscanf(gcu::pixelCode2String(code).c_str(),"%*[^_]_%*[^_]_%*[^_]_S%[^0-9]%d_%*s", bayer, &fmt);
+        if (0 == strcmp(bayer, "BGGR")){
+            mPtrSysInfo->bayer_pattern = 1;
+        }else if(0 == strcmp(bayer, "GBRG")){
+            mPtrSysInfo->bayer_pattern = 2;
+        }else if(0 == strcmp(bayer, "GRBG")){
+            mPtrSysInfo->bayer_pattern = 3;
+        }else if(0 == strcmp(bayer, "RGGB")){
+            mPtrSysInfo->bayer_pattern = 4;
+        }
+        if (fmt == 8)
+            mPtrSysInfo->sensor_fmt = 0x2a;
+        else if (fmt == 10)
+            mPtrSysInfo->sensor_fmt = 0x2b;
+        else if (fmt == 12)
+            mPtrSysInfo->sensor_fmt = 0x2c;
+        else
+            mPtrSysInfo->sensor_fmt = 0x2b;
+
         if(mMsgType == CMD_TYPE_SYNC)
             mUvc_proc_ops->uvc_signal();
     }
@@ -1752,6 +1792,7 @@ void* TuningCmdThread::threadLoop(void* This)  {
             {
                 commdTh->server->mPtrExp= (struct HAL_ISP_Sensor_Exposure_s *)msg.arg2;
                 commdTh->server->mExpSetOn = true;
+                commdTh->server->mMsgType = (enum ISP_UVC_CMD_TYPE_e)msg.type;
                 break;
             }
             default:

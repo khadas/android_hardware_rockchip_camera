@@ -103,7 +103,7 @@ RKISP1CameraHw::init()
 
     mTuningServer = TuningServer::GetInstance();
     if(mTuningServer) {
-        mTuningServer->init(mControlUnit, this);
+        mTuningServer->init(mControlUnit, this, mCameraId);
     }
 
     // Register ControlUnit as a listener to capture events
