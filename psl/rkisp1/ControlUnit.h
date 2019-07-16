@@ -223,6 +223,7 @@ private:  /* Members */
     int mSensorSettingsDelay;
     int mGainDelay;
     bool mLensSupported;
+    bool mFlashSupported;
 
     uint32_t mSofSequence;
     int64_t mShutterDoneReqId;

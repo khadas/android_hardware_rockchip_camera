@@ -239,6 +239,7 @@ ControlUnit::ControlUnit(ImguUnit *thePU,
         mSensorSettingsDelay(0),
         mGainDelay(0),
         mLensSupported(false),
+        mFlashSupported(false),
         mSofSequence(0),
         mShutterDoneReqId(-1),
         mSensorSubdev(nullptr),
@@ -369,6 +370,13 @@ status_t ControlUnit::initStaticMetadata()
         LOGI("Lens movement %s for camera id %d",
              mLensSupported ? "supported" : "NOT supported", mCameraId);
     }
+
+    entry = staticMeta.find(ANDROID_FLASH_INFO_AVAILABLE);
+    if (entry.count == 1) {
+        mFlashSupported = (entry.data.u8[0] > 0) ? true : false;
+        LOGI("Flash %s for camera id %d",
+             mFlashSupported ? "supported" : "NOT supported", mCameraId);
+    }
     staticMeta.release();
 
     const RKISP1CameraCapInfo *cap = getRKISP1CameraCapInfo(mCameraId);
@@ -454,7 +462,8 @@ ControlUnit::init()
 
     const CameraHWInfo* camHwInfo = PlatformData::getCameraHWInfo();
     if (cap->sensorType() == SENSOR_TYPE_SOC &&
-        camHwInfo->mSensorInfo[mCameraId].mFlashNum > 0) {
+        camHwInfo->mSensorInfo[mCameraId].mFlashNum > 0 &&
+        mFlashSupported) {
         mSocCamFlashCtrUnit = std::unique_ptr<SocCamFlashCtrUnit>(
                               new SocCamFlashCtrUnit(
                               // TODO: support only one flash for SoC now
@@ -613,11 +622,13 @@ ControlUnit::configStreams(std::vector<camera3_stream_t*> &activeStreams, bool c
                 prepareParams.sensor_sd_node_path = it.second.c_str();
                 break;
             case KDevPathTypeLensNode:
-                prepareParams.lens_sd_node_path = it.second.c_str();
+                if (mLensSupported)
+                    prepareParams.lens_sd_node_path = it.second.c_str();
                 break;
             // deprecated
             case KDevPathTypeFlNode:
-                prepareParams.flashlight_sd_node_path[0] = it.second.c_str();
+                if (mFlashSupported)
+                    prepareParams.flashlight_sd_node_path[0] = it.second.c_str();
                 break;
             default:
                 continue;
@@ -625,9 +636,12 @@ ControlUnit::configStreams(std::vector<camera3_stream_t*> &activeStreams, bool c
         }
 
         const CameraHWInfo* camHwInfo = PlatformData::getCameraHWInfo();
-        for (int i = 0; i < camHwInfo->mSensorInfo[mCameraId].mFlashNum; i++) {
-            prepareParams.flashlight_sd_node_path[i] =
-                camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName[i].c_str();
+
+        if (mFlashSupported) {
+            for (int i = 0; i < camHwInfo->mSensorInfo[mCameraId].mFlashNum; i++) {
+                prepareParams.flashlight_sd_node_path[i] =
+                    camHwInfo->mSensorInfo[mCameraId].mModuleFlashDevName[i].c_str();
+            }
         }
 
         mEnable3A = true;
