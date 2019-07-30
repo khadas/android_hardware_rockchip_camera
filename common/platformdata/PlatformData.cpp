@@ -51,6 +51,8 @@ using std::string;
 #define RETRY_COUNTER 0
 #endif
 
+#define FORCE_DISABLE_ISP_RAW_PATH 1
+
 bool PlatformData::mInitialized = false;
 
 CameraProfiles* PlatformData::mInstance = nullptr;
@@ -1316,10 +1318,12 @@ void CameraHWInfo::getMediaCtlElementNames(std::vector<std::string> &elementName
 
 bool CameraHWInfo::isIspSupportRawPath() const
 {
+#if FORCE_DISABLE_ISP_RAW_PATH == 0
     for (auto &it: mMediaCtlElementNames) {
         if (it.find("rawpath") != std::string::npos)
             return true;
     }
+#endif
     return false;
 }
 

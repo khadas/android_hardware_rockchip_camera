@@ -2461,7 +2461,8 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
             mpName = it;
         if (it.find("selfpath") != std::string::npos)
             spName = it;
-        if (it.find("rawpath") != std::string::npos)
+        if (PlatformData::getCameraHWInfo()->isIspSupportRawPath() &&
+            it.find("rawpath") != std::string::npos)
             rpName = it;
         if (it.find("statistics") != std::string::npos)
             statsName = it;
