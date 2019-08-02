@@ -131,7 +131,7 @@ status_t GraphConfigManager::mapStreamToKey(const std::vector<camera3_stream_t*>
         // find the maxium size stream
         for (int i = 0; i < availableStreams.size(); i++) {
             if (streamSizeGT(availableStreams[i], availableStreams[mainOutputIndex]))
-                    mainOutputIndex = i;
+                mainOutputIndex = i;
         }
 
         for (int i = 0; i < availableStreams.size(); i++) {
@@ -256,7 +256,8 @@ status_t GraphConfigManager::configStreams(const vector<camera3_stream_t*> &stre
         LOGE("Couldn't get mediaCtl config");
 
     ret |= gc->getImguMediaCtlConfig(mCameraId, testPatternMode,
-                                     &mMediaCtlConfigs[IMGU_COMMON]);
+                                     &mMediaCtlConfigs[IMGU_COMMON],
+                                     outputStream);
     if (ret != OK)
         LOGE("Couldn't get Imgu mediaCtl config");
 

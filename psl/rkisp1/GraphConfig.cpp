@@ -2238,6 +2238,71 @@ status_t GraphConfig::getNodeInfo(const ia_uid uid, const Node &parent, int* wid
     return status;
 }
 
+void GraphConfig::isNeedPathCrop(uint32_t path_input_w,
+                             uint32_t path_input_h,
+                             bool sp_enabled,
+                             std::vector<camera3_stream_t*>& outputStream,
+                             bool& mp_need_crop,
+                             bool& sp_need_crop) {
+    // filter the same size
+    std::vector<camera3_stream_t*> filterStream;
+    for (auto s : outputStream) {
+        bool filter = false;
+        for (auto f : filterStream) {
+            if (s->width == f->width &&
+                s->height == f->height) {
+                filter = true;
+                break;
+            }
+        }
+
+        if (!filter)
+            filterStream.push_back(s);
+    }
+
+    std::sort(filterStream.begin(), filterStream.end(),
+              [] (camera3_stream_t* s1, camera3_stream_t* s2) {
+                return s1->width > s2->width;
+              });
+
+    float source_ratio = (float)path_input_w / path_input_h;
+    std::set<float> str_ratiov;
+
+    for (auto s : filterStream)
+        str_ratiov.insert((float)(s->width) / s->height);
+
+    if (!sp_enabled) {
+        if (str_ratiov.size() > 1) {
+            mp_need_crop = false;
+            sp_need_crop = false;
+        } else {
+            mp_need_crop = true;
+            sp_need_crop = false;
+        }
+    } else {
+        if (str_ratiov.size() > 2) {
+            mp_need_crop = false;
+            sp_need_crop = false;
+        } else {
+            mp_need_crop = true;
+            sp_need_crop = true;
+        }
+    }
+
+    for (auto dst_ratio : str_ratiov) {
+        LOGD("@ %s : stream ratios: %f", __FUNCTION__, dst_ratio);
+        if (source_ratio > dst_ratio) {
+            LOGW("width may be cropped, may have FOV issue,"
+                 "source_ratio %f, dst_ratio %f!",
+                 source_ratio, dst_ratio);
+            break;
+        }
+    }
+
+    LOGD("@ %s : mp_need_crop %d, sp_need_crop %d, sp_enabled %d",
+         __FUNCTION__, mp_need_crop, sp_need_crop, sp_enabled);
+}
+
 void GraphConfig::cal_crop(uint32_t &src_w, uint32_t &src_h, uint32_t &dst_w, uint32_t &dst_h) {
 
     float ratio_src = src_w * 1.0 / src_h;
@@ -2418,7 +2483,8 @@ status_t GraphConfig::getSensorMediaCtlConfig(int32_t cameraId,
 
 status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
                                           int32_t testPatternMode,
-                                          MediaCtlConfig *mediaCtlConfig)
+                                          MediaCtlConfig *mediaCtlConfig,
+                                          std::vector<camera3_stream_t*>& outputStream)
 {
     //CIF isp
     if (mSensorLinkedToCIF) {
@@ -2526,6 +2592,14 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
     addLinkParams(IspName, ispStatsPad, statsName,  statsSinkPad,  1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
     addLinkParams(paramName, paramSrcPad, IspName, ispParamPad, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
 
+    bool mp_need_crop = true;
+    bool sp_need_crop = true;
+
+    isNeedPathCrop(ispOutWidth, ispOutHeight,
+                   spStream && spName != "none" ,
+                   outputStream, mp_need_crop,
+                   sp_need_crop);
+
     struct v4l2_selection select;
     CLEAR(select);
     if(mpStream) {
@@ -2537,7 +2611,9 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
                  mpStream->width, mpStream->height, MP_MAX_WIDTH, MP_MAX_HEIGHT);
             return UNKNOWN_ERROR;
         }
-        cal_crop(mpInWidth, mpInHeight, mpStream->width, mpStream->height);
+
+        if (mp_need_crop)
+            cal_crop(mpInWidth, mpInHeight, mpStream->width, mpStream->height);
 
         select.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         select.target = V4L2_SEL_TGT_CROP;
@@ -2549,8 +2625,13 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
         if(!mMpOutputRaw) {
             //for the case: isp output size < app stream size, select isp output
             //size as the vidoe node out output size, may happen in tuning dump raw case
-            uint32_t videoWidth = mpStream->width > mpInWidth ? mpInWidth : mpStream->width ;
-            uint32_t videoHeight = mpStream->height > mpInHeight ? mpInHeight : mpStream->height ;
+            uint32_t videoWidth = mpInWidth;
+            uint32_t videoHeight = mpInHeight;
+
+            if (mp_need_crop) {
+                videoWidth = mpStream->width > mpInWidth ? mpInWidth : mpStream->width ;
+                videoHeight = mpStream->height > mpInHeight ? mpInHeight : mpStream->height ;
+            }
             addFormatParams(mpName, videoWidth, videoHeight, mpSinkPad, videoOutFormat, 0, 0, mediaCtlConfig);
             addSelectionVideoParams(mpName, select, mediaCtlConfig);
         } else {
@@ -2577,7 +2658,8 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
             LOGW("@%s Stream %p size(%dx%d) beyond SP cap(%dx%d), should attach to MP", __FUNCTION__,
                  spStream, spStream->width, spStream->height, SP_MAX_WIDTH, SP_MAX_HEIGHT);
         } else {
-            cal_crop(spInWidth, spInHeight, spStream->width, spStream->height);
+            if (sp_need_crop)
+                cal_crop(spInWidth, spInHeight, spStream->width, spStream->height);
 
             select.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             select.target = V4L2_SEL_TGT_CROP;
@@ -2588,8 +2670,13 @@ status_t GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
             select.r.height = spInHeight;
             //for the case: isp output size < app stream size, select isp output
             //size as the vidoe node out output size, may happen in tuning dump raw case
-            uint32_t videoWidth = spStream->width > spInWidth ? spInWidth : spStream->width ;
-            uint32_t videoHeight = spStream->height > spInHeight ? spInHeight : spStream->height ;
+            uint32_t videoWidth = spInWidth;
+            uint32_t videoHeight = spInHeight;
+
+            if (sp_need_crop) {
+                videoWidth = spStream->width > spInWidth ? spInWidth : spStream->width ;
+                videoHeight = spStream->height > spInHeight ? spInHeight : spStream->height ;
+            }
             addFormatParams(spName, videoWidth, videoHeight, spSinkPad, videoOutFormat, 0, 0, mediaCtlConfig);
             addSelectionVideoParams(spName, select, mediaCtlConfig);
             addImguVideoNode(IMGU_NODE_VF_PREVIEW, spName, mediaCtlConfig);

@@ -386,7 +386,8 @@ private:
                                  MediaCtlConfig* mediaCtlConfig);
     status_t getImguMediaCtlConfig(int32_t cameraId,
                                  int32_t testPatternMode,
-                                 MediaCtlConfig* mediaCtlConfig);
+                                 MediaCtlConfig* mediaCtlConfig,
+                                 std::vector<camera3_stream_t*>& outputStream);
     status_t addControls(const Node *sensorNode,
                          const SourceNodeInfo &sensorInfo,
                          MediaCtlConfig* config);
@@ -453,6 +454,12 @@ private:
     // Disable copy constructor and assignment operator
     GraphConfig(const GraphConfig &);
     GraphConfig& operator=(const GraphConfig &);
+    void isNeedPathCrop(uint32_t path_input_w,
+                        uint32_t path_input_h,
+                        bool sp_enabled,
+                        std::vector<camera3_stream_t*>& outputStream,
+                        bool& mp_need_crop,
+                        bool& sp_need_crop);
 
 private:
     GraphConfigManager *mManager; /* GraphConfig doesn't own mManager */
