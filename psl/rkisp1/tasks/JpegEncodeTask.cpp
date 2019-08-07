@@ -23,7 +23,9 @@
 #include "CameraStream.h"
 #include "PlatformData.h"
 #include "RKISP1CameraHw.h" // PartialResultEnum
+#include "rkcamera_vendor_tags.h"
 
+#define MAKERNOTEDATALEN 600
 namespace android {
 namespace camera2 {
 
@@ -33,6 +35,10 @@ JpegEncodeTask::JpegEncodeTask(int cameraId):
     mCameraId(cameraId)
 {
     HAL_TRACE_CALL(CAM_GLBL_DBG_HIGH);
+    mMakernote.data = new char[MAKERNOTEDATALEN];
+    if(mMakernote.data)
+        memset(mMakernote.data, 0, MAKERNOTEDATALEN);
+    mMakernote.size = 0;
 }
 
 JpegEncodeTask::~JpegEncodeTask()
@@ -44,6 +50,9 @@ JpegEncodeTask::~JpegEncodeTask()
         mJpegMaker = nullptr;
     }
 
+    if(mMakernote.data)
+        delete mMakernote.data;
+    mMakernote.size = 0;
     if (!mExifCacheStorage.empty())
         LOGE("EXIF cache should be empty at destruction - BUG?");
 }
@@ -149,7 +158,16 @@ status_t JpegEncodeTask::handleMessageSettings(ProcUnitSettings &procSettings)
         exifCache.aiqAeMode = CAM_AE_MODE_AUTO;
     }
 
-    MakernoteData mknTmp = capSettings->makernote;
+    camera_metadata_entry entry;
+    entry = partRes->find(RKCAMERA3_PRIVATEDATA_STILLCAP_ISP_PARAM);
+    if (entry.count != 0) {
+        MEMCPY_S(mMakernote.data, MAKERNOTEDATALEN , &entry.data.u8[0], entry.count);
+        mMakernote.size = entry.count > (MAKERNOTEDATALEN) ? (MAKERNOTEDATALEN) : entry.count;
+    }else{
+        LOGW("can't find isp param metadata!");
+    }
+    //MakernoteData mknTmp = capSettings->makernote;
+    MakernoteData mknTmp = mMakernote;
     if (mknTmp.data != nullptr && mknTmp.size != 0) {
         exifCache.makernote = mknTmp;
     } else {

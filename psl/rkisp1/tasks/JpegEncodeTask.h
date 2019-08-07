@@ -93,6 +93,7 @@ private:
     JpegMaker      *mJpegMaker;
     int mCameraId;
     std::map<int, ExifDataCache> mExifCacheStorage; // key: Req ID
+    MakernoteData mMakernote;
 };
 
 }  // namespace camera2
