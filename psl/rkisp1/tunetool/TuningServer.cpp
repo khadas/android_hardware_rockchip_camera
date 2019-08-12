@@ -266,7 +266,6 @@ void TuningServer::set_exposure(CameraMetadata &uvcCamMeta)
             bExpCmdSet = false;
         }
     }
-
 }
 
 void TuningServer::get_bls(CameraMetadata &uvcCamMeta)
@@ -1316,6 +1315,7 @@ void TuningServer::set_restart(CameraMetadata &uvcCamMeta)
         mRestartOn = false;
         param[0] = mRestart->reboot;
         uvcCamMeta.update(RKCAMERA3_PRIVATEDATA_ISP_RESTART, (uint8_t*)param, sizeof(param));
+        bExpCmdSet = false;//disable exposure set
         if(mMsgType == CMD_TYPE_SYNC)
             mUvc_proc_ops->uvc_signal();
     }
