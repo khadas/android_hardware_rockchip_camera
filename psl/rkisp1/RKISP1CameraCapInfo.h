@@ -76,6 +76,7 @@ public:
 
     std::string mNvmDirectory;
     std::string mSensorName;
+    std::string mModuleIndexStr;
     ia_binary_data mNvmData;
     std::string mGraphSettingsFile;
     std::string mTestPatternBayerFormat;

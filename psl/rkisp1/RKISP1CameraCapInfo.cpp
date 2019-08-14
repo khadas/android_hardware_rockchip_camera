@@ -36,6 +36,7 @@ RKISP1CameraCapInfo::RKISP1CameraCapInfo(SensorType type):
     mSupportIsoMap(false),
     mNvmDirectory(""),
     mSensorName(""),
+    mModuleIndexStr(""),
     mNvmData({nullptr,0}),
     mTestPatternBayerFormat("")
 {

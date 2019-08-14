@@ -99,7 +99,7 @@ private:
     void checkField(const char *name, const char **atts);
     void getDataFromXmlFile(void);
     bool isSensorPresent(const std::string &sensorName, const char* moduleId);
-    status_t addCamera(int cameraId, const std::string &sensorName);
+    status_t addCamera(int cameraId, const std::string &sensorName, const char* moduleIdStr);
     void handleHALTuning(const char *name, const char **atts);
     void handleSensorInfo(const char *name, const char **atts);
     void handleMediaCtlElements(const char *name, const char **atts);
