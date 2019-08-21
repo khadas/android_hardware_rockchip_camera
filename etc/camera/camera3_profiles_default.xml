@@ -289,7 +289,7 @@
             <control.aeAvailableAntibandingModes value="AUTO"/> <!-- SHOULD NOT EDIT --> 
             <control.aeAvailableModes value="ON"/> <!-- add ON_AUTO_FLASH,ON_ALWAYS_FLASH if flash is available -->
             <control.aeLockAvailable value="FALSE"/> <!-- SHOULD NOT EDIT, not support TRUE now -->
-            <control.aeAvailableTargetFpsRanges value="15,20,20,20,30,30"/> <!-- critical field, refer to doc camera_hal3_user_manual_vx.x.pdf -->
+            <control.aeAvailableTargetFpsRanges value="15,20,20,20,15,30,30,30"/> <!-- critical field, refer to doc camera_hal3_user_manual_vx.x.pdf -->
             <control.aeCompensationRange value="0,0"/> <!-- SHOULD NOT EDIT, not suppoted now -->
             <control.aeCompensationStep value="0,1"/> <!-- SHOULD NOT EDIT, not suppoted now -->
             <control.afAvailableModes value="OFF"/> <!-- set to OFF if af is not available -->
