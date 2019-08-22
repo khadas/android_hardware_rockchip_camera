@@ -171,6 +171,51 @@ uint8_t PSLConfParser::selectAfMode(const camera_metadata_t *staticMeta,
     return afMode;
 }
 
+uint8_t PSLConfParser::selectAeAntibandingMode(const camera_metadata_t *staticMeta,
+                                               int reqTemplate)
+{
+    uint8_t aeAntibandingMode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+
+    const int MAX_AEANTIBANDING_MODES = 4;
+    // check this is the maximum number of enums defined by:
+    // camera_metadata_enum_android_control_af_mode_t defined in
+    // camera_metadata_tags.h
+    camera_metadata_ro_entry ro_entry;
+    CLEAR(ro_entry);
+    bool modesAvailable[MAX_AEANTIBANDING_MODES];
+    CLEAR(modesAvailable);
+    int ret = find_camera_metadata_ro_entry(staticMeta, ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES,
+                                            &ro_entry);
+    if(!ret) {
+        for (size_t i = 0; i < ro_entry.count; i++) {
+            if (ro_entry.data.u8[i] <  MAX_AEANTIBANDING_MODES)
+                modesAvailable[ro_entry.data.u8[i]] = true;
+        }
+    } else {
+        LOGE("@%s: Incomplete camera3_profiles.xml: available AeAntibanding modes missing!!", __FUNCTION__);
+    }
+
+    switch (reqTemplate) {
+       case ANDROID_CONTROL_CAPTURE_INTENT_MANUAL:
+           if (modesAvailable[ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF])
+               aeAntibandingMode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+           break;
+       case ANDROID_CONTROL_CAPTURE_INTENT_START:
+       case ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE:
+       case ANDROID_CONTROL_CAPTURE_INTENT_ZERO_SHUTTER_LAG:
+       case ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW:
+       case ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_RECORD:
+       case ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT:
+       default:
+           if (modesAvailable[ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO])
+               aeAntibandingMode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
+           else // first entry has high priority
+               aeAntibandingMode = ro_entry.data.u8[0];
+           break;
+       }
+    return aeAntibandingMode;
+}
+
 uint8_t PSLConfParser::selectEdgeMode(const camera_metadata_t *staticMeta,
                                     int reqTemplate)
 {
@@ -468,14 +513,9 @@ camera_metadata_t* PSLConfParser::constructDefaultMetadata(int cameraId, int req
         // variable range for preview and others
         TAGINFO_ARRAY(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange_variable, 2);
     }
-
     // select antibanding mode
-    value_u8 = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
-    entry = metadata.find(ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES);
-    // xml should put the default mode at first
-    if (entry.count > 0)
-        value_u8 = entry.data.u8[0];
-    TAGINFO(ANDROID_CONTROL_AE_ANTIBANDING_MODE, value_u8);
+    uint8_t antiBandingMode = selectAeAntibandingMode(staticMeta, requestTemplate);
+    TAGINFO(ANDROID_CONTROL_AE_ANTIBANDING_MODE, antiBandingMode);
     TAGINFO(ANDROID_CONTROL_AWB_MODE, awbMode);
     TAGINFO(ANDROID_CONTROL_AWB_LOCK, bogusValue);
     TAGINFO(ANDROID_BLACK_LEVEL_LOCK, bogusValue);

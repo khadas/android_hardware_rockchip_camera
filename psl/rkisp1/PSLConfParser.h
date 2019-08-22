@@ -109,6 +109,7 @@ private:
     uint8_t selectAfMode(const camera_metadata_t *staticMeta, int reqTemplate);
     uint8_t selectEdgeMode(const camera_metadata_t *staticMeta, int reqTemplate);
     uint8_t selectNrMode(const camera_metadata_t *staticMeta, int reqTemplate);
+    uint8_t selectAeAntibandingMode(const camera_metadata_t *staticMeta, int reqTemplate);
 
     int getStreamFormatAsValue(const char* format);
     int getSelectionTargetAsValue(const char* target);
