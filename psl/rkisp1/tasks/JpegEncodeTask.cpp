@@ -51,7 +51,7 @@ JpegEncodeTask::~JpegEncodeTask()
     }
 
     if(mMakernote.data)
-        delete mMakernote.data;
+        delete[] static_cast<char*>(mMakernote.data);
     mMakernote.size = 0;
     if (!mExifCacheStorage.empty())
         LOGE("EXIF cache should be empty at destruction - BUG?");
@@ -164,6 +164,7 @@ status_t JpegEncodeTask::handleMessageSettings(ProcUnitSettings &procSettings)
         MEMCPY_S(mMakernote.data, MAKERNOTEDATALEN , &entry.data.u8[0], entry.count);
         mMakernote.size = entry.count > (MAKERNOTEDATALEN) ? (MAKERNOTEDATALEN) : entry.count;
     }else{
+        mMakernote.size = 0;
         LOGW("can't find isp param metadata!");
     }
     //MakernoteData mknTmp = capSettings->makernote;
@@ -499,9 +500,11 @@ status_t JpegEncodeTask::handleMakernote(ExifMetaData& exifData,
     if (exifCache.makernote.data != nullptr && exifCache.makernote.size != 0) {
         // NOTE: saveIa3AMkNote() owns and takes a memcpy() of the MKN
         exifData.saveIa3AMkNote(exifCache.makernote);
+#if 0
         delete[] static_cast<char*>(exifCache.makernote.data);
         exifCache.makernote.data = nullptr;
         exifCache.makernote.size = 0;
+#endif
     } else if (exifCache.makernote.data == nullptr && exifCache.makernote.size == 0) {
       // do nothing
     } else {
