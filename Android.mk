@@ -136,7 +136,7 @@ LOCAL_C_INCLUDES += \
 # API 29 -> Android 10.0
 ifneq (1,$(strip $(shell expr $(PLATFORM_SDK_VERSION) \< 29)))
 
-ifeq ($(strip $(TARGET_BOARD_PLATFORM_GPU)), mali-tDVx)
+ifneq (,$(filter mali-tDVx mali-G52, $(TARGET_BOARD_PLATFORM_GPU)))
 LOCAL_C_INCLUDES += \
         hardware/rockchip/libgralloc/bifrost
 endif
