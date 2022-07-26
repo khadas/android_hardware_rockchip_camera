@@ -65,3 +65,50 @@ V2.0.0
 V2.1.0
     - construct sensor's some static metadatas before ctrloop starting.
     - add forceAutoGenAndroidMetas in camera3_profiles.xml.
+V3.0.0
+    - fix mFlashNum always zero issue for camera module with led flashs.
+    - fix soc camera video Snapshot issues.
+    - add rkisp2 for support rk356x.
+    - adapt rkaiq interface.
+    - support parse normal or hdr mode from xml.
+    - add rk356x configs support.
+    - add gralloc4 support for camerahal3.
+    - Implement RK_GRALLOC_USAGE_SPECIFY_STRIDE for NV12.
+    - update pipeline node.
+    - add v4l2-ctl & media-ctl tools.
+    - support 3dnr vendor tag.
+    - fix gc2145 following cts failed.
+    - rk356x add eptz feature.
+    - rkisp2: support aiq control vendor tags.
+    - add fecunit for rk356x.
+    - rk356x add camera occlusion detection.
+    - support dual camera.
+    - Add rk628 configuration for each platform.
+    - add flash support.
+    - fix cts testFlashTurnOff[1] fail issue.
+    - fix cts testFlashControl[1] fail issue.
+    - fix cts flashlight failed issues.
+    - fix dual camera commit issue.
+    - 356x eptz, change rockx lic from /sdcard/key.lic to /vendor/etc/key.lic.
+    - copy iqfile/isp21 to /vendor/etc/camera/rkisp2.
+    - Support Android 12 compile.
+    - fix dual camera deinit aiq issue.
+    - support interlaced selfpath.
+    - use new interface of libhwjpeg for jpeg encoding.
+    - Fixed libhwjpeg related compilation errors.
+    - add rk3588 support.
+    - prebuild binary tools in Android.bp.
+    - align video select format parameters.
+    - add rga3 parameters.
+    - fix 8K take picture zoom issue.
+    - reduce numberOfCameras funciont call times.
+    - rkisp2: PSLConfParser: optimize getSensorMediaDevicePath.
+    - common: platformdata: fix wrong setFormat cause recording stuck issue.
+    - psl: fix wrong SP_MAX_HEIGHT.
+    - common: platformdata: restore to original format.
+V3.0.1
+    - etc: camera_etc.mk: not copy isp21 iqfiles for rk3588.
+    - Android.mk: fix RK_HW_JPEG_ENCODE not set issue.
+    - common: jpegEnc: use q_factor for more accurate quality control.
+    - start version control again.
+
