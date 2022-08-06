@@ -55,6 +55,7 @@ public:
     const std::vector<std::string> getMediaCtlEntityNames(std::string type) const;
     const std::string getMediaCtlEntityType(std::string name) const;
     const char* getAiqWorkingMode(void) const { return mWorkingMode.c_str(); };
+    bool getMultiCameraMode(void) const { return mMultiCameraMode; };
 
     int mSensorType;
     int mSensorFlipping;
@@ -79,6 +80,7 @@ public:
     std::string mGraphSettingsFile;
     std::string mTestPatternBayerFormat;
     std::string mWorkingMode;
+    bool mMultiCameraMode;
 
     std::string mIqTuningFile;
     std::vector<MediaCtlElement> mMediaCtlElements;

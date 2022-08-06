@@ -111,4 +111,7 @@ V3.0.1
     - Android.mk: fix RK_HW_JPEG_ENCODE not set issue.
     - common: jpegEnc: use q_factor for more accurate quality control.
     - start version control again.
+V3.0.2
+	- rkisp2: support xml config multi camera mode.
+	- rkisp2: fix rk356x double camera link issue.
 

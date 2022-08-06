@@ -569,6 +569,7 @@ void PlatformData::init()
         deinit();
         return;
     }
+
     mCameraHWInfo->initAvailableSensorOutputFormats();
     int numberOfCameras = PlatformData::numberOfCameras();
     if (numberOfCameras == 0 || numberOfCameras > MAX_CPF_CACHED) {
@@ -601,6 +602,9 @@ void PlatformData::init()
         const CameraCapInfo *cci = PlatformData::getCameraCapInfo(i);
         if (cci == nullptr)
             continue;
+
+        mCameraHWInfo->setMultiCameraMode(i);
+
         if(cci->getForceAutoGenAndroidMetas()) {
 			const struct SensorDriverDescriptor *pDesc;
 			pDesc = mCameraHWInfo->getSensorDrvDes(i);
@@ -933,6 +937,7 @@ const char* PlatformData::manufacturerName(void)
 
 bool PlatformData::supportDualVideo(void)
 {
+    LOGD("@%s mCameraHWInfo->mSupportDualVideo(%s)", __FUNCTION__, mCameraHWInfo->mSupportDualVideo?"true":"false");
     return mCameraHWInfo->supportDualVideo();
 }
 
@@ -1815,6 +1820,24 @@ const struct SensorDriverDescriptor* CameraHWInfo::getSensorDrvDes(int32_t camer
     }
 
     return NULL;
+}
+
+void CameraHWInfo::setMultiCameraMode(int32_t cameraId)
+{
+#ifdef CAMERA_RKISP2_SUPPORT
+    const rkisp2::RKISP2CameraCapInfo *cap = rkisp2::getRKISP2CameraCapInfo(cameraId);
+
+    if (!cap) {
+        LOGE("Can't get Sensor cap info !");
+        return ;
+    }
+
+    if (cap->getMultiCameraMode()) {
+        ALOGD("Set multi camera mode!");
+        mSupportDualVideo = true;
+    }
+#endif
+    return ;
 }
 
 status_t CameraHWInfo::getSensorFrameDuration(int32_t cameraId, int32_t &duration) const

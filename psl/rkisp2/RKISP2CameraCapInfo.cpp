@@ -38,6 +38,7 @@ RKISP2CameraCapInfo::RKISP2CameraCapInfo(SensorType type):
     mNvmDirectory(""),
     mSensorName(""),
     mWorkingMode(""),
+    mMultiCameraMode(false),
     mModuleIndexStr(""),
     mNvmData({nullptr,0}),
     mTestPatternBayerFormat(""),

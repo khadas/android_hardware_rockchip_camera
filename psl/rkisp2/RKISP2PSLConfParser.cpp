@@ -783,6 +783,9 @@ void RKISP2PSLConfParser::handleSensorInfo(const char *name, const char **atts)
     } else if (strcmp(name, "aiq.workingMode") == 0) {
         info->mWorkingMode = atts[1];
         LOGD("element name: aiq.workMode, element value = %s", info->mWorkingMode.c_str());
+    } else if (strcmp(name, "aiq.multicamera") == 0) {
+        info->mMultiCameraMode = ((strcmp(atts[1], "true") == 0) ? true : false);
+        ALOGD("element name: aiq.multicamera, element value = %d", info->mMultiCameraMode);
     }
 }
 
@@ -825,6 +828,9 @@ void RKISP2PSLConfParser::handleRKISP2SensorInfo(const char *name, const char **
     } else if (strcmp(name, "aiq.workingMode") == 0) {
         info->mWorkingMode = atts[1];
         LOGD("element name: aiq.workMode, element value = %s", info->mWorkingMode.c_str());
+    } else if (strcmp(name, "aiq.multicamera") == 0) {
+        info->mMultiCameraMode = ((strcmp(atts[1], "true") == 0) ? true : false);
+        ALOGD("element name: aiq.multicamera, element value = %d", info->mMultiCameraMode);
     }
 }
 

@@ -229,6 +229,7 @@ public:
     std::string getFullMediaCtlElementName(const std::vector<std::string> elementNames,
                                            const char *value) const;
     const struct SensorDriverDescriptor* getSensorDrvDes(int32_t cameraId) const;
+    void setMultiCameraMode(int32_t cameraId);
     status_t initAvailableSensorOutputFormats(void);
 
     std::string mProductName;

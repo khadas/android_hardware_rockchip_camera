@@ -2661,10 +2661,10 @@ status_t RKISP2GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
             LOGE("Cannot get media device information.");
         }
         LOGE("getMediaDevInfo info.model:%s",info.model);
-        if ((fbcpathName.find("fbcpath") == std::string::npos) && (mipName.find("dphy2") != std::string::npos)
-            && (mipName2.find("mipi") != std::string::npos)) {
+        //rk356x dual raw camera
+        if ((fbcpathName.find("fbcpath") == std::string::npos) && (std::string(info.model).find("lvds")!= std::string::npos) &&
+            (mipName.find("dphy") != std::string::npos) && (mipName2.find("mipi") != std::string::npos) && (aFormat.format.code >= MEDIA_BUS_FMT_SBGGR8_1X8)) {
             //for dual camera
-            if(PlatformData::supportDualVideo()) {
                 addLinkParams(mipName, mipSrcPad, mipName2, csiSinkPad, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
                 addLinkParams(mipName2, 1, "stream_cif_mipi_id0", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
                 addLinkParams(mipName2, 2, "stream_cif_mipi_id1", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
@@ -2675,17 +2675,8 @@ status_t RKISP2GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
                 addLinkParams("rkisp-csi-subdev", 4, "rkisp_rawwr2", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
                 addLinkParams("rkisp-csi-subdev", 5, "rkisp_rawwr3", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
 
-                addLinkParams("rkisp-isp-subdev", 2, "rkisp_mainpath", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
-                addLinkParams("rkisp-isp-subdev", 2, "rkisp_selfpath", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
-            } else {
-                addLinkParams(mipName, mipSrcPad, mipName2, csiSinkPad, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
-                addLinkParams(mipName2, 1, "stream_cif_mipi_id0", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
-                addLinkParams(mipName2, 2, "stream_cif_mipi_id1", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
-                addLinkParams(mipName2, 3, "stream_cif_mipi_id2", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
-                addLinkParams(mipName2, 4, "stream_cif_mipi_id3", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
-                mSensorLinkedToCIF = true;
-            }
-	    }else if ((std::string(info.model).find("lvds")!= std::string::npos)&&(mipName.find("dphy") != std::string::npos)
+                addLinkParams(info.model, 0, "rkisp-isp-subdev", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
+        } else if ((std::string(info.model).find("lvds")!= std::string::npos)&&(mipName.find("dphy") != std::string::npos)
             && (mipName2.find("mipi") != std::string::npos) && scaleName.find("scale") != std::string::npos) {
             //for rk3588
             if(aFormat.format.code == MEDIA_BUS_FMT_UYVY8_2X8) {
@@ -2726,7 +2717,7 @@ status_t RKISP2GraphConfig::getImguMediaCtlConfig(int32_t cameraId,
                 addLinkParams(mipName2, 3, "stream_cif_mipi_id2", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
                 addLinkParams(mipName2, 4, "stream_cif_mipi_id3", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
                 mSensorLinkedToCIF = true;
-        }else {
+        } else {
             addLinkParams(mipName, mipSrcPad, csiName, csiSinkPad, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
             addLinkParams(csiName, csiSrcPad, IspName, ispSinkPad, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
             addLinkParams(csiName, 2, "rkisp_rawwr0", 0, 1, MEDIA_LNK_FL_ENABLED, mediaCtlConfig);
