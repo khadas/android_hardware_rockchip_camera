@@ -196,7 +196,7 @@ int EptzThread::RockxDetectFace(void *in_data, int inWidth, int inHeight, int in
     memset(&face_array, 0, sizeof(rockx_object_array_t));
 
     // detect face
-    rockx_ret_t ret = rockx_face_detect((rockx_handle_t)rockx_handle, &input_image, &face_array, nullptr);
+    rockx_ret_t ret = rockx_face_detect((rockx_handle_t)rockx_handle, &input_image, &face_array);
     if (ret != ROCKX_RET_SUCCESS) {
         LOGD("rk-debug rockx_face_detect error %d\n", ret);
         return -1;
