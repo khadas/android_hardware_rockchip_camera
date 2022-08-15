@@ -219,6 +219,9 @@ status_t CameraBuffer::init(const camera3_stream_buffer *aBuffer, int cameraId)
     mLocked = false;
     mOwner = static_cast<CameraStream*>(aBuffer->stream->priv);
     mUsage = mOwner->usage()|RK_GRALLOC_USAGE_SPECIFY_STRIDE;
+#ifdef GRALLOC_USAGE_RGA_ACCESS
+    mUsage = mUsage|RK_GRALLOC_USAGE_RGA_ACCESS;
+#endif
     mInit = true;
     mDataPtr = nullptr;
     mUserBuffer = *aBuffer;
@@ -806,6 +809,9 @@ std::shared_ptr<CameraBuffer> acquireOneBuffer(int cameraId, int w, int h, bool 
                                                    GRALLOC_USAGE_SW_READ_OFTEN |
                                                    GRALLOC_USAGE_HW_CAMERA_WRITE|
                                                    RK_GRALLOC_USAGE_SPECIFY_STRIDE|
+#ifdef GRALLOC_USAGE_RGA_ACCESS
+						   RK_GRALLOC_USAGE_RGA_ACCESS|
+#endif
                                                    /* TODO: same as the temp solution in RKISP1CameraHw.cpp configStreams func
                                                     * add GRALLOC_USAGE_HW_VIDEO_ENCODER is a temp patch for gpu bug:
                                                     * gpu cant alloc a nv12 buffer when format is
@@ -834,6 +840,9 @@ std::shared_ptr<CameraBuffer> acquireOneBufferWithNoCache(int cameraId, int w, i
         buffer = MemoryUtils::allocateHandleBuffer(w, h, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
                                                    GRALLOC_USAGE_HW_CAMERA_WRITE|GRALLOC_USAGE_HW_CAMERA_READ|
                                                    RK_GRALLOC_USAGE_SPECIFY_STRIDE|
+#ifdef GRALLOC_USAGE_RGA_ACCESS
+						   RK_GRALLOC_USAGE_RGA_ACCESS|
+#endif
                                                    /* TODO: same as the temp solution in RKISP1CameraHw.cpp configStreams func
                                                     * add GRALLOC_USAGE_HW_VIDEO_ENCODER is a temp patch for gpu bug:
                                                     * gpu cant alloc a nv12 buffer when format is

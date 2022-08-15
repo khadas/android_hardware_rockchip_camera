@@ -218,6 +218,12 @@ endif
 
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3588)
 	LOCAL_CFLAGS += -DTARGET_RK3588
+	LOCAL_CFLAGS += -DGRALLOC_USAGE_RGA_ACCESS
+endif
+
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk356x)
+	LOCAL_CFLAGS += -DTARGET_RK356x
+	LOCAL_CFLAGS += -DGRALLOC_USAGE_RGA_ACCESS
 endif
 
 ifeq ($(strip $(Have3AControlLoop)), true)

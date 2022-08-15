@@ -27,6 +27,7 @@
 #include "UtilityMacros.h"
 #include "PlatformData.h"
 #include "CameraMetadataHelper.h"
+#include "CameraBuffer.h"
 #if defined(ANDROID_VERSION_ABOVE_12_X)
 #include <hardware/hardware_rockchip.h>
 #endif
@@ -1572,6 +1573,9 @@ int V4L2VideoNode::newBuffer(int index, V4L2BufferInfo &buf, int memType)
         uint32_t stride = 0, size = 0;
         uint32_t usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_HW_CAMERA_WRITE|
                          RK_GRALLOC_USAGE_SPECIFY_STRIDE;
+#ifdef GRALLOC_USAGE_RGA_ACCESS
+	usage = usage | RK_GRALLOC_USAGE_RGA_ACCESS;
+#endif
 
         int stride_h = (buf.height + 0xf) & ~0xf;
         LOGE("%s, [wxh] = [%dx%d], format 0x%x, usage 0x%x",

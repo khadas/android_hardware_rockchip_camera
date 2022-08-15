@@ -93,6 +93,9 @@ RKISP2ImguUnit::RKISP2ImguUnit(int cameraId,
     usage = GRALLOC_USAGE_SW_READ_OFTEN |
             GRALLOC_USAGE_HW_CAMERA_WRITE|
             RK_GRALLOC_USAGE_SPECIFY_STRIDE|
+#ifdef GRALLOC_USAGE_RGA_ACCESS
+	    RK_GRALLOC_USAGE_RGA_ACCESS|
+#endif
             /* TODO: same as the temp solution in RKISP1CameraHw.cpp configStreams func
              * add GRALLOC_USAGE_HW_VIDEO_ENCODER is a temp patch for gpu bug:
              * gpu cant alloc a nv12 buffer when format is

@@ -25,6 +25,8 @@
 #include "SyncFence.h"
 #include <memory>
 
+#define RK_GRALLOC_USAGE_RGA_ACCESS 1ULL << 56
+
 NAMESPACE_DECLARATION {
 
 // Forward declaration to  avoid extra include
