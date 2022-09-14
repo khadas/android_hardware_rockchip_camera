@@ -101,7 +101,13 @@ static inline void sBufferDescriptorInfo(std::string name, uint32_t width, uint3
     outDescriptorInfo->height = height;
     outDescriptorInfo->layerCount = layerCount;
     outDescriptorInfo->format = static_cast<android::hardware::graphics::common::V1_2::PixelFormat>(format);
+#ifdef GRALLOC_USAGE_RGA_ACCESS
+    outDescriptorInfo->usage = RK_GRALLOC_USAGE_RGA_ACCESS|usage;
+    ALOGD("alloc RGA buf in 4G!\n");
+#else
     outDescriptorInfo->usage = usage;
+#endif
+
     outDescriptorInfo->reservedSize = 0;
 }
 

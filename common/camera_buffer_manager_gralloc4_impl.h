@@ -35,7 +35,10 @@
 
 //#include <optional>
 
-
+#define GRALLOC_USAGE_PRIVATE_11               (1ULL << 56)
+/* Gralloc 4.0 中, 表征 "调用 alloc() 的 client 要求分配的 buffer 的所有物理 page 的地址都在 4G 以内".
+*/
+#define RK_GRALLOC_USAGE_RGA_ACCESS     GRALLOC_USAGE_PRIVATE_11
 
 // A V4L2 extension format which represents 32bit RGBX-8-8-8-8 format. This
 // corresponds to DRM_FORMAT_XBGR8888 which is used as the underlying format for
