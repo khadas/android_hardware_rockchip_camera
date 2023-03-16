@@ -212,8 +212,10 @@ status_t ImgHWEncoder::encodeSync(EncodePackage & package)
     encInInfo.width = jpegw;
     encInInfo.height = jpegh;
     encInInfo.format = MpiJpegEncoder::INPUT_FMT_YUV420SP;
-    encInInfo.qLvl = 80;
-    encInInfo.thumbQLvl = 80;
+    encInInfo.qLvl = 98;
+    encInInfo.thumbQLvl = 98;
+    //LOGE("@%s : qLvl = %d thumbQLvl=%d", __FUNCTION__, encInInfo.qLvl, encInInfo.thumbQLvl);
+    encInInfo.thumbWidth = exifMeta->mJpegSetting.thumbWidth;
     // if not doThumb,please set doThumbNail,thumbW and thumbH to zero;
     if (exifMeta->mJpegSetting.thumbWidth && exifMeta->mJpegSetting.thumbHeight)
         encInInfo.doThumbNail = 1;
