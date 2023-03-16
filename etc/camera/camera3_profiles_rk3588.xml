@@ -1248,7 +1248,7 @@
             <sensor.baseGainFactor value="0,1"/> <!-- HAL may override this value from CMC for RAW sensors -->
             <sensor.blackLevelPattern value="0,0,0,0"/>
             <sensor.maxAnalogSensitivity value="2400"/> <!-- HAL may override this value from CMC for RAW sensors -->
-            <sensor.orientation value="90"/>
+            <sensor.orientation value="0"/>
             <sensor.profileHueSatMapDimensions value="0,0,0"/>
             <sensor.availableTestPatternModes value="OFF,COLOR_BARS"/>
             <!-- Info -->
@@ -1338,7 +1338,7 @@
             <lens.info.hyperfocalDistance value="0.0"/> <!-- HAL may override this value from CMC for RAW sensors -->
             <lens.info.minimumFocusDistance value="0.1"/> <!-- HAL may override this value from CMC for RAW sensors -->
             <!-- Lens -->
-            <lens.facing value="BACK"/>
+            <lens.facing value="FRONT"/>
             <!-- Request -->
             <request.maxNumOutputStreams value="1,2,1"/>
             <request.pipelineMaxDepth value="4"/>
@@ -1512,7 +1512,7 @@
             <sensor.baseGainFactor value="0,1"/> <!-- HAL may override this value from CMC for RAW sensors -->
             <sensor.blackLevelPattern value="0,0,0,0"/>
             <sensor.maxAnalogSensitivity value="2400"/> <!-- HAL may override this value from CMC for RAW sensors -->
-            <sensor.orientation value="90"/>
+            <sensor.orientation value="0"/>
             <sensor.profileHueSatMapDimensions value="0,0,0"/>
             <sensor.availableTestPatternModes value="OFF,COLOR_BARS"/>
             <!-- Info -->
