@@ -1298,6 +1298,7 @@
             <isoAnalogGain1 value="75"/> <!--Pseudo ISO corresponding analog gain value 1.0. -->
             <cITMaxMargin value="10"/> <!--coarse integration time max margin -->
             <aiq.workingMode value="NORMAL"/> <!-- NORMAL or HDR2 or HDR3 -->
+            <aiq.multicamera value="true"/> <!-- true or false -->
         </Sensor_info_RKISP1>
 
 <!-- ******************PSL specific section end **************************************************************-->
@@ -1562,6 +1563,7 @@
             <isoAnalogGain1 value="75"/> <!--Pseudo ISO corresponding analog gain value 1.0. -->
             <cITMaxMargin value="10"/> <!--coarse integration time max margin -->
             <aiq.workingMode value="NORMAL"/> <!-- NORMAL or HDR2 or HDR3 -->
+            <aiq.multicamera value="true"/> <!-- true or false -->
         </Sensor_info_RKISP1>
 
 <!-- ******************PSL specific section end **************************************************************-->
@@ -1826,6 +1828,7 @@
             <isoAnalogGain1 value="75"/> <!--Pseudo ISO corresponding analog gain value 1.0. -->
             <cITMaxMargin value="10"/> <!--coarse integration time max margin -->
             <aiq.workingMode value="NORMAL"/> <!-- NORMAL or HDR2 or HDR3 -->
+            <aiq.multicamera value="true"/> <!-- true or false -->
         </Sensor_info_RKISP1>
 
 <!-- ******************PSL specific section end **************************************************************-->
@@ -2090,6 +2093,7 @@
             <isoAnalogGain1 value="75"/> <!--Pseudo ISO corresponding analog gain value 1.0. -->
             <cITMaxMargin value="10"/> <!--coarse integration time max margin -->
             <aiq.workingMode value="NORMAL"/> <!-- NORMAL or HDR2 or HDR3 -->
+            <aiq.multicamera value="true"/> <!-- true or false -->
         </Sensor_info_RKISP1>
 
 <!-- ******************PSL specific section end **************************************************************-->
